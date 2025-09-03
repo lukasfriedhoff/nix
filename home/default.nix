@@ -11,6 +11,7 @@
     ./programs/starship/default.nix
     ./programs/git/default.nix
     ./programs/gpg/default.nix
+    ./programs/ssh/default.nix
     ./programs/sops-age/default.nix
   ];
 
