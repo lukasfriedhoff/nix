@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   imports = [
@@ -10,4 +10,5 @@
     "/dev/disk/by-uuid/84295891-6d10-4a08-a2fc-442738205455";
 
   networking.hostName = "nix-vm-01";
+
 }
