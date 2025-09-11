@@ -10,9 +10,11 @@
     ./programs/alacritty/default.nix
     ./programs/starship/default.nix
     ./programs/git/default.nix
+    ./programs/lazygit/default.nix
     ./programs/gpg/default.nix
     ./programs/ssh/default.nix
     ./programs/sops-age/default.nix
+    ./programs/stylix/default.nix      # theming
   ];
 
   home.packages = with pkgs; [
