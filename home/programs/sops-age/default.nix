@@ -90,6 +90,26 @@ in
       fi
     '';
 
+  home.activation.decryptOpenAIEnv =
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    set -eu
+
+    export SOPS_AGE_KEY_FILE="${config.home.homeDirectory}/.config/sops/age/keys.txt"
+
+    # ensure secrets dir exists
+    "${pkgs.coreutils}/bin/mkdir" -p "${config.home.homeDirectory}/.config/secrets"
+
+    src="${config.home.homeDirectory}/git/lukasfriedhoff/nix/secrets/openai.env"
+    dst="${config.home.homeDirectory}/.config/secrets/openai.env"
+
+    if [ -f "$src" ]; then
+      tmp="$("${pkgs.coreutils}/bin/mktemp")"
+      "${pkgs.sops}/bin/sops" -d "$src" > "$tmp"
+      "${pkgs.coreutils}/bin/install" -m 600 "$tmp" "$dst"
+      "${pkgs.coreutils}/bin/rm" -f "$tmp"
+    fi
+  '';
+
   # Ensure SSH uses that key for GitHub personal remotes
   programs.ssh = {
     enable = true;
