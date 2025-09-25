@@ -1,8 +1,23 @@
-{ config, pkgs, ... }:
-
+{ 
+  config, 
+  pkgs, 
+  lib,
+  macUser, 
+  linuxUser,  
+  ... 
+}:
+let
+  isDarwin = pkgs.stdenv.isDarwin;
+  user     = if isDarwin then macUser else linuxUser;
+  homeDir  = if isDarwin then "/Users/${macUser}" else "/home/${linuxUser}";
+in
 {
-  home.username = "lukasf";
-  home.homeDirectory = "/home/lukasf";
+  home = {
+    username      = lib.mkDefault user;
+    homeDirectory = lib.mkDefault homeDir;
+    stateVersion = "25.05";
+    file."hushlogin".text = "";
+  };
 
   # imports
   imports = [
@@ -15,7 +30,7 @@
     ./programs/gpg/default.nix
     ./programs/ssh/default.nix
     ./programs/sops-age/default.nix
-    ./programs/stylix/default.nix      # theming
+    #./programs/stylix/default.nix      # theming
   ];
 
   home.packages = with pkgs; [
@@ -29,6 +44,8 @@
     jq
     yq
     fzf
+    tmux
+    ripgrep
 
     # network tools
     dnsutils # dig and nslookup
@@ -40,24 +57,24 @@
     gnupg
     gnused
     gnutar
+    nixfmt-rfc-style
 
     # top tools
     btop
-    iotop
+    #iotop
     iftop
 
     # system tools
-    sysstat
-    lm_sensors
-    ethtool
+    #sysstat
+    #lm_sensors
+    #ethtool
     pciutils
     usbutils
    
     # process monitoring stuff
-    strace
-    ltrace
+    #strace
+    #ltrace
     lsof
   ];
 
-  home.stateVersion = "25.05";
 }

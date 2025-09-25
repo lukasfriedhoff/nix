@@ -13,20 +13,33 @@
     stylix.inputs.nixpkgs.follows = "nixpkgs";
     
     # mac
-    darwin.url = "github:LnL7/nix-darwin";
-    sops-nix.url = "github:Mic92/sops-nix";
-    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+    # system-level software and settings (macOS)
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs"; 
+    # declarative homebrew management
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
   };
 
-  outputs = inputs@{ self, nixpkgs, home-manager, stylix, darwin, sops-nix, ... }:
+  outputs = inputs@{ 
+    self, 
+    nixpkgs, 
+    home-manager, 
+    stylix, 
+    darwin, 
+    nix-homebrew, 
+    ... 
+    }:
     let
       # Linux system for your NixOS hosts
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
+      linuxUser = "lukasf";
 
-      # Pick your Mac arch: aarch64-darwin (Apple Silicon) or x86_64-darwin (Intel)
+      # mac 
+      # arch
       darwinSystem = "aarch64-darwin";
-      # darwinSystem = "x86_64-darwin";
+      # macUser
+      macUser = "lukasfriedhoff";
     in {
       nixosConfigurations = {
         srv4-vm-01 = nixpkgs.lib.nixosSystem {
@@ -68,31 +81,14 @@
       ############################
       ## macOS (new)
       ############################
-      darwinConfigurations = {
-        # The configuration name used by darwin-rebuild (no dots here)
-        MacBook-Pro = darwin.lib.darwinSystem {
-          system = darwinSystem;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./hosts/MacBook-Pro/darwin-configuration.nix
-
-            # Home Manager on macOS
-            home-manager.darwinModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-
-              # If your Linux HM is portable you can reuse it:
-              # home-manager.users.lukasf = import ./home/default.nix;
-
-              # Or keep a mac-specific HM file:
-              home-manager.users.lukasf = import ./home/macos.nix;
-
-              # SOPS for HM (decrypts secrets into the home directory)
-              imports = [ sops-nix.homeManagerModules.sops ];
-            }
-          ];
-        };
+      darwinConfigurations."macbook-pro" = darwin.lib.darwinSystem {
+        system = darwinSystem;
+        modules = [
+          ./hosts/darwin
+          ./hosts/macbook-pro/configuration.nix
+        ];
+        specialArgs = { inherit inputs self macUser; };
       };
+      
     };
 }
