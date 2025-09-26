@@ -1,6 +1,9 @@
 { config, pkgs, ... }:
 
 {
+  imports = [
+    ./alias-completions.nix
+  ];
   programs.bash = {
     enable = true;
     enableCompletion = true;
