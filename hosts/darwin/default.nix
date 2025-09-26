@@ -44,6 +44,7 @@
         ../../home/default.nix
       ];
     };
+    backupFileExtension = ".nixbak";
     extraSpecialArgs = {
       inherit inputs self macUser;
     };
@@ -53,7 +54,7 @@
   system.primaryUser = macUser;
   users.users.${macUser} = {
     home = "/Users/${macUser}";
-    shell = pkgs.zsh;
+    shell = pkgs.bash;
   };
   environment = {
     systemPath = [
