@@ -30,6 +30,7 @@ in
     ./programs/gpg/default.nix
     ./programs/ssh/default.nix
     ./programs/sops-age/default.nix
+    ./programs/k9s/default.nix
     #./programs/stylix/default.nix      # theming
   ];
 
@@ -70,7 +71,7 @@ in
     #ethtool
     pciutils
     usbutils
-   
+    
     # process monitoring stuff
     #strace
     #ltrace

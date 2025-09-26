@@ -5,7 +5,7 @@
 
   # system defaults and preferences
   system = {
-    stateVersion = 6;
+    stateVersion = 25.05;
     configurationRevision = self.rev or self.dirtyRev or null;
 
     startup.chime = false;
