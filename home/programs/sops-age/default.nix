@@ -5,8 +5,8 @@ let
   repo    = "${config.home.homeDirectory}/git/lukasfriedhoff/nix";
   sopsBin = "${pkgs.sops}/bin/sops";
   gpgBin  = "${pkgs.gnupg}/bin/gpg";
-  sshKeyPrivSecret = "${repo}/secrets/git-personal-ed25519.priv";
-  sshKeyPubSecret  = "${repo}/secrets/git-personal-ed25519.pub";
+  sshKeyPrivSecret = "${repo}/secrets/personal/git-personal-ed25519.priv";
+  sshKeyPubSecret  = "${repo}/secrets/personal/git-personal-ed25519.pub";
   ageKeyFile       = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
 in
 {
@@ -22,8 +22,8 @@ in
       export SOPS_AGE_KEY_FILE='${ageKeyFile}'
 
       if ! ${gpgBin} --list-secret-keys 7357275F6DFB9956E72B5BF9F52D0D35FC8BD0DF >/dev/null 2>&1; then
-        if [ -f '${repo}/secrets/git-personal-gpg.asc' ]; then
-          ${sopsBin} -d '${repo}/secrets/git-personal-gpg.asc' | ${gpgBin} --batch --yes --import - || true
+        if [ -f '${repo}/secrets/personal/git-personal-gpg.asc' ]; then
+          ${sopsBin} -d '${repo}/secrets/personal/git-personal-gpg.asc' | ${gpgBin} --batch --yes --import - || true
         fi
       fi
     '';
@@ -99,7 +99,7 @@ in
     # ensure secrets dir exists
     "${pkgs.coreutils}/bin/mkdir" -p "${config.home.homeDirectory}/.config/secrets"
 
-    src="${config.home.homeDirectory}/git/lukasfriedhoff/nix/secrets/openai.env"
+    src="${config.home.homeDirectory}/git/lukasfriedhoff/nix/secrets/personal/openai.env"
     dst="${config.home.homeDirectory}/.config/secrets/openai.env"
 
     if [ -f "$src" ]; then
