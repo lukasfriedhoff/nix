@@ -1,6 +1,9 @@
 { config, pkgs, ... }:
 
 {
+  imports = [
+    ./sshpass.nix
+  ];
   programs.ssh = {
     enable = true;
 
