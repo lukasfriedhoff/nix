@@ -34,7 +34,7 @@ in
     ./programs/kubectl/default.nix
     ./programs/velero/default.nix
     ./programs/s3/default.nix
-    ./programs/maven/default.nix
+    ./programs/maven-config/default.nix
     #./programs/stylix/default.nix      # theming
   ];
 
