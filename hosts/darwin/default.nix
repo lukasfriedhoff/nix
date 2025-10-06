@@ -44,7 +44,7 @@
         ../../home/default.nix
       ];
     };
-    backupFileExtension = ".nixbak";
+    backupFileExtension = "nixbak";
     extraSpecialArgs = {
       inherit inputs self macUser;
     };

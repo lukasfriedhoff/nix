@@ -31,6 +31,9 @@ in
     ./programs/ssh/default.nix
     ./programs/sops-age/default.nix
     ./programs/k9s/default.nix
+    ./programs/kubectl/default.nix
+    ./programs/velero/default.nix
+    ./programs/s3/default.nix
     #./programs/stylix/default.nix      # theming
   ];
 
@@ -77,5 +80,9 @@ in
     #ltrace
     lsof
   ];
+  home.sessionVariables = {
+    LANG = "en_US.UTF-8";
+    LC_ALL = "en_US.UTF-8";
+  };
 
 }

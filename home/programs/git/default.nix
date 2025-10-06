@@ -1,12 +1,16 @@
 { config, lib, pkgs, ... }:
 
 {
+  imports = [
+    ./gitignore-io.nix
+  ];
   home.activation.ensureGitDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "$HOME/git/lukasfriedhoff" "$HOME/git/dacoso-devops"
   '';
 
   programs.git = {
     enable = true;
+    lfs.enable = true;
 
     # Personal identity (hidden via GitHub noreply)
     userName  = "lukasfriedhoff";
@@ -49,7 +53,7 @@
     [user]
       name  = Lukas Friedhoff
       email = lukas.friedhoff@dacoso.com
-      signingkey = DACOSO_GPG_KEY_FPR
+      signingkey = 22C3C5DEAA39D79FB12328CFE43A3F179FCDD279
     [commit]
       gpgSign = true
     [gpg]
