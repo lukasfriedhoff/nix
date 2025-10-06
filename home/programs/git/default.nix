@@ -12,12 +12,12 @@
     enable = true;
     lfs.enable = true;
 
-    # Personal identity (hidden via GitHub noreply)
-    userName  = "lukasfriedhoff";
-    userEmail = "155996615+lukasfriedhoff@users.noreply.github.com";
+    # # Personal identity (hidden via GitHub noreply)
+    # userName  = "lukasfriedhoff";
+    # userEmail = "155996615+lukasfriedhoff@users.noreply.github.com";
 
     signing = {
-      key = "7357275F6DFB9956E72B5BF9F52D0D35FC8BD0DF";
+      # key = "7357275F6DFB9956E72B5BF9F52D0D35FC8BD0DF";
       signByDefault = true;
     };
 
@@ -31,8 +31,13 @@
       gpg.format         = "openpgp";
       gpg.program        = "gpg";
 
-      "includeIf \"gitdir:~/git/lukasfriedhoff/\"".path = "~/.gitconfig-personal";
-      "includeIf \"gitdir:~/git/dacoso-devops/\"".path = "~/.gitconfig-dacoso-devops";
+      # includeIf blocks must use absolute paths + trailing slash
+      "includeIf \"gitdir:/Users/lukasfriedhoff/git/lukasfriedhoff/\"" = {
+        path = "~/.gitconfig-personal";
+      };
+      "includeIf \"gitdir:/Users/lukasfriedhoff/git/dacoso-devops/\"" = {
+        path = "~/.gitconfig-dacoso-devops";
+      };
     };
   };
 
