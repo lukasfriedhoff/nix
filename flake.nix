@@ -89,6 +89,13 @@
             ./hosts/dacoso/docker-host-01/configuration.nix
           ];
         };
+        lf-timebutler-testvm-01 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            disko.nixosModules.disko
+            ./hosts/dacoso/timebutler-test-vm/configuration.nix
+          ];
+        };
       };
 
       ############################
