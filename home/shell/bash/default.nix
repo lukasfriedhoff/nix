@@ -1,6 +1,9 @@
 { config, pkgs, ... }:
 
 {
+  imports = [
+    ./alias-completions.nix
+  ];
   programs.bash = {
     enable = true;
     enableCompletion = true;
@@ -13,9 +16,17 @@
     shellAliases = {
       k = "kubectl";
       tf = "terraform";
-      dc = "docker-compose";
+      dc = "docker compose";
       urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";
       urlencode = "python3 -c 'import sys, urllib.parse as ul; print(ul.quote_plus(sys.stdin.read()))'";
     };
+    initExtra = ''
+      # Load private env vars decrypted by SOPS (if present)
+      if [ -f "$HOME/.config/secrets/openai.env" ]; then
+        set -a
+        . "$HOME/.config/secrets/openai.env"
+        set +a
+      fi
+    '';
   };
 }

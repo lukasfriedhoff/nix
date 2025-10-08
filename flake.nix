@@ -11,57 +11,84 @@
     # theming
     stylix.url = "github:nix-community/stylix";
     stylix.inputs.nixpkgs.follows = "nixpkgs";
+    
+    # mac
+    # system-level software and settings (macOS)
+    darwin.url = "github:lnl7/nix-darwin";
+    darwin.inputs.nixpkgs.follows = "nixpkgs"; 
+    # declarative homebrew management
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
   };
 
-  outputs = inputs@{ self, nixpkgs, home-manager, stylix, ... }: 
+  outputs = inputs@{ 
+    self, 
+    nixpkgs, 
+    home-manager, 
+    stylix, 
+    darwin, 
+    nix-homebrew, 
+    ... 
+    }:
     let
+      # Linux system for your NixOS hosts
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
+      linuxUser = "lukasf";
+
+      # mac 
+      # arch
+      darwinSystem = "aarch64-darwin";
+      # macUser
+      macUser = "lukasfriedhoff";
     in {
-      # NixOS hosts
       nixosConfigurations = {
         srv4-vm-01 = nixpkgs.lib.nixosSystem {
           inherit system;
-          # Set all inputs parameters as special arguments for all submodules,
-          # so you can directly use all dependencies in inputs in submodules
           specialArgs = { inherit inputs; };
           modules = [
             ./hosts/srv4-vm-01/configuration.nix
-
-            # enable Stylix on the system side (optional but nice for TTY/SDDM/etc.)
             stylix.nixosModules.stylix
-            
-            # home manager
             home-manager.nixosModules.home-manager
-              {
-                home-manager.useGlobalPkgs = true;
-                home-manager.useUserPackages = true;
-
-                home-manager.backupFileExtension = "hm-backup";
-
-                home-manager.users.lukasf = {
-                  imports = [
-                    # theming
-                    stylix.homeModules.stylix
-                    ./home/default.nix
-                  ];
-                };
-              }
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "hm-backup";
+              home-manager.users.lukasf = {
+                imports = [
+                  stylix.homeModules.stylix
+                  ./home/default.nix
+                ];
+              };
+            }
           ];
         };
+
         tux-h4xx-01 = nixpkgs.lib.nixosSystem {
-        inherit system;
-        specialArgs = { inherit inputs; };
-        modules = [
-          ./hosts/tux-h4xx-01/configuration.nix
-          home-manager.nixosModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.lukasf = import ./home/default.nix;
-          }
-        ];
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./hosts/tux-h4xx-01/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.lukasf = import ./home/default.nix;
+            }
+          ];
+        };
       };
+
+      ############################
+      ## macOS (new)
+      ############################
+      darwinConfigurations."macbook-pro" = darwin.lib.darwinSystem {
+        system = darwinSystem;
+        modules = [
+          ./hosts/darwin
+          ./hosts/macbook-pro/configuration.nix
+        ];
+        specialArgs = { inherit inputs self macUser; };
+      };
+      
     };
-  };
 }

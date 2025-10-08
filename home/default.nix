@@ -1,8 +1,23 @@
-{ config, pkgs, ... }:
-
+{ 
+  config, 
+  pkgs, 
+  lib,
+  macUser, 
+  linuxUser,  
+  ... 
+}:
+let
+  isDarwin = pkgs.stdenv.isDarwin;
+  user     = if isDarwin then macUser else linuxUser;
+  homeDir  = if isDarwin then "/Users/${macUser}" else "/home/${linuxUser}";
+in
 {
-  home.username = "lukasf";
-  home.homeDirectory = "/home/lukasf";
+  home = {
+    username      = lib.mkDefault user;
+    homeDirectory = lib.mkDefault homeDir;
+    stateVersion = "25.05";
+    file."hushlogin".text = "";
+  };
 
   # imports
   imports = [
@@ -11,10 +26,16 @@
     ./programs/starship/default.nix
     ./programs/git/default.nix
     ./programs/lazygit/default.nix
+    ./programs/neovim/default.nix
     ./programs/gpg/default.nix
     ./programs/ssh/default.nix
     ./programs/sops-age/default.nix
-    ./programs/stylix/default.nix      # theming
+    ./programs/k9s/default.nix
+    ./programs/kubectl/default.nix
+    ./programs/velero/default.nix
+    ./programs/s3/default.nix
+    ./programs/maven-config/default.nix
+    #./programs/stylix/default.nix      # theming
   ];
 
   home.packages = with pkgs; [
@@ -28,6 +49,8 @@
     jq
     yq
     fzf
+    tmux
+    ripgrep
 
     # network tools
     dnsutils # dig and nslookup
@@ -39,24 +62,28 @@
     gnupg
     gnused
     gnutar
+    nixfmt-rfc-style
 
     # top tools
     btop
-    iotop
+    #iotop
     iftop
 
     # system tools
-    sysstat
-    lm_sensors
-    ethtool
+    #sysstat
+    #lm_sensors
+    #ethtool
     pciutils
     usbutils
-   
+    
     # process monitoring stuff
-    strace
-    ltrace
+    #strace
+    #ltrace
     lsof
   ];
+  home.sessionVariables = {
+    LANG = "en_US.UTF-8";
+    LC_ALL = "en_US.UTF-8";
+  };
 
-  home.stateVersion = "25.05";
 }
