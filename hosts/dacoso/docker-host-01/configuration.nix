@@ -108,7 +108,7 @@
         "docker"
       ]; 
       # generate password hash: nix shell nixpkgs#mkpasswd -c mkpasswd -m sha-512
-      hashedPassword = "$6$Lzd17TPthOq2jH.Q$BCsqfAdbtvTpR02/1TazE9p/MT9u5jmdXj2pZ/UmeeaorVvTc6cOaJeAdzagp4.XKymcjsQrNXbCQ2jgPJOfa/";
+      hashedPassword = "$6$rsL/kjpK78sSuLzL$Mvm8SBZDssS4jXHzPfTcfQJSGrGA607590098IqsT6qCHVd0dRAAfyDwIpLsjO09n3cYhwYsIxxIYir53NyAl/";
       openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIChSy16zCpiQzAoXxX36keLgwO/+5L3o/MzvoLnRQjjP lukasfriedhoff@Lukass-MacBook-Pro.local"
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOBHeOqBSonGdmrJSD2lDZ01SAewq2bp7GYWPpStx2oJ root@8c96b522dff2"
