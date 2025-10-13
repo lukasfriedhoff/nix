@@ -94,6 +94,8 @@
       openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIChSy16zCpiQzAoXxX36keLgwO/+5L3o/MzvoLnRQjjP lukasfriedhoff@Lukass-MacBook-Pro.local"
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOBHeOqBSonGdmrJSD2lDZ01SAewq2bp7GYWPpStx2oJ root@8c96b522dff2"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB5CWwrN8qt9GcGeh+utY2bbB6SM7RGm0I1p91KthNh/ frank.bartnitzek@dacoso.com"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFBjbldWwEitDpgR4bYe3Fg/R5hPOUgbfQ0rGcY9enKR carsten.rilitz@dacoso.com"
       ];
     };
 
