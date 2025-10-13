@@ -89,7 +89,7 @@
     root = {
       # set a password for root user
       # generate password hash: nix shell nixpkgs#mkpasswd -c mkpasswd -
-      hashedPassword = "$6$T2.TlxY598BdXCnK$uZo8sfvJlAn2jFrHKRQvmUsCvE0oU5F3I/PLDFKjsHfHlZ7K5aOSC8X4XJZFUxvs9QmDVOrFRGG8CvPYrXHVr1";
+      hashedPassword = "$6$rsL/kjpK78sSuLzL$Mvm8SBZDssS4jXHzPfTcfQJSGrGA607590098IqsT6qCHVd0dRAAfyDwIpLsjO09n3cYhwYsIxxIYir53NyAl/";
       # change this to your ssh key
       openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIChSy16zCpiQzAoXxX36keLgwO/+5L3o/MzvoLnRQjjP lukasfriedhoff@Lukass-MacBook-Pro.local"
