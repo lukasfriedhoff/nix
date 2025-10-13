@@ -5,6 +5,9 @@
     kubectl
     kubectx
     stern
+    fluxcd
+    kustomize
+    kubernetes-helm
     # Add more as needed
   ];
 }
