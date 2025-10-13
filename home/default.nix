@@ -36,6 +36,7 @@ in
     ./programs/s3/default.nix
     ./programs/maven-config/default.nix
     #./programs/stylix/default.nix      # theming
+    ./programs/cassandra-tools/default.nix
   ];
 
   home.packages = with pkgs; [
