@@ -18,6 +18,10 @@
     darwin.inputs.nixpkgs.follows = "nixpkgs"; 
     # declarative homebrew management
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+
+    # disko
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs"; 
   };
 
   outputs = inputs@{ 
@@ -27,6 +31,7 @@
     stylix, 
     darwin, 
     nix-homebrew, 
+    disko,
     ... 
     }:
     let
@@ -74,6 +79,21 @@
               home-manager.useUserPackages = true;
               home-manager.users.lukasf = import ./home/default.nix;
             }
+          ];
+        };
+      
+        docker-host-01 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            disko.nixosModules.disko
+            ./hosts/dacoso/docker-host-01/configuration.nix
+          ];
+        };
+        lf-timebutler-testvm-01 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            disko.nixosModules.disko
+            ./hosts/dacoso/timebutler-test-vm/configuration.nix
           ];
         };
       };
