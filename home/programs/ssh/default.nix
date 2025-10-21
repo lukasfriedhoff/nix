@@ -39,7 +39,7 @@
         identitiesOnly = true;
         identityFile = [ "${config.home.homeDirectory}/.ssh/id_ed25519_dacoso" ];
       };
-      "bitbucket" = {
+      "bitbucket.org" = {
         hostname = "bitbucket.org";
         user = "git";
         identitiesOnly = true;
