@@ -38,6 +38,7 @@ in
     #./programs/stylix/default.nix      # theming
     ./programs/cassandra-tools/default.nix
     ./programs/mariadb-tools/default.nix
+    ./programs/vscode/default.nix
   ];
 
   home.packages = with pkgs; [
