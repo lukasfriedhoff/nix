@@ -1,15 +1,21 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
+let
+  jdk = pkgs.temurin-bin-17;
+  jdkHome = "${jdk}"; # <-- use the JDK root, not lib/openjdk
+in
 {
-  # Install Maven bound to Temurin 17
   home.packages = [
-    (pkgs.maven.override { jdk_headless = pkgs.temurin-bin-17; })
-    pkgs.temurin-bin-17
+    # Wrap Maven to enforce correct JAVA_HOME
+    (pkgs.writeShellScriptBin "mvn" ''
+      export JAVA_HOME="${jdkHome}"
+      export PATH="${jdkHome}/bin:$PATH"
+      exec "${pkgs.maven}/bin/mvn" "$@"
+    '')
+    jdk
   ];
 
-  # Make Temurin 17 the default JDK on your shell sessions
   home.sessionVariables = {
-    JAVA_HOME = "${pkgs.temurin-bin-17}/lib/openjdk";
+    JAVA_HOME = jdkHome;
   };
-  home.sessionPath = [ "${pkgs.temurin-bin-17}/bin" ];
 }

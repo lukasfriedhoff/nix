@@ -1,5 +1,8 @@
 { config, pkgs, ... }:
-
+let
+  jdk = pkgs.temurin-bin-17;
+  jdkHome = "${jdk}/lib/openjdk";
+in
 {
   imports = [
     ./alias-completions.nix
@@ -9,6 +12,13 @@
     enableCompletion = true;
     # TODO add your custom bashrc here
     bashrcExtra = ''
+      # Ensure JDK bin is always first in PATH, even on macOS
+      if [ -d "${jdkHome}/bin" ] && [[ ":$PATH:" != *":${jdkHome}/bin:"* ]]; then
+        export PATH="${jdkHome}/bin:$PATH"
+      fi
+      export JAVA_HOME="${jdkHome}"
+
+      # Load user binaries
       export PATH="$PATH:$HOME/bin:$HOME/.local/bin:$HOME/go/bin"
     '';
 
@@ -26,6 +36,10 @@
         set -a
         . "$HOME/.config/secrets/openai.env"
         set +a
+      fi
+      # Ensure Home-Manager environment variables are loaded for login shells
+      if [ -f "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh" ]; then
+        source "${config.home.profileDirectory}/etc/profile.d/hm-session-vars.sh"
       fi
     '';
   };
