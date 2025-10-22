@@ -37,6 +37,8 @@ in
     ./programs/maven-config/default.nix
     #./programs/stylix/default.nix      # theming
     ./programs/cassandra-tools/default.nix
+    ./programs/mariadb-tools/default.nix
+    ./programs/vscode/default.nix
   ];
 
   home.packages = with pkgs; [
@@ -85,6 +87,8 @@ in
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
     LC_ALL = "en_US.UTF-8";
+    EDITOR = "vi";
+    VISUAL = "vi";
   };
 
 }

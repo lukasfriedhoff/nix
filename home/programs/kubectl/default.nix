@@ -10,4 +10,7 @@
     kubernetes-helm
     # Add more as needed
   ];
+  imports = [ 
+    ./plugins.nix 
+    ];
 }

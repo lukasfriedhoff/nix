@@ -54,7 +54,7 @@
   system.primaryUser = macUser;
   users.users.${macUser} = {
     home = "/Users/${macUser}";
-    shell = pkgs.bash;
+    shell = pkgs.bashInteractive;
   };
   environment = {
     systemPath = [
