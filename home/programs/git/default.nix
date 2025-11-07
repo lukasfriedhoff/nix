@@ -1,11 +1,15 @@
 { config, lib, pkgs, ... }:
 
+let
+  homeDir = config.home.homeDirectory;
+in
 {
   imports = [
-    ./gitignore-io.nix
+    ./gitignore.nix
   ];
+  # Keep local workspaces ready; directory creation uses the XDG home to stay portable.
   home.activation.ensureGitDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "$HOME/git/lukasfriedhoff" "$HOME/git/dacoso-devops"
+    mkdir -p "${homeDir}/git/lukasfriedhoff" "${homeDir}/git/dacoso-devops"
   '';
 
   programs.git = {
@@ -32,10 +36,11 @@
       gpg.program        = "gpg";
 
       # includeIf blocks must use absolute paths + trailing slash
-      "includeIf \"gitdir:/Users/lukasfriedhoff/git/lukasfriedhoff/\"" = {
+      # See scripts/update-gitignore.sh for refreshing the global ignore list safely.
+      "includeIf \"gitdir:${homeDir}/git/lukasfriedhoff/\"" = {
         path = "~/.gitconfig-personal";
       };
-      "includeIf \"gitdir:/Users/lukasfriedhoff/git/dacoso-devops/\"" = {
+      "includeIf \"gitdir:${homeDir}/git/dacoso-devops/\"" = {
         path = "~/.gitconfig-dacoso-devops";
       };
     };

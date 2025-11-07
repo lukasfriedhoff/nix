@@ -4,15 +4,16 @@
   lib,
   ...
 }: let
+  # Catppuccin Mocha palette shipped with stylix; override if you fancy another theme.
   theme = "${pkgs.base16-schemes}/share/themes/catppuccin-mocha.yaml";
-  wallpaper = "https://wallpapercave.com/wp/wp9218666.jpg";
 in {
   stylix = {
     enable = true;
+    # Prefetch wallpaper via stylix to keep switches pure. Swap to a local file if you prefer.
     image = pkgs.fetchurl {
       url = "https://wallpapercave.com/wp/wp9218666.jpg";
       sha256 = "2467657648a269a1bf3aa7be4308642d371bf8cc063a7a1b86731c3d81c9508e";
-      curlOptsList = ["-HUser-Agent: Wget/1.21.4"];
+      curlOptsList = [ "-HUser-Agent: Wget/1.21.4" ];
     };
     base16Scheme = theme;
     polarity = "dark";
@@ -22,8 +23,9 @@ in {
       popups = 0.75;
     };
     targets = {
-      vscode.enable = false;
-      alacritty.enable = false;
+      # Enable theming for the tools we actively use.
+      vscode.enable = true;
+      alacritty.enable = true;
     };
     fonts = {
       serif = {
@@ -49,7 +51,7 @@ in {
     cursor = {
       package = pkgs.bibata-cursors;
       name = "Bibata-Modern-Ice";
-			size = 32;
+      size = 32;
     };
   };
 }

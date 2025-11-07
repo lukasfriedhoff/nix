@@ -1,23 +1,29 @@
-{ 
-  config, 
-  pkgs, 
+{
+  config,
+  pkgs,
   lib,
-  macUser, 
-  linuxUser,  
-  ... 
+  macUser,
+  linuxUser,
+  ...
 }:
 let
   isDarwin = pkgs.stdenv.isDarwin;
-  user     = if isDarwin then macUser else linuxUser;
-  homeDir  = if isDarwin then "/Users/${macUser}" else "/home/${linuxUser}";
+  fallbackUser = if isDarwin then macUser else linuxUser;
+  fallbackHome =
+    if isDarwin then
+      "/Users/${macUser}"
+    else
+      "/home/${linuxUser}";
 in
 {
   home = {
-    username      = lib.mkDefault user;
-    homeDirectory = lib.mkDefault homeDir;
+    username = lib.mkDefault fallbackUser;
+    homeDirectory = lib.mkDefault fallbackHome;
     stateVersion = "25.05";
     file."hushlogin".text = "";
   };
+
+  nixpkgs.config.allowUnfree = lib.mkDefault true;
 
   # imports
   imports = [
@@ -35,55 +41,46 @@ in
     ./programs/velero/default.nix
     ./programs/s3/default.nix
     ./programs/maven-config/default.nix
-    #./programs/stylix/default.nix      # theming
     ./programs/cassandra-tools/default.nix
     ./programs/mariadb-tools/default.nix
     ./programs/vscode/default.nix
+    # Theme customisations applied via stylix' home module.
+    ./programs/stylix/default.nix
+    ./programs/codex/default.nix
   ];
 
-  home.packages = with pkgs; [
-    # archives
-    zip
-    xz
-    unzip
-    p7zip
-    
-    # utils
-    jq
-    yq
-    fzf
-    tmux
-    ripgrep
+  home.packages =
+    let
+      basePackages = with pkgs; [
+        zip
+        xz
+        unzip
+        p7zip
+        jq
+        yq
+        fzf
+        tmux
+        ripgrep
+        dnsutils
+        file
+        which
+        tree
+        gnupg
+        gnused
+        gnutar
+        nixfmt-rfc-style
+        btop
+        lsof
+      ];
 
-    # network tools
-    dnsutils # dig and nslookup
-    
-    # misc
-    file
-    which
-    tree
-    gnupg
-    gnused
-    gnutar
-    nixfmt-rfc-style
+      linuxPackages = with pkgs; [
+        iftop
+        pciutils
+        usbutils
+      ];
+    in
+    basePackages ++ lib.optionals (!isDarwin) linuxPackages;
 
-    # top tools
-    btop
-    #iotop
-    iftop
-
-    # system tools
-    #sysstat
-    #lm_sensors
-    #ethtool
-    pciutils
-    usbutils
-    
-    # process monitoring stuff
-    #strace
-    #ltrace
-    lsof
-  ];
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
     LC_ALL = "en_US.UTF-8";

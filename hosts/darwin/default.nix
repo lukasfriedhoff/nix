@@ -37,7 +37,7 @@
 
   # home-manager config
   home-manager = {
-    useGlobalPkgs = true;
+    useGlobalPkgs = false;
     useUserPackages = true;
     users.${macUser} = {
       imports = [

@@ -1,114 +1,295 @@
 {
-  description = "A very basic flake";
+  description = "Lukas Friedhoff's Nix monorepo";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    # home manager
+    flake-parts.url = "github:hercules-ci/flake-parts";
     home-manager.url = "github:nix-community/home-manager";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs"; 
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    # theming
     stylix.url = "github:nix-community/stylix";
     stylix.inputs.nixpkgs.follows = "nixpkgs";
-    
-    # mac
-    # system-level software and settings (macOS)
+
     darwin.url = "github:lnl7/nix-darwin";
-    darwin.inputs.nixpkgs.follows = "nixpkgs"; 
-    # declarative homebrew management
+    darwin.inputs.nixpkgs.follows = "nixpkgs";
+
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
 
-    # disko
     disko.url = "github:nix-community/disko";
-    disko.inputs.nixpkgs.follows = "nixpkgs"; 
+    disko.inputs.nixpkgs.follows = "nixpkgs";
+
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ 
-    self, 
-    nixpkgs, 
-    home-manager, 
-    stylix, 
-    darwin, 
-    nix-homebrew, 
+  outputs = inputs@{
+    self,
+    nixpkgs,
+    flake-parts,
+    home-manager,
+    stylix,
+    darwin,
+    nix-homebrew,
     disko,
-    ... 
-    }:
-    let
-      # Linux system for your NixOS hosts
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
-      linuxUser = "lukasf";
+    sops-nix,
+    ...
+  }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [ "x86_64-linux" "aarch64-darwin" ];
 
-      # mac 
-      # arch
-      darwinSystem = "aarch64-darwin";
-      # macUser
-      macUser = "lukasfriedhoff";
-    in {
-      nixosConfigurations = {
-        srv4-vm-01 = nixpkgs.lib.nixosSystem {
+      perSystem = { system, pkgs, ... }: {
+        _module.args.pkgs = import nixpkgs {
           inherit system;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./hosts/srv4-vm-01/configuration.nix
-            stylix.nixosModules.stylix
-            home-manager.nixosModules.home-manager
+          overlays = [ ];
+          config.allowUnfree = false;
+        };
+
+        formatter = pkgs.nixfmt-rfc-style or pkgs.nixfmt-classic;
+
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            git
+            nixfmt-rfc-style
+            sops
+          ];
+        };
+      };
+
+      flake =
+        let
+          linuxSystem = "x86_64-linux";
+          darwinSystem = "aarch64-darwin";
+
+          linuxUser = "lukasf";
+          macUser = "lukasfriedhoff";
+
+          sharedSecretsRoot = "${self}/secrets/shared";
+          personalSecretsRoot = host: "${self}/secrets/personal/${host}";
+          dacosoSecretsRoot = host: "${self}/secrets/dacoso/${host}";
+          hostSecretsRoot = host: "${self}/secrets/hosts/${host}";
+
+          # Secret roots per host / profile.
+          secretsByProfile = {
+            srv4 = {
+              primary = personalSecretsRoot "srv4-vm-01";
+              shared = sharedSecretsRoot;
+              root = personalSecretsRoot "srv4-vm-01";
+              personal = personalSecretsRoot "srv4-vm-01";
+            };
+            tux = {
+              primary = personalSecretsRoot "tux-h4xx-01";
+              shared = sharedSecretsRoot;
+              root = personalSecretsRoot "tux-h4xx-01";
+              personal = personalSecretsRoot "tux-h4xx-01";
+            };
+            tab = {
+              primary = personalSecretsRoot "tab-h4xx-02";
+              shared = sharedSecretsRoot;
+              root = personalSecretsRoot "tab-h4xx-02";
+              personal = personalSecretsRoot "tab-h4xx-02";
+            };
+            "smc-gpu-01" = {
+              primary = personalSecretsRoot "smc-gpu-01";
+              shared = sharedSecretsRoot;
+              root = personalSecretsRoot "smc-gpu-01";
+              personal = personalSecretsRoot "smc-gpu-01";
+            };
+            mac = {
+              primary = dacosoSecretsRoot "Macbook-Pro.local";
+              shared = sharedSecretsRoot;
+              root = dacosoSecretsRoot "Macbook-Pro.local";
+              dacoso = dacosoSecretsRoot "Macbook-Pro.local";
+            };
+            docker-host-01 = {
+              primary = hostSecretsRoot "docker-host-01";
+              shared = sharedSecretsRoot;
+              root = hostSecretsRoot "docker-host-01";
+              dacoso = dacosoSecretsRoot "Macbook-Pro.local";
+            };
+            timebutler-test-vm = {
+              primary = hostSecretsRoot "timebutler-test-vm";
+              shared = sharedSecretsRoot;
+              root = hostSecretsRoot "timebutler-test-vm";
+              dacoso = dacosoSecretsRoot "Macbook-Pro.local";
+            };
+          };
+
+          mkSpecialArgs = profile: {
+            inherit inputs linuxUser macUser;
+            repoRoot = self;
+            secrets = secretsByProfile.${profile};
+          };
+
+          mkDesktopHome = profile: extraImports:
             {
-              home-manager.useGlobalPkgs = true;
+              home-manager.useGlobalPkgs = false;
               home-manager.useUserPackages = true;
               home-manager.backupFileExtension = "hm-backup";
-              home-manager.users.lukasf = {
-                imports = [
-                  stylix.homeModules.stylix
-                  ./home/default.nix
-                ];
+              home-manager.extraSpecialArgs = mkSpecialArgs profile;
+              home-manager.users.${linuxUser} = {
+                imports = extraImports;
               };
-            }
-          ];
-        };
+            };
 
-        tux-h4xx-01 = nixpkgs.lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./hosts/tux-h4xx-01/configuration.nix
+          baseDesktopModules = [
+            ./modules/nixos/profiles/base.nix
+            stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.lukasf = import ./home/default.nix;
-            }
+            sops-nix.nixosModules.sops
           ];
-        };
-      
-        docker-host-01 = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            disko.nixosModules.disko
-            ./hosts/dacoso/docker-host-01/configuration.nix
-          ];
-        };
-        lf-timebutler-testvm-01 = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            disko.nixosModules.disko
-            ./hosts/dacoso/timebutler-test-vm/configuration.nix
-          ];
-        };
-      };
 
-      ############################
-      ## macOS (new)
-      ############################
-      darwinConfigurations."macbook-pro" = darwin.lib.darwinSystem {
-        system = darwinSystem;
-        modules = [
-          ./hosts/darwin
-          ./hosts/macbook-pro/configuration.nix
-        ];
-        specialArgs = { inherit inputs self macUser; };
-      };
-      
+          plasmaDesktopModules =
+            baseDesktopModules
+            ++ [ ./modules/nixos/profiles/desktop/plasma.nix ];
+
+          gnomeDesktopModules =
+            baseDesktopModules
+            ++ [ ./modules/nixos/profiles/desktop/gnome.nix ];
+
+          baseServerModules = [
+            ./modules/nixos/profiles/base.nix
+            ./modules/nixos/profiles/dacoso/server.nix
+            sops-nix.nixosModules.sops
+          ];
+
+          homelabServerModules = [
+            ./modules/nixos/profiles/base.nix
+            ./modules/nixos/profiles/homelab/kubernetes.nix
+            ./modules/nixos/profiles/homelab/gitops.nix
+            sops-nix.nixosModules.sops
+          ];
+
+          mkNixosHost = profile: extraModules:
+            nixpkgs.lib.nixosSystem {
+              system = linuxSystem;
+              specialArgs = mkSpecialArgs profile // { inherit inputs; };
+              modules = extraModules;
+            };
+        in
+        {
+          nixosConfigurations = {
+            srv4-vm-01 = mkNixosHost "srv4" (
+              plasmaDesktopModules
+              ++ [
+                ./hosts/srv4-vm-01/configuration.nix
+                (mkDesktopHome "srv4" [
+                  stylix.homeModules.stylix
+                  ./home
+                ])
+              ]
+            );
+
+            tux-h4xx-01 = mkNixosHost "tux" (
+              plasmaDesktopModules
+              ++ [
+                ./hosts/tux-h4xx-01/configuration.nix
+                (mkDesktopHome "tux" [
+                  stylix.homeModules.stylix
+                  ./home
+                ])
+              ]
+            );
+
+            tab-h4xx-02 = mkNixosHost "tab" (
+              gnomeDesktopModules
+              ++ [
+                ./hosts/tab-h4xx-02/configuration.nix
+                (mkDesktopHome "tab" [
+                  stylix.homeModules.stylix
+                  ./home
+                ])
+              ]
+            );
+
+            smc-gpu-01 = mkNixosHost "smc-gpu-01" (
+              homelabServerModules
+              ++ [
+                ./hosts/smc-gpu-01/configuration.nix
+              ]
+            );
+
+            docker-host-01 = mkNixosHost "docker-host-01" (
+              baseServerModules
+              ++ [
+                disko.nixosModules.disko
+                ./hosts/dacoso/docker-host-01/configuration.nix
+              ]
+            );
+
+            lf-timebutler-testvm-01 = mkNixosHost "timebutler-test-vm" (
+              baseServerModules
+              ++ [
+                disko.nixosModules.disko
+                ./hosts/dacoso/timebutler-test-vm/configuration.nix
+              ]
+            );
+          };
+
+          darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {
+            system = darwinSystem;
+            modules = [
+              ./hosts/darwin
+              ./hosts/macbook-pro/configuration.nix
+              home-manager.darwinModules.home-manager
+              nix-homebrew.darwinModules.nix-homebrew
+              sops-nix.darwinModules.sops
+              {
+                home-manager = {
+                  useGlobalPkgs = false;
+                  useUserPackages = true;
+                  backupFileExtension = "nixbak";
+                  extraSpecialArgs = mkSpecialArgs "mac";
+                  nixpkgs = {
+                    path = inputs.nixpkgs;
+                    config.allowUnfree = true;
+                  };
+                  users.${macUser} = {
+                    imports = [
+                      ./home
+                      stylix.homeModules.stylix
+                    ];
+                  };
+                };
+                nix-homebrew.user = macUser;
+              }
+            ];
+            specialArgs = mkSpecialArgs "mac" // { inherit self; };
+          };
+
+          homeConfigurations =
+            let
+              mkStandaloneHome = { username, system, profile, extraImports ? [ ] }:
+                home-manager.lib.homeManagerConfiguration {
+                  pkgs = import nixpkgs {
+                    inherit system;
+                    config.allowUnfree = true;
+                  };
+                  extraSpecialArgs = mkSpecialArgs profile;
+                  modules = [
+                    ./home
+                  ] ++ extraImports;
+                  username = username;
+                  homeDirectory =
+                    if system == darwinSystem then
+                      "/Users/${username}"
+                    else
+                      "/home/${username}";
+                };
+            in
+            {
+              "${linuxUser}@desktop" = mkStandaloneHome {
+                username = linuxUser;
+                system = linuxSystem;
+                profile = "tux";
+                extraImports = [ stylix.homeModules.stylix ];
+              };
+              "${macUser}@macbook-pro" = mkStandaloneHome {
+                username = macUser;
+                system = darwinSystem;
+                profile = "mac";
+              };
+            };
+        };
     };
 }

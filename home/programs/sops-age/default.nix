@@ -1,13 +1,30 @@
 # nixos/home/programs/sops-age/default.nix
-{ lib, pkgs, config, ... }:
+{ lib, pkgs, config, secrets, ... }:
 
 let
-  repo    = "${config.home.homeDirectory}/git/lukasfriedhoff/nix";
-  sopsBin = "${pkgs.sops}/bin/sops";
-  gpgBin  = "${pkgs.gnupg}/bin/gpg";
-  sshKeyPrivSecret = "${repo}/secrets/personal/git-personal-ed25519.priv";
-  sshKeyPubSecret  = "${repo}/secrets/personal/git-personal-ed25519.pub";
-  ageKeyFile       = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
+  # The flake passes both profile-specific and shared roots.
+  primaryDir = secrets.primary or secrets.root;
+  sharedDir = secrets.shared or null;
+
+  secretPath = name:
+    let
+      candidates =
+        (lib.optional (primaryDir != null) "${primaryDir}/${name}")
+        ++ (lib.optional (sharedDir != null) "${sharedDir}/${name}");
+      found = lib.findFirst (p: builtins.pathExists p) null candidates;
+    in
+      if candidates == [ ] then
+        throw "No secrets directory configured for ${name}"
+      else
+        if found != null then found else lib.head candidates;
+
+  sopsBin = lib.getExe pkgs.sops;
+  gpgBin = lib.getExe pkgs.gnupg;
+  sshKeyPrivSecret = secretPath "git-personal-ed25519.priv";
+  sshKeyPubSecret = secretPath "git-personal-ed25519.pub";
+  gpgSecret = secretPath "git-personal-gpg.asc";
+  openAIEnv = secretPath "openai.env";
+  ageKeyFile = "${config.xdg.configHome}/sops/age/keys.txt";
 in
 {
   home.packages = [ pkgs.sops pkgs.age ];
@@ -22,8 +39,8 @@ in
       export SOPS_AGE_KEY_FILE='${ageKeyFile}'
 
       if ! ${gpgBin} --list-secret-keys 7357275F6DFB9956E72B5BF9F52D0D35FC8BD0DF >/dev/null 2>&1; then
-        if [ -f '${repo}/secrets/personal/git-personal-gpg.asc' ]; then
-          ${sopsBin} -d '${repo}/secrets/personal/git-personal-gpg.asc' | ${gpgBin} --batch --yes --import - || true
+        if [ -f '${gpgSecret}' ]; then
+          ${sopsBin} -d '${gpgSecret}' | ${gpgBin} --batch --yes --import - || true
         fi
       fi
     '';
@@ -92,23 +109,22 @@ in
 
   home.activation.decryptOpenAIEnv =
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    set -eu
+      set -eu
 
-    export SOPS_AGE_KEY_FILE="${config.home.homeDirectory}/.config/sops/age/keys.txt"
+      export SOPS_AGE_KEY_FILE='${ageKeyFile}'
 
-    # ensure secrets dir exists
-    "${pkgs.coreutils}/bin/mkdir" -p "${config.home.homeDirectory}/.config/secrets"
+      cfg_dir="${config.xdg.configHome}/secrets"
+      "${pkgs.coreutils}/bin/mkdir" -p "$cfg_dir"
 
-    src="${config.home.homeDirectory}/git/lukasfriedhoff/nix/secrets/personal/openai.env"
-    dst="${config.home.homeDirectory}/.config/secrets/openai.env"
+      dst="$cfg_dir/openai.env"
 
-    if [ -f "$src" ]; then
-      tmp="$("${pkgs.coreutils}/bin/mktemp")"
-      "${pkgs.sops}/bin/sops" -d "$src" > "$tmp"
-      "${pkgs.coreutils}/bin/install" -m 600 "$tmp" "$dst"
-      "${pkgs.coreutils}/bin/rm" -f "$tmp"
-    fi
-  '';
+      if [ -f '${openAIEnv}' ]; then
+        tmp="$("${pkgs.coreutils}/bin/mktemp")"
+        ${sopsBin} -d '${openAIEnv}' > "$tmp"
+        "${pkgs.coreutils}/bin/install" -m 600 "$tmp" "$dst"
+        "${pkgs.coreutils}/bin/rm" -f "$tmp"
+      fi
+    '';
 
   # Ensure SSH uses that key for GitHub personal remotes
   programs.ssh = {

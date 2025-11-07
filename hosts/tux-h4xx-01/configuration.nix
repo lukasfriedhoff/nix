@@ -3,8 +3,14 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ../common.nix
+    ../../modules/nixos/hardware/tuxedo/infinitybook-pro-16-gen8.nix
+    ../../modules/nixos/profiles/desktop/gaming.nix
   ];
 
-  networking.hostName = "nix-vm-01";
+  networking.hostName = "tux-h4xx-01";
+
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  desktop.gaming.enable = true;
 }
