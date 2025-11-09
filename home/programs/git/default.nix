@@ -35,6 +35,12 @@ in
       gpg.format         = "openpgp";
       gpg.program        = "gpg";
 
+    # Rewrite ANY https://github.com/... to SSH git@github.com:...
+    # (works for fetch and push)
+    "url \"git@github.com:\"".insteadOf = "https://github.com/";
+
+    # Optional: cover gists too
+    "url \"git@gist.github.com:\"".insteadOf = "https://gist.github.com/";
       # includeIf blocks must use absolute paths + trailing slash
       # See scripts/update-gitignore.sh for refreshing the global ignore list safely.
       "includeIf \"gitdir:${homeDir}/git/lukasfriedhoff/\"" = {
