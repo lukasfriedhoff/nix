@@ -46,7 +46,7 @@ in
     ./programs/vscode/default.nix
     # Theme customisations applied via stylix' home module.
     ./programs/stylix/default.nix
-    #./programs/codex/default.nix
+    ./programs/codex/default.nix
   ];
 
   home.packages =

@@ -25,7 +25,10 @@ Companion to the Codex automation for the Nix repo.
   - Update/commit any host-specific secrets under the matching directory; keep cross-host material in `secrets/shared/`.
 
 ## 3. Codex CLI & Neovim Integration
-- Ensure `OPENAI_API_KEY` is available (preferably via `~/.config/secrets/openai.env`).
+- Ensure `OPENAI_API_KEY` is available. Home Manager decrypts `openai.env` into `~/.config/secrets/openai.env` and shells source it automatically; keep that secret up to date or override it manually:
+  - Add `export OPENAI_API_KEY=…` to `.bash_profile` / `.bashrc`.
+  - Use `direnv` with `.envrc` to scope the key per-repo.
+  - Inject it at runtime via `op run --env-file`, `pass`, or similar secret managers.
 - Run `codex --help` to verify the CLI works; try `codex "summarize git status"`.
 - In Neovim:
   - Start `nvim`, run `:Codex ask for a summary of this project`.

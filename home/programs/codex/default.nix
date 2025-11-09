@@ -70,10 +70,16 @@ USAGE
         fi
       fi
 
-      if [ -f "$HOME/.config/secrets/openai.env" ]; then
-        set -a
-        . "$HOME/.config/secrets/openai.env"
-        set +a
+      if [ -z "''${OPENAI_API_KEY+x}" ]; then
+        secret_file="$HOME/.config/secrets/openai.env"
+        if [ -r "$secret_file" ]; then
+          while IFS='=' read -r key value; do
+            if [ "$key" = "OPENAI_API_KEY" ]; then
+              OPENAI_API_KEY="$value"
+              break
+            fi
+          done < "$secret_file"
+        fi
       fi
 
       if [ -z "''${OPENAI_API_KEY+x}" ]; then

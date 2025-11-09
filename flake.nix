@@ -181,7 +181,7 @@
             );
 
             tux-h4xx-01 = mkNixosHost "tux" (
-              plasmaDesktopModules
+              gnomeDesktopModules
               ++ [
                 ./hosts/tux-h4xx-01/configuration.nix
                 (mkDesktopHome "tux" [

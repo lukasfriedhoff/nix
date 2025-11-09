@@ -1,6 +1,11 @@
 { config, lib, pkgs, ... }:
-
-{
+let
+  kvantumPackages =
+    lib.filter (pkg: pkg != null) [
+      (pkgs.qt6Packages.qtstyleplugin-kvantum or null)
+      (pkgs.libsForQt5.qtstyleplugin-kvantum or null)
+    ];
+in {
   # Desktop environment (Plasma 6)
   services = {
     xserver = {
@@ -37,10 +42,12 @@
   networking.networkmanager.enable = true;
 
   programs.firefox.enable = true;
-  environment.systemPackages = with pkgs; [
-    vim
-    wget
-  ];
+  environment.systemPackages =
+    (with pkgs; [
+      vim
+      wget
+    ])
+    ++ kvantumPackages;
 
   environment.variables.EDITOR = lib.mkForce "vim";
 

@@ -119,10 +119,12 @@ in
       dst="$cfg_dir/openai.env"
 
       if [ -f '${openAIEnv}' ]; then
-        tmp="$("${pkgs.coreutils}/bin/mktemp")"
+        tmp="$(${pkgs.coreutils}/bin/mktemp)"
         ${sopsBin} -d '${openAIEnv}' > "$tmp"
         "${pkgs.coreutils}/bin/install" -m 600 "$tmp" "$dst"
         "${pkgs.coreutils}/bin/rm" -f "$tmp"
+      elif [ -f "$dst" ]; then
+        "${pkgs.coreutils}/bin/rm" -f "$dst"
       fi
     '';
 

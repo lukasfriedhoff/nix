@@ -35,7 +35,7 @@ This setup is driven by Home Manager and lazy.nvim. The `<leader>` key is `\` (b
 
 ## Useful Tips
 
-- Codex looks for `OPENAI_API_KEY`. Home Manager decrypts `~/.config/secrets/openai.env`; keep it up to date.
+- Codex reads `OPENAI_API_KEY`, sourcing `~/.config/secrets/openai.env` when present; keep that secret updated or export the key manually before launching Neovim.
 - The Codex CLI supports `codex -m MODEL "prompt"` and will read from STDIN when no prompt is provided.
 - Telescope shares the same `<leader>` prefix, so you can chain searches quickly.
 - Treesitter-based highlighting & indentation are enabled by default.
