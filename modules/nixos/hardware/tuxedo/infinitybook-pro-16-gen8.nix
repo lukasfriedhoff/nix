@@ -52,6 +52,6 @@
 
   services.udev.extraRules = ''
     # Allow access to thunderbolt controller for logged-in users.
-    ACTION=="add", SUBSYSTEM=="thunderbolt", RUN+="/run/current-system/sw/bin/chmod 0660 /sys/%p/device"
+    ACTION=="add", SUBSYSTEM=="thunderbolt", RUN+="${pkgs.coreutils}/bin/chmod 0660 /sys/%p/device"
   '';
 }

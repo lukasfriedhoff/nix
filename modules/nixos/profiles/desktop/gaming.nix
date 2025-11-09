@@ -17,7 +17,6 @@ in
       protontricks
       lutris
       wineWowPackages.full
-      proton-ge-bin
     ];
 
     environment.sessionVariables = {
@@ -61,7 +60,7 @@ in
         "-f"
         "-W 1920"
         "-H 1080"
-        "-r 165"
+        "-r 60"
         "--hdr-enabled"
       ];
     };
