@@ -30,6 +30,7 @@ in
   };
 
   services.desktopManager.gnome.enable = true;
+  services.gnome.gnome-keyring.enable = true;
   services.gnome.gnome-online-accounts.enable = true;
   services.gnome.evolution-data-server.enable = true;
   services.printing.enable = true;
@@ -83,6 +84,8 @@ in
     enable = true;
     enableSSHSupport = true;
   };
+
+  programs.seahorse.enable = true;
 
   nixpkgs.config.allowUnfree = true;
 }
