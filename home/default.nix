@@ -124,7 +124,10 @@ in
         usbutils
       ];
     in
-    basePackages ++ lib.optionals (!isDarwin) linuxPackages ++ [ pkgs.pavucontrol ];
+    basePackages ++ lib.optionals (!isDarwin) linuxPackages ++ [
+      pkgs.pavucontrol
+      pkgs.jdownloader2
+    ];
 
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
