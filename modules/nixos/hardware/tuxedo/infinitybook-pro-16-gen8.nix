@@ -16,7 +16,7 @@
   # Graphics: Intel iGPU + NVIDIA RTX 4070 Max-Q (01:00.0)
   hardware.graphics = {
     enable = true;
-    extraPackages = with pkgs; [ intel-media-driver vaapiIntel vaapiVdpau libvdpau-va-gl ];
+    extraPackages = with pkgs; [ intel-media-driver intel-vaapi-driver vaapiVdpau libvdpau-va-gl ];
   };
 
   hardware.nvidia = {
