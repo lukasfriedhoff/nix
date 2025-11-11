@@ -1,5 +1,19 @@
 { config, lib, pkgs, ... }:
 
+let
+  firefoxIntel =
+    pkgs.firefox-wayland.overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
+      postInstall =
+        (old.postInstall or "")
+        + ''
+          wrapProgram $out/bin/firefox \
+            --set MOZ_ENABLE_WAYLAND 1 \
+            --set MOZ_DRM_DEVICE /dev/dri/card1 \
+            --set DRI_PRIME 0
+        '';
+    });
+in
 {
   services.xserver = {
     enable = true;
@@ -16,9 +30,14 @@
   };
 
   services.desktopManager.gnome.enable = true;
+  services.gnome.gnome-online-accounts.enable = true;
+  services.gnome.evolution-data-server.enable = true;
   services.printing.enable = true;
 
-  programs.firefox.enable = true;
+  programs.firefox = {
+    enable = true;
+    package = firefoxIntel;
+  };
   environment.systemPackages = with pkgs; [
     vim
     wget
