@@ -28,7 +28,7 @@
     prime = {
       offload = {
         enable = true;
-        enableOffloadCmd = true;
+        enableOffloadCmd = true; # installs /run/current-system/sw/bin/nvidia-offload
       };
       intelBusId = "PCI:0:2:0";
       nvidiaBusId = "PCI:1:0:0";
@@ -36,12 +36,6 @@
   };
 
   services.xserver.videoDrivers = [ "nvidia" "modesetting" ];
-
-  environment.variables = {
-    __GLX_VENDOR_LIBRARY_NAME = "nvidia";
-    __NV_PRIME_RENDER_OFFLOAD = "1";
-    __VK_LAYER_NV_optimus = "NVIDIA_only";
-  };
 
   boot.blacklistedKernelModules = [ "nouveau" ];
 
