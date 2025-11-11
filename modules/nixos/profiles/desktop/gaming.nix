@@ -17,6 +17,7 @@ in
       protontricks
       lutris
       wineWowPackages.full
+      discord
     ];
 
     environment.sessionVariables = {
