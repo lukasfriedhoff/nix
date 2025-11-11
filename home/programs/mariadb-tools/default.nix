@@ -2,6 +2,6 @@
 
 {
   home.packages = [
-    pkgs.mariadb-client
+    pkgs.mariadb.client
   ];
 }
