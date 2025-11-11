@@ -2,7 +2,7 @@
 
 let
   firefoxIntel =
-    pkgs.firefox-wayland.overrideAttrs (old: {
+    pkgs.firefox-bin.overrideAttrs (old: {
       nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
       postInstall =
         (old.postInstall or "")
@@ -62,6 +62,18 @@ in
     description = "Lukas Friedhoff";
     extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [ gnome-terminal ];
+    subUidRanges = [
+      {
+        startUid = 100000;
+        count = 65536;
+      }
+    ];
+    subGidRanges = [
+      {
+        startGid = 100000;
+        count = 65536;
+      }
+    ];
   };
 
   environment.variables.EDITOR = lib.mkForce "vim";

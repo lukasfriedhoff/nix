@@ -26,7 +26,7 @@ in
     };
 
     # Sensible defaults
-    extraConfig = {
+    settings = {
       init.defaultBranch = "main";
       pull.ff            = "only";
       push.default       = "current";

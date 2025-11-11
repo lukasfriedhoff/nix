@@ -59,6 +59,10 @@
       flake =
         let
           linuxSystem = "x86_64-linux";
+          linuxPkgs = import nixpkgs {
+            system = linuxSystem;
+            config.allowUnfree = true;
+          };
           darwinSystem = "aarch64-darwin";
 
           linuxUser = "lukasf";
@@ -126,7 +130,7 @@
               home-manager.useGlobalPkgs = false;
               home-manager.useUserPackages = true;
               home-manager.backupFileExtension = "hm-backup";
-              home-manager.extraSpecialArgs = mkSpecialArgs profile;
+              home-manager.extraSpecialArgs = mkSpecialArgs profile // { pkgs = linuxPkgs; };
               home-manager.users.${linuxUser} = {
                 imports = extraImports;
               };
@@ -187,6 +191,7 @@
                 (mkDesktopHome "tux" [
                   stylix.homeModules.stylix
                   ./home
+                  ./home/hosts/tux.nix
                 ])
               ]
             );
@@ -260,12 +265,15 @@
           homeConfigurations =
             let
               mkStandaloneHome = { username, system, profile, extraImports ? [ ] }:
-                home-manager.lib.homeManagerConfiguration {
-                  pkgs = import nixpkgs {
+                let
+                  hmPkgs = import nixpkgs {
                     inherit system;
                     config.allowUnfree = true;
                   };
-                  extraSpecialArgs = mkSpecialArgs profile;
+                in
+                home-manager.lib.homeManagerConfiguration {
+                  pkgs = hmPkgs;
+                  extraSpecialArgs = mkSpecialArgs profile // { pkgs = hmPkgs; };
                   modules = [
                     ./home
                   ] ++ extraImports;
@@ -278,12 +286,15 @@
                 };
             in
             {
-              "${linuxUser}@desktop" = mkStandaloneHome {
-                username = linuxUser;
-                system = linuxSystem;
-                profile = "tux";
-                extraImports = [ stylix.homeModules.stylix ];
-              };
+            "${linuxUser}@desktop" = mkStandaloneHome {
+              username = linuxUser;
+              system = linuxSystem;
+              profile = "tux";
+              extraImports = [
+                stylix.homeModules.stylix
+                ./home/hosts/tux.nix
+              ];
+            };
               "${macUser}@macbook-pro" = mkStandaloneHome {
                 username = macUser;
                 system = darwinSystem;
