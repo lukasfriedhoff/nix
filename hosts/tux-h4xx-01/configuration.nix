@@ -13,7 +13,10 @@
   boot.loader.efi.canTouchEfiVariables = true;
   boot.supportedFilesystems = [ "ntfs" ];
 
-  desktop.gaming.enable = true;
+  desktop.gaming = {
+    enable = true;
+    defaultRenderer = "intel";
+  };
 
   fileSystems."/mnt/windows" = {
     device = "/dev/disk/by-uuid/5C3801A538017F70";

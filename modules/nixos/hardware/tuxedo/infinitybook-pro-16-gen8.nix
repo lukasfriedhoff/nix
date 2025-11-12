@@ -40,6 +40,7 @@
   boot.blacklistedKernelModules = [ "nouveau" ];
 
   environment.systemPackages = with pkgs; [
+    mesa-demos # provides glxinfo for quick renderer checks
     nvtopPackages.full
     powertop
   ];
