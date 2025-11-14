@@ -4,7 +4,7 @@
   security.pam.services.sudo_local.touchIdAuth = true;
 
   system = {
-    stateVersion = 25.05;
+    stateVersion = 6;
     configurationRevision = self.rev or self.dirtyRev or null;
 
     startup.chime = false;

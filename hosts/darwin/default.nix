@@ -28,28 +28,6 @@
 
   nixpkgs.config.allowUnfree = true;
 
-  # homebrew installation manager
-  nix-homebrew = {
-    user = macUser;
-    enable = true;
-    autoMigrate = true;
-  };
-
-  # home-manager config
-  home-manager = {
-    useGlobalPkgs = false;
-    useUserPackages = true;
-    users.${macUser} = {
-      imports = [
-        ../../home/default.nix
-      ];
-    };
-    backupFileExtension = "nixbak";
-    extraSpecialArgs = {
-      inherit inputs self macUser;
-    };
-  };
-
   # macOS-specific settings
   system.primaryUser = macUser;
   users.users.${macUser} = {

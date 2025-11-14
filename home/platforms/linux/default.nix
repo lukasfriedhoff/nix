@@ -1,16 +1,18 @@
 { pkgs, lib, ... }:
 {
-  home.packages = lib.mkIf (!pkgs.stdenv.isDarwin) (
-    lib.mkAfter (
-      with pkgs;
-      [
-        htop
-        intel-gpu-tools
-        pavucontrol
-        element-desktop
-      ]
-    )
-  );
+  home.packages =
+    lib.mkIf (!pkgs.stdenv.isDarwin) (
+      lib.mkAfter (
+        with pkgs;
+        [
+          htop
+          intel-gpu-tools
+          pavucontrol
+          element-desktop
+          chromium
+        ]
+      )
+    );
 
   xdg.desktopEntries."code" = lib.mkIf (!pkgs.stdenv.isDarwin) {
     name = "Visual Studio Code (Intel)";

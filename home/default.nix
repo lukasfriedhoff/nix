@@ -4,11 +4,21 @@
   lib,
   macUser,
   linuxUser,
+  profile ? null,
   ...
 }:
 let
   fallbackUser = if pkgs.stdenv.isDarwin then macUser else linuxUser;
   fallbackHome = if pkgs.stdenv.isDarwin then "/Users/${macUser}" else "/home/${linuxUser}";
+  personalDesktopProfiles = [
+    "srv4"
+    "tux"
+    "tab"
+  ];
+  installEvolutionOnProfile =
+    (!pkgs.stdenv.isDarwin)
+    && profile != null
+    && lib.elem profile personalDesktopProfiles;
 in
 {
   home = {
@@ -38,7 +48,6 @@ in
     ./programs/cassandra-tools/default.nix
     ./programs/mariadb-tools/default.nix
     ./programs/vscode/default.nix
-    ./programs/chromium/default.nix
     ./programs/evolution/default.nix
     # Theme customisations applied via stylix' home module.
     ./programs/stylix/default.nix
@@ -76,8 +85,13 @@ in
         pciutils
         usbutils
       ];
+      desktopPackages = with pkgs; [
+        python3
+      ];
     in
-    basePackages ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages;
+    basePackages
+    ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages
+    ++ desktopPackages;
 
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
@@ -89,7 +103,7 @@ in
     DRI_PRIME = "0";
   };
 
-  programs.evolution = {
+  programs.evolution = lib.mkIf installEvolutionOnProfile {
     enable = true;
     nextcloud.enable = true;
   };

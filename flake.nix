@@ -131,6 +131,7 @@
 
           mkSpecialArgs = profile: {
             inherit inputs linuxUser macUser;
+            inherit profile;
             repoRoot = self;
             secrets = secretsByProfile.${profile};
           };
@@ -259,11 +260,8 @@
                   useUserPackages = true;
                   backupFileExtension = "nixbak";
                   extraSpecialArgs = mkSpecialArgs "mac";
-                  nixpkgs = {
-                    path = inputs.nixpkgs;
-                    config.allowUnfree = true;
-                  };
                   users.${macUser} = {
+                    nixpkgs.config.allowUnfree = true;
                     imports = [
                       ./home
                       stylix.homeModules.stylix
