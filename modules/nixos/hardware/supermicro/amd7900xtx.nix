@@ -1,8 +1,18 @@
 { lib, pkgs, ... }:
 
 {
-  boot.initrd.availableKernelModules = [ "ahci" "nvme" "xhci_pci" "usbhid" "sd_mod" ];
-  boot.kernelModules = [ "kvm-amd" "ipmi_si" "ipmi_devintf" ];
+  boot.initrd.availableKernelModules = [
+    "ahci"
+    "nvme"
+    "xhci_pci"
+    "usbhid"
+    "sd_mod"
+  ];
+  boot.kernelModules = [
+    "kvm-amd"
+    "ipmi_si"
+    "ipmi_devintf"
+  ];
   boot.kernelParams = [
     "amdgpu.ppfeaturemask=0xffffffff"
     "pcie_aspm=off"

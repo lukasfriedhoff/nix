@@ -1,18 +1,20 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
-  firefoxIntel =
-    pkgs.firefox-bin.overrideAttrs (old: {
-      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
-      postInstall =
-        (old.postInstall or "")
-        + ''
-          wrapProgram $out/bin/firefox \
-            --set MOZ_ENABLE_WAYLAND 1 \
-            --set MOZ_DRM_DEVICE /dev/dri/card1 \
-            --set DRI_PRIME 0
-        '';
-    });
+  firefoxIntel = pkgs.firefox-bin.overrideAttrs (old: {
+    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
+    postInstall = (old.postInstall or "") + ''
+      wrapProgram $out/bin/firefox \
+        --set MOZ_ENABLE_WAYLAND 1 \
+        --set MOZ_DRM_DEVICE /dev/dri/card1 \
+        --set DRI_PRIME 0
+    '';
+  });
 in
 {
   services.xserver = {
@@ -61,7 +63,10 @@ in
   users.users.lukasf = {
     isNormalUser = true;
     description = "Lukas Friedhoff";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+    ];
     packages = with pkgs; [ gnome-terminal ];
     subUidRanges = [
       {

@@ -1,15 +1,32 @@
-{ config, lib, pkgs, secrets ? {}, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  secrets ? { },
+  ...
+}:
 
 let
   cfg = config.homelab.gitops;
-  inherit (lib) mkEnableOption mkIf mkOption types optionalString;
+  inherit (lib)
+    mkEnableOption
+    mkIf
+    mkOption
+    types
+    optionalString
+    ;
 
   primaryRoot = secrets.primary or secrets.root or null;
-  resolveSecret = file:
-    if file == null then null else
-    if lib.hasPrefix "/" file then file else
-      if primaryRoot != null then "${primaryRoot}/${file}"
-      else throw "homelab.gitops: relative secret '${file}' requires secrets.primary/root";
+  resolveSecret =
+    file:
+    if file == null then
+      null
+    else if lib.hasPrefix "/" file then
+      file
+    else if primaryRoot != null then
+      "${primaryRoot}/${file}"
+    else
+      throw "homelab.gitops: relative secret '${file}' requires secrets.primary/root";
 
   workdir = "/var/lib/nixos-gitops";
   sshDir = "/etc/nixos-gitops";
@@ -67,11 +84,15 @@ in
       }
     ];
 
-    environment.systemPackages = lib.mkIf (cfg.repoURL != null) [ pkgs.git pkgs.nixos-rebuild ];
+    environment.systemPackages = lib.mkIf (cfg.repoURL != null) [
+      pkgs.git
+      pkgs.nixos-rebuild
+    ];
 
     systemd.tmpfiles.rules = [
       "d ${workdir} 0750 root root -"
-    ] ++ lib.optionals (cfg.sshKeyFile != null) [
+    ]
+    ++ lib.optionals (cfg.sshKeyFile != null) [
       "d ${sshDir} 0700 root root -"
     ];
 
@@ -86,10 +107,9 @@ in
       description = "NixOS GitOps deploy";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      environment =
-        lib.optionalAttrs (cfg.sshKeyFile != null) {
-          GIT_SSH_COMMAND = "ssh -i ${sshDir}/id_ed25519 -o StrictHostKeyChecking=no";
-        };
+      environment = lib.optionalAttrs (cfg.sshKeyFile != null) {
+        GIT_SSH_COMMAND = "ssh -i ${sshDir}/id_ed25519 -o StrictHostKeyChecking=no";
+      };
       serviceConfig = {
         Type = "oneshot";
         WorkingDirectory = workdir;

@@ -3,6 +3,6 @@
 {
   home.packages = [
     pkgs.cassandra
-    (import ./dsbulk.nix {inherit pkgs lib;})
+    (import ./dsbulk.nix { inherit pkgs lib; })
   ];
 }

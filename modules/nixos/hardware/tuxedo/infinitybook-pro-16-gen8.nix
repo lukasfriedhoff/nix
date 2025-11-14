@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   # Firmware & device support
@@ -16,7 +21,12 @@
   # Graphics: Intel iGPU + NVIDIA RTX 4070 Max-Q (01:00.0)
   hardware.graphics = {
     enable = true;
-    extraPackages = with pkgs; [ intel-media-driver intel-vaapi-driver libva-vdpau-driver libvdpau-va-gl ];
+    extraPackages = with pkgs; [
+      intel-media-driver
+      intel-vaapi-driver
+      libva-vdpau-driver
+      libvdpau-va-gl
+    ];
   };
 
   hardware.nvidia = {
@@ -35,7 +45,10 @@
     };
   };
 
-  services.xserver.videoDrivers = [ "nvidia" "modesetting" ];
+  services.xserver.videoDrivers = [
+    "nvidia"
+    "modesetting"
+  ];
 
   boot.blacklistedKernelModules = [ "nouveau" ];
 

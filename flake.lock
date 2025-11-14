@@ -85,6 +85,26 @@
         "type": "github"
       }
     },
+    "comin": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1762198614,
+        "narHash": "sha256-TKGq2NOYi8uZVY9VzsPqntrkyblHlyMNPPlYlFFNETA=",
+        "owner": "nlewo",
+        "repo": "comin",
+        "rev": "f0db7852fe4c47f2ac78964d4c212eb56a0a195d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nlewo",
+        "repo": "comin",
+        "type": "github"
+      }
+    },
     "darwin": {
       "inputs": {
         "nixpkgs": [
@@ -309,6 +329,7 @@
     },
     "root": {
       "inputs": {
+        "comin": "comin",
         "darwin": "darwin",
         "disko": "disko",
         "flake-parts": "flake-parts",

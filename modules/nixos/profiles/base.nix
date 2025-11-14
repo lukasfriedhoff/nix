@@ -20,7 +20,10 @@
   };
 
   # Core Nix settings shared by all systems. Per-profile modules decide on allowUnfree.
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
 
   # Default state version
   system.stateVersion = lib.mkDefault "25.05";

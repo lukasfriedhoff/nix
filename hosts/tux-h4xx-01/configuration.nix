@@ -15,7 +15,7 @@
 
   desktop.gaming = {
     enable = true;
-    defaultRenderer = "intel";
+    defaultRenderer = "nvidia";
   };
 
   # Power management

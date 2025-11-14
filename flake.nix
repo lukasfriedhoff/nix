@@ -21,40 +21,50 @@
 
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+
+    comin.url = "github:nlewo/comin";
+    comin.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{
-    self,
-    nixpkgs,
-    flake-parts,
-    home-manager,
-    stylix,
-    darwin,
-    nix-homebrew,
-    disko,
-    sops-nix,
-    ...
-  }:
+  outputs =
+    inputs@{
+      self,
+      nixpkgs,
+      flake-parts,
+      home-manager,
+      stylix,
+      darwin,
+      nix-homebrew,
+      disko,
+      sops-nix,
+      comin,
+      ...
+    }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "aarch64-darwin" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-darwin"
+      ];
 
-      perSystem = { system, pkgs, ... }: {
-        _module.args.pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ ];
-          config.allowUnfree = false;
+      perSystem =
+        { system, pkgs, ... }:
+        {
+          _module.args.pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ ];
+            config.allowUnfree = false;
+          };
+
+          formatter = pkgs.nixfmt-rfc-style or pkgs.nixfmt-classic;
+
+          devShells.default = pkgs.mkShell {
+            packages = with pkgs; [
+              git
+              nixfmt-rfc-style
+              sops
+            ];
+          };
         };
-
-        formatter = pkgs.nixfmt-rfc-style or pkgs.nixfmt-classic;
-
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            git
-            nixfmt-rfc-style
-            sops
-          ];
-        };
-      };
 
       flake =
         let
@@ -125,16 +135,17 @@
             secrets = secretsByProfile.${profile};
           };
 
-          mkDesktopHome = profile: extraImports:
-            {
-              home-manager.useGlobalPkgs = false;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "hm-backup";
-              home-manager.extraSpecialArgs = mkSpecialArgs profile // { pkgs = linuxPkgs; };
-              home-manager.users.${linuxUser} = {
-                imports = extraImports;
-              };
+          mkDesktopHome = profile: extraImports: {
+            home-manager.useGlobalPkgs = false;
+            home-manager.useUserPackages = true;
+            home-manager.backupFileExtension = "hm-backup";
+            home-manager.extraSpecialArgs = mkSpecialArgs profile // {
+              pkgs = linuxPkgs;
             };
+            home-manager.users.${linuxUser} = {
+              imports = extraImports;
+            };
+          };
 
           baseDesktopModules = [
             ./modules/nixos/profiles/base.nix
@@ -143,18 +154,16 @@
             sops-nix.nixosModules.sops
           ];
 
-          plasmaDesktopModules =
-            baseDesktopModules
-            ++ [ ./modules/nixos/profiles/desktop/plasma.nix ];
+          plasmaDesktopModules = baseDesktopModules ++ [ ./modules/nixos/profiles/desktop/plasma.nix ];
 
-          gnomeDesktopModules =
-            baseDesktopModules
-            ++ [ ./modules/nixos/profiles/desktop/gnome.nix ];
+          gnomeDesktopModules = baseDesktopModules ++ [ ./modules/nixos/profiles/desktop/gnome.nix ];
 
           baseServerModules = [
             ./modules/nixos/profiles/base.nix
             ./modules/nixos/profiles/dacoso/server.nix
             sops-nix.nixosModules.sops
+            comin.nixosModules.comin
+            ./modules/nixos/profiles/server/comin.nix
           ];
 
           homelabServerModules = [
@@ -162,12 +171,17 @@
             ./modules/nixos/profiles/homelab/kubernetes.nix
             ./modules/nixos/profiles/homelab/gitops.nix
             sops-nix.nixosModules.sops
+            comin.nixosModules.comin
+            ./modules/nixos/profiles/server/comin.nix
           ];
 
-          mkNixosHost = profile: extraModules:
+          mkNixosHost =
+            profile: extraModules:
             nixpkgs.lib.nixosSystem {
               system = linuxSystem;
-              specialArgs = mkSpecialArgs profile // { inherit inputs; };
+              specialArgs = mkSpecialArgs profile // {
+                inherit inputs;
+              };
               modules = extraModules;
             };
         in
@@ -259,12 +273,20 @@
                 nix-homebrew.user = macUser;
               }
             ];
-            specialArgs = mkSpecialArgs "mac" // { inherit self; };
+            specialArgs = mkSpecialArgs "mac" // {
+              inherit self;
+            };
           };
 
           homeConfigurations =
             let
-              mkStandaloneHome = { username, system, profile, extraImports ? [ ] }:
+              mkStandaloneHome =
+                {
+                  username,
+                  system,
+                  profile,
+                  extraImports ? [ ],
+                }:
                 let
                   hmPkgs = import nixpkgs {
                     inherit system;
@@ -273,28 +295,27 @@
                 in
                 home-manager.lib.homeManagerConfiguration {
                   pkgs = hmPkgs;
-                  extraSpecialArgs = mkSpecialArgs profile // { pkgs = hmPkgs; };
+                  extraSpecialArgs = mkSpecialArgs profile // {
+                    pkgs = hmPkgs;
+                  };
                   modules = [
                     ./home
-                  ] ++ extraImports;
+                  ]
+                  ++ extraImports;
                   username = username;
-                  homeDirectory =
-                    if system == darwinSystem then
-                      "/Users/${username}"
-                    else
-                      "/home/${username}";
+                  homeDirectory = if system == darwinSystem then "/Users/${username}" else "/home/${username}";
                 };
             in
             {
-            "${linuxUser}@desktop" = mkStandaloneHome {
-              username = linuxUser;
-              system = linuxSystem;
-              profile = "tux";
-              extraImports = [
-                stylix.homeModules.stylix
-                ./home/hosts/tux.nix
-              ];
-            };
+              "${linuxUser}@desktop" = mkStandaloneHome {
+                username = linuxUser;
+                system = linuxSystem;
+                profile = "tux";
+                extraImports = [
+                  stylix.homeModules.stylix
+                  ./home/hosts/tux.nix
+                ];
+              };
               "${macUser}@macbook-pro" = mkStandaloneHome {
                 username = macUser;
                 system = darwinSystem;

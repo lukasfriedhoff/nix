@@ -1,15 +1,31 @@
-{ config, lib, pkgs, secrets ? {}, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  secrets ? { },
+  ...
+}:
 
 let
   cfg = config.homelab.kubernetes;
-  inherit (lib) mkEnableOption mkIf mkOption types;
+  inherit (lib)
+    mkEnableOption
+    mkIf
+    mkOption
+    types
+    ;
 
   primaryRoot = secrets.primary or secrets.root or null;
-  resolveSecret = file:
-    if file == null then null else
-    if lib.hasPrefix "/" file then file else
-      if primaryRoot != null then "${primaryRoot}/${file}"
-      else throw "homelab.kubernetes.gitops: relative secret path '${file}' requires secrets.primary/root";
+  resolveSecret =
+    file:
+    if file == null then
+      null
+    else if lib.hasPrefix "/" file then
+      file
+    else if primaryRoot != null then
+      "${primaryRoot}/${file}"
+    else
+      throw "homelab.kubernetes.gitops: relative secret path '${file}' requires secrets.primary/root";
 
   kubeconfig = "/etc/rancher/k3s/k3s.yaml";
   gitSshDir = "/etc/gitops/flux";
@@ -99,13 +115,22 @@ in
           "--disable traefik"
           "--disable servicelb"
           "--write-kubeconfig-mode 640"
-        ] ++ cfg.extraK3sFlags
+        ]
+        ++ cfg.extraK3sFlags
       );
     };
 
     networking.firewall = {
-      allowedTCPPorts = lib.mkAfter [ 6443 2379 2380 10250 ];
-      allowedUDPPorts = lib.mkAfter [ 8472 51820 ];
+      allowedTCPPorts = lib.mkAfter [
+        6443
+        2379
+        2380
+        10250
+      ];
+      allowedUDPPorts = lib.mkAfter [
+        8472
+        51820
+      ];
       checkReversePath = "loose";
     };
 
@@ -127,7 +152,8 @@ in
       requires = [ "k3s.service" ];
       environment = {
         KUBECONFIG = kubeconfig;
-      } // lib.optionalAttrs (cfg.gitops.sshKeyFile != null) {
+      }
+      // lib.optionalAttrs (cfg.gitops.sshKeyFile != null) {
         GIT_SSH_COMMAND = "ssh -i ${gitSshDir}/id_ed25519 -o StrictHostKeyChecking=no";
       };
       serviceConfig = {

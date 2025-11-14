@@ -59,7 +59,7 @@ Both controllers expose standard NVMe capabilities; firmware supports disk encry
 - Keep firmware packages enabled (`hardware.enableAllFirmware = true`).
 - Thunderbolt access rule in `services.udev.extraRules` grants `0660` permissions for logged-in users.
 - Install diagnostic tools (`nvtopPackages.full`, `powertop`) for GPU and power monitoring.
-- Set `desktop.gaming.defaultRenderer = "intel"` if you want the iGPU to handle compositing by default and rely on PRIME offload for discrete workloads.
+- Sessions default to the NVIDIA renderer for peak performance; set `desktop.gaming.defaultRenderer = "intel"` if you prefer the iGPU to handle compositing and only offload specific apps.
 - Enable `powerManagement.powertop.enable = true` to reapply powertop tunables on boot/resume and set `networking.networkmanager.wifi.powersave = true` to reduce idle draw from the Intel CNVi radio.
 
 This document should be updated whenever hardware changes (e.g., storage swap, docking expansion) or when new kernel quirks are discovered.

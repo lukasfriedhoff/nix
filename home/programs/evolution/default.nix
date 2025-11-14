@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.programs.evolution;
@@ -41,19 +46,18 @@ in
       }
     ];
 
-    home.packages =
-      [
-        cfg.package
-        pkgs.evolution-ews
-        pkgs.seahorse
-      ]
-      ++ lib.optionals cfg.nextcloud.enable [
-        pkgs.gnome-online-accounts
-        pkgs.evolution-data-server
-        pkgs.gnome-calendar
-        pkgs.gnome-contacts
-        pkgs.nextcloud-client
-      ];
+    home.packages = [
+      cfg.package
+      pkgs.evolution-ews
+      pkgs.seahorse
+    ]
+    ++ lib.optionals cfg.nextcloud.enable [
+      pkgs.gnome-online-accounts
+      pkgs.evolution-data-server
+      pkgs.gnome-calendar
+      pkgs.gnome-contacts
+      pkgs.nextcloud-client
+    ];
 
     # DConf tweaks ensure Evolution always proposes the right OpenPGP key.
     dconf.settings = {

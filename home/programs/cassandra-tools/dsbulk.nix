@@ -12,7 +12,10 @@ pkgs.stdenv.mkDerivation {
     sha256 = "sha256-yp1FH7fLuUQlnDt49NrUCkqUan7VsmPZlqas5HfAVoI=";
   };
 
-  buildInputs = [ pkgs.makeWrapper pkgs.temurin-bin-17 ];
+  buildInputs = [
+    pkgs.makeWrapper
+    pkgs.temurin-bin-17
+  ];
 
   dontBuild = true;
 

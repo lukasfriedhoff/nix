@@ -30,14 +30,20 @@
         "terminal.integrated.profiles.linux" = {
           Codex = {
             path = "bash";
-            args = [ "-lc" "codex" ];
+            args = [
+              "-lc"
+              "codex"
+            ];
             icon = "sparkle";
           };
         };
         "terminal.integrated.profiles.osx" = {
           Codex = {
             path = "bash";
-            args = [ "-lc" "codex" ];
+            args = [
+              "-lc"
+              "codex"
+            ];
             icon = "sparkle";
           };
         };

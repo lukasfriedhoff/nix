@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   homeDir = config.home.homeDirectory;
@@ -11,7 +16,10 @@ let
   userGid = toString (config.home.gid or 100);
 in
 {
-  home.packages = lib.mkAfter [ pkgs.podman pkgs.btop ];
+  home.packages = lib.mkAfter [
+    pkgs.podman
+    pkgs.btop
+  ];
 
   home.activation.ensureJDownloaderDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${jdownloaderConfigDir}" "${jdownloaderDownloadDir}"
@@ -28,18 +36,19 @@ in
         ExecStartPre = [
           "${podmanBin} pull ${jdownloaderImage}"
           "${podmanBin} rm --ignore jdownloader"
-          ''${podmanBin} create \
-            --name jdownloader \
-            --userns=keep-id \
-            --volume ${jdownloaderConfigDir}:/config:rw \
-            --volume ${jdownloaderDownloadDir}:/output:rw \
-            --publish 127.0.0.1:5800:5800 \
-            --publish 127.0.0.1:5900:5900 \
-            --env PUID=${userUid} \
-            --env PGID=${userGid} \
-            --env TZ=${timeZone} \
-            --label io.containers.autoupdate=registry \
-            ${jdownloaderImage}''
+          ''
+            ${podmanBin} create \
+                        --name jdownloader \
+                        --userns=keep-id \
+                        --volume ${jdownloaderConfigDir}:/config:rw \
+                        --volume ${jdownloaderDownloadDir}:/output:rw \
+                        --publish 127.0.0.1:5800:5800 \
+                        --publish 127.0.0.1:5900:5900 \
+                        --env PUID=${userUid} \
+                        --env PGID=${userGid} \
+                        --env TZ=${timeZone} \
+                        --label io.containers.autoupdate=registry \
+                        ${jdownloaderImage}''
         ];
         ExecStart = "${podmanBin} start --attach jdownloader";
         ExecStop = "${podmanBin} stop --ignore --time 10 jdownloader";

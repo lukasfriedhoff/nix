@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.desktop.gaming;
@@ -9,7 +14,10 @@ in
     enable = lib.mkEnableOption "Steam/Proton gaming stack";
 
     defaultRenderer = lib.mkOption {
-      type = lib.types.enum [ "intel" "nvidia" ];
+      type = lib.types.enum [
+        "intel"
+        "nvidia"
+      ];
       default = "nvidia";
       example = "intel";
       description = ''
@@ -34,22 +42,21 @@ in
       discord
     ];
 
-    environment.sessionVariables =
-      {
-        PROTON_ENABLE_NVAPI = "1";
-        DXVK_NVAPI_ALLOW_OTHER_DRIVERS = "1";
-        PROTON_EAC_RUNTIME = "1";
-        WINE_FULLSCREEN_FSR = "1";
-        VKD3D_CONFIG = "dxr11";
-        MANGOHUD = "1";
-        GAMEMODERUNEXEC = "1";
-      }
-      // lib.optionalAttrs (cfg.defaultRenderer == "nvidia") {
-        __GLX_VENDOR_LIBRARY_NAME = "nvidia";
-      }
-      // lib.optionalAttrs (cfg.defaultRenderer == "intel") {
-        __GLX_VENDOR_LIBRARY_NAME = "modesetting";
-      };
+    environment.sessionVariables = {
+      PROTON_ENABLE_NVAPI = "1";
+      DXVK_NVAPI_ALLOW_OTHER_DRIVERS = "1";
+      PROTON_EAC_RUNTIME = "1";
+      WINE_FULLSCREEN_FSR = "1";
+      VKD3D_CONFIG = "dxr11";
+      MANGOHUD = "1";
+      GAMEMODERUNEXEC = "1";
+    }
+    // lib.optionalAttrs (cfg.defaultRenderer == "nvidia") {
+      __GLX_VENDOR_LIBRARY_NAME = "nvidia";
+    }
+    // lib.optionalAttrs (cfg.defaultRenderer == "intel") {
+      __GLX_VENDOR_LIBRARY_NAME = "modesetting";
+    };
 
     programs.steam = {
       enable = true;

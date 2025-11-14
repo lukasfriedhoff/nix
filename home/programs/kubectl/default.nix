@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 {
   # Core kubectl & CLI tools
   home.packages = with pkgs; [
@@ -10,7 +15,7 @@
     kubernetes-helm
     # Add more as needed
   ];
-  imports = [ 
-    ./plugins.nix 
-    ];
+  imports = [
+    ./plugins.nix
+  ];
 }

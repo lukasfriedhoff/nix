@@ -1,4 +1,10 @@
-{ config, lib, pkgs, secrets ? {}, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  secrets ? { },
+  ...
+}:
 # Shared profile for Dacoso-managed servers. Secrets are resolved via the
 # `secrets` specialArg so work and personal machines can remain isolated.
 let
@@ -6,56 +12,72 @@ let
   primaryRoot = secrets.primary or secrets.root or null;
   sharedRoot = secrets.shared or null;
 
-  resolve = file:
-    if file == null then null else
+  resolve =
+    file:
+    if file == null then
+      null
+    else
+      let
+        pathString = toString file;
+        resolveRelative =
+          if cfg.secretsDirectory != null then
+            "${cfg.secretsDirectory}/${pathString}"
+          else
+            let
+              candidates =
+                (lib.optional (primaryRoot != null) "${primaryRoot}/${pathString}")
+                ++ (lib.optional (sharedRoot != null) "${sharedRoot}/${pathString}");
+              existing = lib.findFirst (p: builtins.pathExists p) null candidates;
+            in
+            if existing != null then
+              existing
+            else if candidates != [ ] then
+              lib.head candidates
+            else
+              pathString;
+      in
+      if lib.hasPrefix "/" pathString then pathString else resolveRelative;
+
+  readHash =
+    file:
     let
-      pathString = toString file;
-      resolveRelative =
-        if cfg.secretsDirectory != null then
-          "${cfg.secretsDirectory}/${pathString}"
-        else
-          let
-            candidates =
-              (lib.optional (primaryRoot != null) "${primaryRoot}/${pathString}")
-              ++ (lib.optional (sharedRoot != null) "${sharedRoot}/${pathString}");
-            existing = lib.findFirst (p: builtins.pathExists p) null candidates;
-          in
-            if existing != null then existing
-            else if candidates != [ ] then lib.head candidates
-            else pathString;
+      resolved = resolve file;
     in
-      if lib.hasPrefix "/" pathString then
-        pathString
-      else
-        resolveRelative;
+    if resolved == null then null else lib.strings.trim (builtins.readFile resolved);
 
-  readHash = file:
-    let resolved = resolve file;
-    in if resolved == null then null else lib.strings.trim (builtins.readFile resolved);
-
-  readKeys = files:
-    lib.flatten (map
-      (file:
+  readKeys =
+    files:
+    lib.flatten (
+      map (
+        file:
         let
           resolved = resolve file;
-        in if resolved == null then [ ] else
-          lib.filter (line: line != "")
-            (map lib.strings.trim (lib.splitString "\n" (builtins.readFile resolved)))
-      )
-      files
+        in
+        if resolved == null then
+          [ ]
+        else
+          lib.filter (line: line != "") (
+            map lib.strings.trim (lib.splitString "\n" (builtins.readFile resolved))
+          )
+      ) files
     );
 
   rootPasswordHash =
-    let fromFile = readHash cfg.passwordFiles.root;
-    in if fromFile != null then fromFile else cfg.hashedPasswords.root;
+    let
+      fromFile = readHash cfg.passwordFiles.root;
+    in
+    if fromFile != null then fromFile else cfg.hashedPasswords.root;
 
   nixosPasswordHash =
-    let fromFile = readHash cfg.passwordFiles.nixos;
-    in if fromFile != null then fromFile else cfg.hashedPasswords.nixos;
+    let
+      fromFile = readHash cfg.passwordFiles.nixos;
+    in
+    if fromFile != null then fromFile else cfg.hashedPasswords.nixos;
 
   nixosAuthorizedKeys = cfg.sshKeys.nixos ++ readKeys cfg.sshKeyFiles.nixos;
-  rootAuthorizedKeys =
-    lib.unique (cfg.sshKeys.root ++ readKeys cfg.sshKeyFiles.root ++ nixosAuthorizedKeys);
+  rootAuthorizedKeys = lib.unique (
+    cfg.sshKeys.root ++ readKeys cfg.sshKeyFiles.root ++ nixosAuthorizedKeys
+  );
 
   githubKeyDir = "/var/lib/dacoso-github-keys";
   githubKeyFile = "${githubKeyDir}/github.keys";
@@ -87,27 +109,35 @@ let
   repoKeysFile =
     let
       repo = cfg.authorizedKeysRepo;
-      sanitize = content:
-        lib.filter (line: line != "")
-          (map lib.strings.trim (lib.splitString "\n" content));
+      sanitize =
+        content: lib.filter (line: line != "") (map lib.strings.trim (lib.splitString "\n" content));
     in
-      if repo == null then null else
-        let
-          repoPath = pkgs.fetchgit {
-            inherit (repo) url rev sha256;
-            fetchSubmodules = repo.fetchSubmodules or false;
-          };
-          repoStr = toString repoPath;
-          files = repo.files or [ "authorized_keys" ];
-          contents = lib.concatStringsSep "\n"
-            (lib.flatten
-              (map (file:
-                let path = "${repoStr}/${file}";
-                in if builtins.pathExists path then sanitize (builtins.readFile path)
-                else lib.warn "dacoso.server: repo file ${file} not found" [ ]
-              ) files));
-        in
-          if contents == "" then null else pkgs.writeText "dacoso-shared-keys" (contents + "\n");
+    if repo == null then
+      null
+    else
+      let
+        repoPath = pkgs.fetchgit {
+          inherit (repo) url rev sha256;
+          fetchSubmodules = repo.fetchSubmodules or false;
+        };
+        repoStr = toString repoPath;
+        files = repo.files or [ "authorized_keys" ];
+        contents = lib.concatStringsSep "\n" (
+          lib.flatten (
+            map (
+              file:
+              let
+                path = "${repoStr}/${file}";
+              in
+              if builtins.pathExists path then
+                sanitize (builtins.readFile path)
+              else
+                lib.warn "dacoso.server: repo file ${file} not found" [ ]
+            ) files
+          )
+        );
+      in
+      if contents == "" then null else pkgs.writeText "dacoso-shared-keys" (contents + "\n");
 
   repoKeyFiles = lib.optionals (repoKeysFile != null) [ repoKeysFile ];
 in
@@ -172,30 +202,34 @@ in
     };
 
     authorizedKeysRepo = lib.mkOption {
-      type = lib.types.nullOr (lib.types.submodule ({ options = {
-        url = lib.mkOption {
-          type = lib.types.str;
-          description = "Git repository URL containing shared public keys.";
-        };
-        rev = lib.mkOption {
-          type = lib.types.str;
-          description = "Pinned Git revision for reproducible deployments.";
-        };
-        sha256 = lib.mkOption {
-          type = lib.types.str;
-          description = "Expected SHA256 of the fetched repository.";
-        };
-        fetchSubmodules = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = "Whether to fetch submodules when pulling the repository.";
-        };
-        files = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [ "authorized_keys" ];
-          description = "Relative file paths inside the repository that contain OpenSSH public keys.";
-        };
-      }; }));
+      type = lib.types.nullOr (
+        lib.types.submodule ({
+          options = {
+            url = lib.mkOption {
+              type = lib.types.str;
+              description = "Git repository URL containing shared public keys.";
+            };
+            rev = lib.mkOption {
+              type = lib.types.str;
+              description = "Pinned Git revision for reproducible deployments.";
+            };
+            sha256 = lib.mkOption {
+              type = lib.types.str;
+              description = "Expected SHA256 of the fetched repository.";
+            };
+            fetchSubmodules = lib.mkOption {
+              type = lib.types.bool;
+              default = false;
+              description = "Whether to fetch submodules when pulling the repository.";
+            };
+            files = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ "authorized_keys" ];
+              description = "Relative file paths inside the repository that contain OpenSSH public keys.";
+            };
+          };
+        })
+      );
       default = null;
       description = "Repository providing shared authorized_keys material for work hosts.";
     };
@@ -254,9 +288,9 @@ in
       };
     };
 
-    services.openssh.authorizedKeysFiles =
-      lib.mkIf (cfg.githubAccounts != [ ])
-        (lib.mkAfter [ "${githubKeyDir}/github.keys" ]);
+    services.openssh.authorizedKeysFiles = lib.mkIf (cfg.githubAccounts != [ ]) (
+      lib.mkAfter [ "${githubKeyDir}/github.keys" ]
+    );
 
     systemd.tmpfiles.rules = lib.optionals (cfg.githubAccounts != [ ]) [
       "d ${githubKeyDir} 0700 root root -"
@@ -271,14 +305,16 @@ in
       };
     };
 
-    systemd.timers.dacoso-github-keys = lib.mkIf (cfg.githubAccounts != [ ] && cfg.githubRefreshInterval != null) {
-      description = "Periodic refresh of GitHub SSH keys";
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnCalendar = cfg.githubRefreshInterval;
-        Persistent = true;
-      };
-    };
+    systemd.timers.dacoso-github-keys =
+      lib.mkIf (cfg.githubAccounts != [ ] && cfg.githubRefreshInterval != null)
+        {
+          description = "Periodic refresh of GitHub SSH keys";
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnCalendar = cfg.githubRefreshInterval;
+            Persistent = true;
+          };
+        };
 
     system.activationScripts.dacosoGithubKeys = lib.mkIf (cfg.githubAccounts != [ ]) ''
       echo "syncing GitHub keys for dacoso server users"
@@ -287,7 +323,10 @@ in
 
     services.prometheus.exporters.node.enable = cfg.enableNodeExporter;
 
-    nix.settings.experimental-features = [ "nix-command" "flakes" ];
+    nix.settings.experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
 
     users.mutableUsers = false;
     programs.direnv.enable = true;
@@ -307,7 +346,11 @@ in
         isNormalUser = true;
         shell = pkgs.bash;
         description = "nixos user";
-        extraGroups = [ "networkmanager" "wheel" "docker" ];
+        extraGroups = [
+          "networkmanager"
+          "wheel"
+          "docker"
+        ];
         openssh.authorizedKeys = {
           keys = nixosAuthorizedKeys;
           keyFiles = repoKeyFiles;

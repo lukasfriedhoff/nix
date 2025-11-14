@@ -3,10 +3,12 @@
   config,
   lib,
   ...
-}: let
+}:
+let
   # Catppuccin Mocha palette shipped with stylix; override if you fancy another theme.
   theme = "${pkgs.base16-schemes}/share/themes/catppuccin-mocha.yaml";
-in {
+in
+{
   stylix = {
     enable = true;
     # Prefetch wallpaper via stylix to keep switches pure. Swap to a local file if you prefer.

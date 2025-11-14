@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.29.2/install
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Format check
+        run: nix fmt -- --check .
+
+      - name: Flake checks
+        run: nix flake check --print-build-logs

@@ -1,12 +1,17 @@
 # home/programs/aws/default.nix
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   aws = pkgs.awscli2;
 in
 {
   # Replace s3cli with the official AWS CLI
-  home.packages = [ 
+  home.packages = [
     aws
     pkgs.stu
     pkgs.minio-client

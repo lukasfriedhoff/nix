@@ -1,11 +1,16 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
-  kvantumPackages =
-    lib.filter (pkg: pkg != null) [
-      (pkgs.qt6Packages.qtstyleplugin-kvantum or null)
-      (pkgs.libsForQt5.qtstyleplugin-kvantum or null)
-    ];
-in {
+  kvantumPackages = lib.filter (pkg: pkg != null) [
+    (pkgs.qt6Packages.qtstyleplugin-kvantum or null)
+    (pkgs.libsForQt5.qtstyleplugin-kvantum or null)
+  ];
+in
+{
   # Desktop environment (Plasma 6)
   services = {
     xserver = {
@@ -35,7 +40,10 @@ in {
   users.users.lukasf = {
     isNormalUser = true;
     description = "Lukas Friedhoff";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+    ];
     packages = with pkgs; [ kdePackages.kate ];
   };
 

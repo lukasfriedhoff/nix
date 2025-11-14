@@ -7,13 +7,8 @@
   ...
 }:
 let
-  fallbackUser =
-    if pkgs.stdenv.isDarwin then macUser else linuxUser;
-  fallbackHome =
-    if pkgs.stdenv.isDarwin then
-      "/Users/${macUser}"
-    else
-      "/home/${linuxUser}";
+  fallbackUser = if pkgs.stdenv.isDarwin then macUser else linuxUser;
+  fallbackHome = if pkgs.stdenv.isDarwin then "/Users/${macUser}" else "/home/${linuxUser}";
 in
 {
   home = {
@@ -25,33 +20,32 @@ in
 
   nixpkgs.config.allowUnfree = lib.mkDefault true;
 
-  imports =
-    [
-      ./shell/bash/default.nix
-      ./programs/alacritty/default.nix
-      ./programs/starship/default.nix
-      ./programs/git/default.nix
-      ./programs/lazygit/default.nix
-      ./programs/neovim/default.nix
-      ./programs/gpg/default.nix
-      ./programs/ssh/default.nix
-      ./programs/sops-age/default.nix
-      ./programs/k9s/default.nix
-      ./programs/kubectl/default.nix
-      ./programs/velero/default.nix
-      ./programs/s3/default.nix
-      ./programs/maven-config/default.nix
-      ./programs/cassandra-tools/default.nix
-      ./programs/mariadb-tools/default.nix
-      ./programs/vscode/default.nix
-      ./programs/chromium/default.nix
-      ./programs/evolution/default.nix
-      # Theme customisations applied via stylix' home module.
-      ./programs/stylix/default.nix
-      ./programs/codex/default.nix
-      ./platforms/linux/default.nix
-      ./platforms/macos/default.nix
-    ];
+  imports = [
+    ./shell/bash/default.nix
+    ./programs/alacritty/default.nix
+    ./programs/starship/default.nix
+    ./programs/git/default.nix
+    ./programs/lazygit/default.nix
+    ./programs/neovim/default.nix
+    ./programs/gpg/default.nix
+    ./programs/ssh/default.nix
+    ./programs/sops-age/default.nix
+    ./programs/k9s/default.nix
+    ./programs/kubectl/default.nix
+    ./programs/velero/default.nix
+    ./programs/s3/default.nix
+    ./programs/maven-config/default.nix
+    ./programs/cassandra-tools/default.nix
+    ./programs/mariadb-tools/default.nix
+    ./programs/vscode/default.nix
+    ./programs/chromium/default.nix
+    ./programs/evolution/default.nix
+    # Theme customisations applied via stylix' home module.
+    ./programs/stylix/default.nix
+    ./programs/codex/default.nix
+    ./platforms/linux/default.nix
+    ./platforms/macos/default.nix
+  ];
 
   home.packages =
     let

@@ -1,4 +1,11 @@
-{ modulesPath, config, lib, pkgs, ... }: {
+{
+  modulesPath,
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+{
   imports = [
     (modulesPath + "/installer/scan/not-detected.nix")
     (modulesPath + "/profiles/qemu-guest.nix")
@@ -15,10 +22,12 @@
   networking = {
     hostName = "docker-host-01"; # Define your hostname.
     # set static ip
-    interfaces.ens18.ipv4.addresses = [ {
-      address = "10.7.5.5";
-      prefixLength = 24;
-    }];
+    interfaces.ens18.ipv4.addresses = [
+      {
+        address = "10.7.5.5";
+        prefixLength = 24;
+      }
+    ];
     defaultGateway = "10.7.5.254";
     nameservers = [ "1.1.1.1" ];
   };

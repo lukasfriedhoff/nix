@@ -54,7 +54,10 @@
   users.users.lukasf = {
     isNormalUser = true;
     description = "Lukas Friedhoff";
-    extraGroups = [ "wheel" "docker" ];
+    extraGroups = [
+      "wheel"
+      "docker"
+    ];
     openssh.authorizedKeys.keys = [ ];
   };
   virtualisation.docker.enable = true;
