@@ -34,7 +34,7 @@
     powerManagement.enable = true;
     powerManagement.finegrained = true;
     open = true;
-    package = config.boot.kernelPackages.nvidiaPackages.latest;
+    package = config.boot.kernelPackages.nvidiaPackages.beta;
     prime = {
       offload = {
         enable = true;
@@ -51,6 +51,9 @@
   ];
 
   boot.blacklistedKernelModules = [ "nouveau" ];
+  boot.kernelParams = [
+    "acpi_mask_gpe=0x6F"
+  ];
 
   environment.systemPackages = with pkgs; [
     mesa-demos # provides glxinfo for quick renderer checks
