@@ -84,6 +84,10 @@ in
         iftop
         pciutils
         usbutils
+        wl-clipboard
+        intel-gpu-tools
+        iotop
+        (linuxPackages_latest.turbostat or linuxPackages.turbostat)
       ];
       desktopPackages = with pkgs; [
         python3

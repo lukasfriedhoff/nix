@@ -78,54 +78,69 @@
           linuxUser = "lukasf";
           macUser = "lukasfriedhoff";
 
-          sharedSecretsRoot = "${self}/secrets/shared";
-          personalSecretsRoot = host: "${self}/secrets/personal/${host}";
-          dacosoSecretsRoot = host: "${self}/secrets/dacoso/${host}";
-          hostSecretsRoot = host: "${self}/secrets/hosts/${host}";
+          profilesRoot = "${self}/secrets/profiles";
+          sharedCommonRoot = "${profilesRoot}/common/shared";
+          personalProfileRoot = "${profilesRoot}/personal";
+          workProfileRoot = "${profilesRoot}/work";
+
+          personalDesktopRoot = host: "${personalProfileRoot}/desktops/${host}";
+          personalServerRoot = host: "${personalProfileRoot}/servers/${host}";
+          workDesktopRoot = host: "${workProfileRoot}/desktops/${host}";
+          workServerRoot = host: "${workProfileRoot}/servers/${host}";
+
+          personalSharedRoot = "${personalProfileRoot}/shared";
+          workSharedRoot = "${workProfileRoot}/shared";
 
           # Secret roots per host / profile.
           secretsByProfile = {
             srv4 = {
-              primary = personalSecretsRoot "srv4-vm-01";
-              shared = sharedSecretsRoot;
-              root = personalSecretsRoot "srv4-vm-01";
-              personal = personalSecretsRoot "srv4-vm-01";
+              primary = personalServerRoot "srv4-vm-01";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              root = personalServerRoot "srv4-vm-01";
+              personal = personalServerRoot "srv4-vm-01";
             };
             tux = {
-              primary = personalSecretsRoot "tux-h4xx-01";
-              shared = sharedSecretsRoot;
-              root = personalSecretsRoot "tux-h4xx-01";
-              personal = personalSecretsRoot "tux-h4xx-01";
+              primary = personalDesktopRoot "tux-h4xx-01";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              root = personalDesktopRoot "tux-h4xx-01";
+              personal = personalDesktopRoot "tux-h4xx-01";
             };
             tab = {
-              primary = personalSecretsRoot "tab-h4xx-02";
-              shared = sharedSecretsRoot;
-              root = personalSecretsRoot "tab-h4xx-02";
-              personal = personalSecretsRoot "tab-h4xx-02";
+              primary = personalDesktopRoot "tab-h4xx-02";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              root = personalDesktopRoot "tab-h4xx-02";
+              personal = personalDesktopRoot "tab-h4xx-02";
             };
             "smc-gpu-01" = {
-              primary = personalSecretsRoot "smc-gpu-01";
-              shared = sharedSecretsRoot;
-              root = personalSecretsRoot "smc-gpu-01";
-              personal = personalSecretsRoot "smc-gpu-01";
+              primary = personalServerRoot "smc-gpu-01";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              root = personalServerRoot "smc-gpu-01";
+              personal = personalServerRoot "smc-gpu-01";
             };
             mac = {
-              primary = dacosoSecretsRoot "Macbook-Pro.local";
-              shared = sharedSecretsRoot;
-              root = dacosoSecretsRoot "Macbook-Pro.local";
-              dacoso = dacosoSecretsRoot "Macbook-Pro.local";
+              primary = workDesktopRoot "macbook-pro";
+              shared = sharedCommonRoot;
+              profileShared = workSharedRoot;
+              root = workDesktopRoot "macbook-pro";
+              dacoso = workDesktopRoot "macbook-pro";
             };
             docker-host-01 = {
-              primary = hostSecretsRoot "docker-host-01";
-              shared = sharedSecretsRoot;
-              root = hostSecretsRoot "docker-host-01";
-              dacoso = dacosoSecretsRoot "Macbook-Pro.local";
+              primary = workServerRoot "docker-host-01";
+              shared = sharedCommonRoot;
+              profileShared = workSharedRoot;
+              root = workServerRoot "docker-host-01";
+              dacoso = workDesktopRoot "macbook-pro";
             };
             timebutler-test-vm = {
-              primary = hostSecretsRoot "timebutler-test-vm";
-              shared = sharedSecretsRoot;
-              root = hostSecretsRoot "timebutler-test-vm";
-              dacoso = dacosoSecretsRoot "Macbook-Pro.local";
+              primary = workServerRoot "timebutler-test-vm";
+              shared = sharedCommonRoot;
+              profileShared = workSharedRoot;
+              root = workServerRoot "timebutler-test-vm";
+              dacoso = workDesktopRoot "macbook-pro";
             };
           };
 
@@ -150,6 +165,7 @@
 
           baseDesktopModules = [
             ./modules/nixos/profiles/base.nix
+            ./modules/nixos/services/wireguard-homelab.nix
             stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
             sops-nix.nixosModules.sops
@@ -161,6 +177,7 @@
 
           baseServerModules = [
             ./modules/nixos/profiles/base.nix
+            ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/profiles/dacoso/server.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
@@ -169,6 +186,7 @@
 
           homelabServerModules = [
             ./modules/nixos/profiles/base.nix
+            ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/profiles/homelab/kubernetes.nix
             ./modules/nixos/profiles/homelab/gitops.nix
             sops-nix.nixosModules.sops

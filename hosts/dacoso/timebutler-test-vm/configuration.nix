@@ -40,7 +40,7 @@
   ];
 
   dacoso.server = {
-    # Pull hashed passwords / authorized keys from the work secrets bucket under secrets/hosts/timebutler-test-vm/.
+    # Pull hashed passwords / authorized keys from secrets/profiles/work/servers/timebutler-test-vm/.
     passwordFiles = {
       root = "root-password.hash";
       nixos = "nixos-password.hash";

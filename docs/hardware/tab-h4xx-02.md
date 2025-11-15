@@ -12,5 +12,5 @@ If you replace the storage or the kernel fixes this upstream, remove the workaro
 ## Bring-up Checklist
 
 1. Regenerate `hosts/tab-h4xx-02/hardware-configuration.nix` on the device (`nixos-generate-config`).
-2. Ensure the `tab` secrets profile has the required SOPS files under `secrets/personal/tab-h4xx-02/`.
+2. Ensure the `tab` secrets profile has the required SOPS files under `secrets/profiles/personal/desktops/tab-h4xx-02/`.
 3. Deploy via `nixos-rebuild --flake .#tab-h4xx-02 switch`.

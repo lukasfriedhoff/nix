@@ -12,17 +12,17 @@ Companion to the Codex automation for the Nix repo.
 
 ## 2. Secrets Layout Verification
 - Ensure the new per-host secret directories exist:
-  - `secrets/personal/srv4-vm-01/`
-  - `secrets/personal/tux-h4xx-01/`
-  - `secrets/personal/tab-h4xx-02/`
-  - `secrets/personal/smc-gpu-01/`
-  - `secrets/dacoso/Macbook-Pro.local/`
-  - `secrets/hosts/docker-host-01/`
-  - `secrets/hosts/timebutler-test-vm/`
-  - `secrets/shared/` for personal SSH/GPG/API tokens
-  - Run `sops secrets/hosts/docker-host-01/root-password.hash` (and similar) to confirm encryption uses the intended recipient.
+  - `secrets/profiles/personal/desktops/tux-h4xx-01/`
+  - `secrets/profiles/personal/desktops/tab-h4xx-02/`
+  - `secrets/profiles/personal/servers/srv4-vm-01/`
+  - `secrets/profiles/personal/servers/smc-gpu-01/`
+  - `secrets/profiles/work/desktops/macbook-pro/`
+  - `secrets/profiles/work/servers/docker-host-01/`
+  - `secrets/profiles/work/servers/timebutler-test-vm/`
+  - `secrets/profiles/common/shared/` for cross-profile SSH/GPG/API tokens
+  - Run `sops secrets/profiles/work/servers/docker-host-01/root-password.hash` (and similar) to confirm encryption uses the intended recipient.
   - Re-encrypt any plain-text files with `sops --encrypt --in-place …` so they pick up the new Age recipient rules.
-  - Update/commit any host-specific secrets under the matching directory; keep cross-host material in `secrets/shared/`.
+  - Update/commit any host-specific secrets under the matching directory; keep cross-profile material in `secrets/profiles/common/shared/`.
 
 ## 3. Codex CLI & Neovim Integration
 - Ensure `OPENAI_API_KEY` is available. Home Manager decrypts `openai.env` into `~/.config/secrets/openai.env` and shells source it automatically; keep that secret up to date or override it manually:

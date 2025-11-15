@@ -7,7 +7,7 @@ Usage: scripts/servers/create-management-key.sh <host> <scope>
 
 Scopes:
   personal   -> installs keys for ~/.ssh on tux + tab and writes public key for the host
-  dacoso     -> installs keys for the Macbook Pro secret tree
+  work/dacoso -> installs keys for the Macbook Pro secret tree
 
 Example:
   scripts/servers/create-management-key.sh docker-host-01 dacoso
@@ -30,19 +30,21 @@ identity_hint="personal"
 case "${scope}" in
   personal)
     manager_paths=(
-      "secrets/personal/tux-h4xx-01/ssh"
-      "secrets/personal/tab-h4xx-02/ssh"
+      "secrets/profiles/personal/desktops/tux-h4xx-01/ssh"
+      "secrets/profiles/personal/desktops/tab-h4xx-02/ssh"
     )
     identity_hint="personal"
+    host_scope_dir="secrets/profiles/personal/servers/${host}/ssh"
     ;;
-  dacoso)
+  dacoso|work)
     manager_paths=(
-      "secrets/dacoso/Macbook-Pro.local/ssh"
+      "secrets/profiles/work/desktops/macbook-pro/ssh"
     )
     identity_hint="work"
+    host_scope_dir="secrets/profiles/work/servers/${host}/ssh"
     ;;
   *)
-    echo "!! Unknown scope '${scope}'. Use 'personal' or 'dacoso'." >&2
+    echo "!! Unknown scope '${scope}'. Use 'personal' or 'work' (alias 'dacoso')." >&2
     exit 2
     ;;
 esac
@@ -59,10 +61,9 @@ for dir in "${manager_paths[@]}"; do
   fi
 done
 
-host_secret_dir="secrets/hosts/${host}/ssh"
-mkdir -p "${host_secret_dir}"
-cp "${tmpdir}/id_ed25519.pub" "${host_secret_dir}/${key_label}.pub"
-echo ">> Saved public key to ${host_secret_dir}/${key_label}.pub"
+mkdir -p "${host_scope_dir}"
+cp "${tmpdir}/id_ed25519.pub" "${host_scope_dir}/${key_label}.pub"
+echo ">> Saved public key to ${host_scope_dir}/${key_label}.pub"
 
 cat <<EOF
 

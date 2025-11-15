@@ -3,10 +3,10 @@
 Use this guide when a machine is booted into the stock NixOS installer (ISO,
 PXE, kexec). The workflow is optimised for two classes of machines:
 
-| Scope     | Managers that receive the private key | Secrets root                           |
-|-----------|---------------------------------------|----------------------------------------|
-| personal  | `tux-h4xx-01`, `tab-h4xx-02`          | `secrets/personal/<manager>/ssh`       |
-| dacoso    | `Macbook-Pro.local`                   | `secrets/dacoso/Macbook-Pro.local/ssh` |
+| Scope     | Managers that receive the private key | Secrets root                                           |
+|-----------|---------------------------------------|--------------------------------------------------------|
+| personal  | `tux-h4xx-01`, `tab-h4xx-02`          | `secrets/profiles/personal/desktops/<manager>/ssh`     |
+| work      | `macbook-pro`                         | `secrets/profiles/work/desktops/macbook-pro/ssh`       |
 
 ### 0. Prerequisites
 
@@ -14,8 +14,9 @@ PXE, kexec). The workflow is optimised for two classes of machines:
 - `ssh`, `sops`, and [`nixos-anywhere`](https://github.com/nix-community/nixos-anywhere)
   (the wrapper script calls it via `nix run`)
 - Reachability (wired LAN or console access) to the installer
-- The host’s secrets directory under `secrets/hosts/<hostname>` – used to store
-  bootstrap credentials and authorized keys
+- The host’s secrets directory under
+  `secrets/profiles/<scope>/servers/<hostname>` – used to store bootstrap
+  credentials and authorized keys
 
 ### 1. Generate a dedicated management key
 
@@ -33,14 +34,14 @@ What this does:
 1. Generates an Ed25519 key pair under `tmp/`.
 2. Encrypts the private key into the appropriate secret directories (based on
    `.sops.yaml` rules).
-3. Stores the public key under `secrets/hosts/<hostname>/ssh/`.
+3. Stores the public key under `secrets/profiles/<scope>/servers/<hostname>/ssh/`.
 4. Prints a ready-to-paste entry for `resources/ssh/hosts.nix`.
 
 Commit the resulting secret files (they are encrypted). On the managing
 workstations you can decrypt/install the key with:
 
 ```bash
-sops -d secrets/personal/tux-h4xx-01/ssh/<host>-personal-mgmt.priv > ~/.ssh/<host>-mgmt
+sops -d secrets/profiles/personal/desktops/tux-h4xx-01/ssh/<host>-personal-mgmt.priv > ~/.ssh/<host>-mgmt
 chmod 600 ~/.ssh/<host>-mgmt
 ```
 
@@ -54,7 +55,7 @@ public key into `/root/.ssh/authorized_keys`:
 
 ```bash
 host=docker-host-01
-pub="secrets/hosts/${host}/ssh/${host}-dacoso-mgmt.pub"
+pub="secrets/profiles/work/servers/${host}/ssh/${host}-work-mgmt.pub"
 scp "${pub}" root@<installer-ip>:/tmp/mgmt.pub
 ssh root@<installer-ip> "mkdir -p /root/.ssh && cat /tmp/mgmt.pub >> /root/.ssh/authorized_keys"
 ```

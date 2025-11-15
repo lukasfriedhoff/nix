@@ -10,6 +10,7 @@
 let
   # The flake passes both profile-specific and shared roots.
   primaryDir = secrets.primary or secrets.root;
+  profileSharedDir = secrets.profileShared or null;
   sharedDir = secrets.shared or null;
 
   secretPath =
@@ -17,6 +18,7 @@ let
     let
       candidates =
         (lib.optional (primaryDir != null) "${primaryDir}/${name}")
+        ++ (lib.optional (profileSharedDir != null) "${profileSharedDir}/${name}")
         ++ (lib.optional (sharedDir != null) "${sharedDir}/${name}");
       found = lib.findFirst (p: builtins.pathExists p) null candidates;
     in

@@ -8,17 +8,17 @@
 - **Management**: IPMI enabled via `services.ipmi`.
 - **Kubernetes**: Single-node k3s control plane with Flux GitOps bootstrap.
 - **GitOps**: Flux uses an SSH deploy key stored under
-  `secrets/personal/smc-gpu-01/flux/id_ed25519`. Adjust `repoURL`/`path` in
+  `secrets/profiles/personal/servers/smc-gpu-01/flux/id_ed25519`. Adjust `repoURL`/`path` in
   `hosts/smc-gpu-01/configuration.nix` to match your manifests.
   The host itself also performs NixOS GitOps via `homelab.gitops`, which clones
   this repository on a timer and runs `nixos-rebuild switch --flake ...`. Place
-  the deploy key at `secrets/personal/smc-gpu-01/gitops/id_ed25519`.
+  the deploy key at `secrets/profiles/personal/servers/smc-gpu-01/gitops/id_ed25519`.
 
 ## Bring-up Steps
 
 1. Run `nixos-generate-config` on the host and overwrite
    `hosts/smc-gpu-01/hardware-configuration.nix`.
-2. Place the Flux deploy key in `secrets/personal/smc-gpu-01/flux/id_ed25519`
+2. Place the Flux deploy key in `secrets/profiles/personal/servers/smc-gpu-01/flux/id_ed25519`
    and re-encrypt with SOPS.
 3. Update `homelab.kubernetes.gitops.repoURL`/`path` if you use a different Git
    repository.
