@@ -48,7 +48,7 @@ in
       PROTON_EAC_RUNTIME = "1";
       WINE_FULLSCREEN_FSR = "1";
       VKD3D_CONFIG = "dxr11";
-      MANGOHUD = "1";
+      MANGOHUD = "0";
       GAMEMODERUNEXEC = "1";
     }
     // lib.optionalAttrs (cfg.defaultRenderer == "nvidia") {
