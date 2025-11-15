@@ -165,6 +165,7 @@
 
           baseDesktopModules = [
             ./modules/nixos/profiles/base.nix
+            ./modules/nixos/profiles/desktop/libreoffice.nix
             ./modules/nixos/services/wireguard-homelab.nix
             stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
