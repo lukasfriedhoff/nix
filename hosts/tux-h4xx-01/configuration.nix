@@ -64,18 +64,18 @@
     pipewire = {
       "context.properties" = {
         "default.clock.rate" = 48000;
-        "default.clock.quantum" = 1024;
-        "default.clock.min-quantum" = 512;
+        "default.clock.quantum" = 2048;
+        "default.clock.min-quantum" = 1024;
         "default.clock.max-quantum" = 2048;
       };
     };
     "pipewire-pulse" = {
       "context.properties" = {
         "default.clock.rate" = 48000;
-        "default.clock.quantum" = 1024;
+        "default.clock.quantum" = 2048;
       };
       "stream.properties" = {
-        "node.latency" = "1024/48000";
+        "node.latency" = "2048/48000";
         "resample.quality" = 8;
       };
     };
