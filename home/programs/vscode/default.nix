@@ -27,9 +27,14 @@
         "editor.tabSize" = 2;
         "files.trimTrailingWhitespace" = true;
         "window.zoomLevel" = 2;
+        "terminal.integrated.defaultProfile.linux" = "Nix Bash";
         "terminal.integrated.profiles.linux" = {
+          "Nix Bash" = {
+            path = "${pkgs.bashInteractive}/bin/bash";
+            args = [ "-l" ];
+          };
           Codex = {
-            path = "bash";
+            path = "${pkgs.bashInteractive}/bin/bash";
             args = [
               "-lc"
               "codex"
@@ -37,9 +42,14 @@
             icon = "sparkle";
           };
         };
+        "terminal.integrated.defaultProfile.osx" = "Nix Bash";
         "terminal.integrated.profiles.osx" = {
+          "Nix Bash" = {
+            path = "${pkgs.bashInteractive}/bin/bash";
+            args = [ "-l" ];
+          };
           Codex = {
-            path = "bash";
+            path = "${pkgs.bashInteractive}/bin/bash";
             args = [
               "-lc"
               "codex"
