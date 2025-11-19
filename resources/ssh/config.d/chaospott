@@ -1,0 +1,51 @@
+# Foobar - c3e - NOC
+
+Host *.chaospott.de
+    User h4xx
+    IdentityFile ~/.ssh/personal/chaospott/noc
+
+Host jolly-jumper.chaospott.de
+    HostName space.chaospott.de
+
+## Hypervisor Server
+
+Host nachtigall.chaospott.de
+    HostName nachtigall.chaospott.de
+    Port 65001
+
+Host viktoria.chaospott.de
+    HostName 10.42.0.23
+
+## VM - Server auf Nachtigall
+
+Host *.nachtigall.chaospott.de
+    ProxyJump nachtigall.chaospott.de
+
+Host docker.nachtigall.chaospott.de
+    HostName 10.42.15.11
+
+Host c3e-mail.nachtigall.chaospott.de
+    HostName 10.42.15.12
+
+Host mumble-vm.nachtigall.chaospott.de
+    HostName 10.42.15.13
+
+## VM - Server auf Viktoria
+
+#Host *.viktoria.chaospott.de
+#    ProxyJump jolly-jumper.chaospott.de
+
+Host jolly.viktoria.chaospott.de
+    HostName 10.42.0.123
+
+Host docker-test.viktoria.chaospott.de
+    HostName 10.42.0.122
+
+Host docker-v2.viktoria.chaospott.de
+    HostName 10.42.0.144
+
+Host jitsi.viktoria.chaospott.de
+    HostName 10.42.0.233
+
+Host test-new-docker-host.viktoria.chaospott.de
+    HostName 10.42.0.146

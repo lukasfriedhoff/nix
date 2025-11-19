@@ -48,11 +48,13 @@
       enableDefaultConfig = false;
 
       extraConfig = ''
+        SetEnv TERM=xterm
         ServerAliveInterval 30
         ServerAliveCountMax 3
         VisualHostKey no
         HashKnownHosts yes
         IdentitiesOnly yes
+        Include ~/.ssh/config.d/chaospott
       '';
 
       matchBlocks = {
@@ -64,7 +66,7 @@
           hostname = "github.com";
           user = "git";
           identitiesOnly = true;
-          identityFile = [ "${config.home.homeDirectory}/.ssh/id_ed25519" ];
+          identityFile = [ "${config.home.homeDirectory}/.ssh/personal/id_ed25519" ];
         };
 
         "github-dacoso" = {

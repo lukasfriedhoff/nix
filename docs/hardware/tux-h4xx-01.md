@@ -62,4 +62,23 @@ Both controllers expose standard NVMe capabilities; firmware supports disk encry
 - Sessions default to the NVIDIA renderer for peak performance; set `desktop.gaming.defaultRenderer = "intel"` if you prefer the iGPU to handle compositing and only offload specific apps.
 - Enable `powerManagement.powertop.enable = true` to reapply powertop tunables on boot/resume and set `networking.networkmanager.wifi.powersave = true` to reduce idle draw from the Intel CNVi radio.
 
+## Battery / Power Diagnostics
+
+Run the helper script whenever you need to profile battery drain on Tux:
+
+```bash
+cd /home/lukasf/git/lukasfriedhoff/nix
+sudo ./scripts/collect-power-metrics.sh
+```
+
+The script captures:
+
+- `powertop` CSV/HTML snapshots (per-device residency + tunables).
+- CPU package draw via `turbostat`.
+- Intel and NVIDIA GPU activity logs (`intel_gpu_top`, `nvidia-smi dmon/pmon`).
+- Top CPU / memory processes and active I/O offenders (`ps`, `iotop`).
+- Battery discharge data from both `upower` and `/sys/class/power_supply`.
+
+Inspect the generated directory printed at runtime (e.g. `/tmp/power-metrics-YYYYMMDD-HHMMSS`). Start with `powertop.html` for hardware metrics, `top-cpu.txt` / `top-mem.txt` for process-level issues, and `nvidia-processes.txt` for workloads stuck on the dGPU. Sharing this folder (or select files) will make it easy to pinpoint the culprits.
+
 This document should be updated whenever hardware changes (e.g., storage swap, docking expansion) or when new kernel quirks are discovered.

@@ -31,15 +31,11 @@
 
   hardware.nvidia = {
     modesetting.enable = true;
-    powerManagement.enable = true;
-    powerManagement.finegrained = true;
     open = false;
     package = config.boot.kernelPackages.nvidiaPackages.beta;
     prime = {
-      offload = {
-        enable = true;
-        enableOffloadCmd = true; # installs /run/current-system/sw/bin/nvidia-offload
-      };
+      offload.enable = false;
+      sync.enable = true; # run GNOME directly on NVIDIA
       intelBusId = "PCI:0:2:0";
       nvidiaBusId = "PCI:1:0:0";
     };
@@ -60,6 +56,8 @@
     nvtopPackages.full
     powertop
   ];
+
+  programs.gamemode.enable = true;
 
   services.udev.extraRules =
     let

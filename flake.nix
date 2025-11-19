@@ -80,6 +80,7 @@
 
           profilesRoot = "${self}/secrets/profiles";
           sharedCommonRoot = "${profilesRoot}/common/shared";
+          personalCommonDesktopRoot = "${personalProfileRoot}/desktops/common";
           personalProfileRoot = "${profilesRoot}/personal";
           workProfileRoot = "${profilesRoot}/work";
 
@@ -97,6 +98,7 @@
               primary = personalServerRoot "srv4-vm-01";
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
               root = personalServerRoot "srv4-vm-01";
               personal = personalServerRoot "srv4-vm-01";
             };
@@ -104,6 +106,7 @@
               primary = personalDesktopRoot "tux-h4xx-01";
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
+               profileCommon = personalCommonDesktopRoot;
               root = personalDesktopRoot "tux-h4xx-01";
               personal = personalDesktopRoot "tux-h4xx-01";
             };
@@ -111,6 +114,7 @@
               primary = personalDesktopRoot "tab-h4xx-02";
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
               root = personalDesktopRoot "tab-h4xx-02";
               personal = personalDesktopRoot "tab-h4xx-02";
             };
@@ -118,6 +122,7 @@
               primary = personalServerRoot "smc-gpu-01";
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
               root = personalServerRoot "smc-gpu-01";
               personal = personalServerRoot "smc-gpu-01";
             };

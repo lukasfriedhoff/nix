@@ -11,6 +11,7 @@ let
   # The flake passes both profile-specific and shared roots.
   primaryDir = secrets.primary or secrets.root;
   profileSharedDir = secrets.profileShared or null;
+  profileCommonDir = secrets.profileCommon or null;
   sharedDir = secrets.shared or null;
 
   secretPath =
@@ -19,6 +20,7 @@ let
       candidates =
         (lib.optional (primaryDir != null) "${primaryDir}/${name}")
         ++ (lib.optional (profileSharedDir != null) "${profileSharedDir}/${name}")
+        ++ (lib.optional (profileCommonDir != null) "${profileCommonDir}/${name}")
         ++ (lib.optional (sharedDir != null) "${sharedDir}/${name}");
       found = lib.findFirst (p: builtins.pathExists p) null candidates;
     in
@@ -32,10 +34,11 @@ let
   sopsBin = lib.getExe pkgs.sops;
   gpgBin = lib.getExe pkgs.gnupg;
   sshKeyPrivSecret = secretPath "git-personal-ed25519.priv";
-  sshKeyPubSecret = secretPath "git-personal-ed25519.pub";
   gpgSecret = secretPath "git-personal-gpg.asc";
   openAIEnv = secretPath "openai.env";
+  extraSshKeys = import ../../../resources/ssh/keys.nix;
   ageKeyFile = "${config.xdg.configHome}/sops/age/keys.txt";
+  personalSshDir = "${config.home.homeDirectory}/.ssh/personal";
 in
 {
   home.packages = [
@@ -71,17 +74,19 @@ in
 
     mkdir -p "${config.home.homeDirectory}/.ssh"
     chmod 700 "${config.home.homeDirectory}/.ssh"
+    mkdir -p "${personalSshDir}"
+    chmod 700 "${personalSshDir}"
 
     # If an old/broken key exists (empty or not PEM), remove it first
-    if [ -f "${config.home.homeDirectory}/.ssh/id_ed25519" ]; then
-      if ! head -n1 "${config.home.homeDirectory}/.ssh/id_ed25519" | grep -q '^-----BEGIN OPENSSH PRIVATE KEY-----'; then
-        echo "[HM][ssh] Removing malformed ~/.ssh/id_ed25519"
-        rm -f "${config.home.homeDirectory}/.ssh/id_ed25519"
+    if [ -f "${personalSshDir}/id_ed25519" ]; then
+      if ! head -n1 "${personalSshDir}/id_ed25519" | grep -q '^-----BEGIN OPENSSH PRIVATE KEY-----'; then
+        echo "[HM][ssh] Removing malformed ${personalSshDir}/id_ed25519"
+        rm -f "${personalSshDir}/id_ed25519"
       fi
     fi
 
     # Only install if we don't already have a good key
-    if [ ! -f "${config.home.homeDirectory}/.ssh/id_ed25519" ]; then
+    if [ ! -f "${personalSshDir}/id_ed25519" ]; then
       if [ -f '${sshKeyPrivSecret}' ]; then
         tmpdir="$(mktemp -d)"
         trap 'rm -rf "$tmpdir"' EXIT
@@ -90,9 +95,9 @@ in
         if ${sopsBin} -d '${sshKeyPrivSecret}' > "$tmpdir/priv"; then
           if head -n1 "$tmpdir/priv" | grep -q '^-----BEGIN OPENSSH PRIVATE KEY-----'; then
             umask 177
-            mv -f "$tmpdir/priv" "${config.home.homeDirectory}/.ssh/id_ed25519"
-            chmod 600 "${config.home.homeDirectory}/.ssh/id_ed25519"
-            echo "[HM][ssh] Installed ~/.ssh/id_ed25519"
+            mv -f "$tmpdir/priv" "${personalSshDir}/id_ed25519"
+            chmod 600 "${personalSshDir}/id_ed25519"
+            echo "[HM][ssh] Installed ${personalSshDir}/id_ed25519"
           else
             echo "[HM][ssh] Decrypted private key did not look like an OpenSSH key; aborting write"
           fi
@@ -100,23 +105,16 @@ in
           echo "[HM][ssh] sops decryption failed for ${sshKeyPrivSecret}"
         fi
 
-        # Public key: decrypt if encrypted, else copy if plain, else derive
-        if [ -f '${sshKeyPubSecret}' ]; then
-          if ${sopsBin} -d --output /dev/null '${sshKeyPubSecret}' >/dev/null 2>&1; then
-            ${sopsBin} -d '${sshKeyPubSecret}' > "${config.home.homeDirectory}/.ssh/id_ed25519.pub" || true
-          else
-            cp -f '${sshKeyPubSecret}' "${config.home.homeDirectory}/.ssh/id_ed25519.pub" || true
-          fi
-          chmod 644 "${config.home.homeDirectory}/.ssh/id_ed25519.pub" || true
-        else
-          ${pkgs.openssh}/bin/ssh-keygen -y -f "${config.home.homeDirectory}/.ssh/id_ed25519" \
-            > "${config.home.homeDirectory}/.ssh/id_ed25519.pub" || true
-          chmod 644 "${config.home.homeDirectory}/.ssh/id_ed25519.pub" || true
-        fi
+        ${pkgs.openssh}/bin/ssh-keygen -y -f "${personalSshDir}/id_ed25519" \
+          > "${personalSshDir}/id_ed25519.pub" || true
+        chmod 644 "${personalSshDir}/id_ed25519.pub" || true
       else
         echo "[HM][ssh] Secret not found: ${sshKeyPrivSecret}"
       fi
     fi
+
+    ln -sf "${personalSshDir}/id_ed25519" "${config.home.homeDirectory}/.ssh/id_ed25519"
+    ln -sf "${personalSshDir}/id_ed25519.pub" "${config.home.homeDirectory}/.ssh/id_ed25519.pub"
   '';
 
   home.activation.decryptOpenAIEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -138,6 +136,42 @@ in
       "${pkgs.coreutils}/bin/rm" -f "$dst"
     fi
   '';
+
+  home.activation.installManagedSshKeys =
+    let
+      mkCommands =
+        spec:
+        let
+          secretFile = secretPath spec.secret;
+          mode = spec.mode or "600";
+          dest = "${config.home.homeDirectory}/${spec.path}";
+        in
+        ''
+          if [ -f '${secretFile}' ]; then
+            tmpfile="$(${pkgs.coreutils}/bin/mktemp)"
+            if ${sopsBin} -d '${secretFile}' > "$tmpfile"; then
+              ${pkgs.coreutils}/bin/install -D -m ${mode} "$tmpfile" '${dest}'
+              echo "[HM][ssh] Installed ${spec.path}"
+            else
+              echo "[HM][ssh] Failed to decrypt ${secretFile}"
+            fi
+            ${pkgs.coreutils}/bin/rm -f "$tmpfile"
+          else
+            echo "[HM][ssh] Secret not found: ${secretFile}"
+          fi
+        '';
+    in
+    lib.hm.dag.entryAfter [ "installPersonalSshKey" ] ''
+      set -eu
+      export SOPS_AGE_KEY_FILE='${ageKeyFile}'
+
+    mkdir -p "${config.home.homeDirectory}/.ssh"
+    chmod 700 "${config.home.homeDirectory}/.ssh"
+    mkdir -p "${personalSshDir}"
+    chmod 700 "${personalSshDir}"
+
+      ${lib.concatMapStrings mkCommands extraSshKeys}
+    '';
 
   # Ensure SSH uses that key for GitHub personal remotes
   programs.ssh = {
