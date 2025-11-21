@@ -9,6 +9,8 @@ customer-facing servers. The important entry points are:
 - `home/` – user-level Home Manager configuration
 - `hosts/` – host-specific modules and hardware descriptors
 - `scripts/` – helper tooling (bootstrap keys, deploy remote hosts, etc.)
+- `scripts/hardware-survey.sh` – collect CPU, memory, disk, PCI/USB, and firmware
+  details into a shareable bundle for troubleshooting slow machines.
 - `docs/` – long-form documentation (see especially
   [`docs/deployment/remote-servers.md`](docs/deployment/remote-servers.md))
 

@@ -24,6 +24,9 @@
 
   environment.systemPackages = with pkgs; [
     adwaita-icon-theme
+    dmidecode
+    lm_sensors
+    smartmontools
   ];
 
   sops.secrets."wireguard-homelab-priv" = {
@@ -51,6 +54,47 @@
   };
 
   sops.age.keyFile = "/home/lukasf/.config/sops/age/keys.txt";
+
+  # Prefer RAM compression over eMMC swap to cut thrashing
+  zramSwap = {
+    enable = true;
+    memoryPercent = 150;
+    algorithm = "zstd";
+    priority = 100;
+  };
+
+  # Bias swapping toward zram before touching eMMC
+  boot.kernel.sysctl."vm.swappiness" = 80;
+
+  # Trim and power tuning for the low-power SoC and eMMC
+  services.fstrim.enable = true;
+  powerManagement.powertop.enable = true;
+
+  # Trim GNOME background services on 4 GB RAM devices
+  services.gnome = {
+    localsearch.enable = false;
+    tinysparql.enable = false;
+    gnome-online-accounts.enable = lib.mkForce false;
+    evolution-data-server.enable = lib.mkForce false;
+  };
+
+  # Disable GNOME animations for snappier UI
+  services.desktopManager.gnome.extraGSettingsOverrides = ''
+    [org.gnome.desktop.interface]
+    enable-animations=false
+  '';
+
+  # Ensure redistributable firmware + Intel microcode are applied
+  hardware.enableRedistributableFirmware = true;
+  hardware.cpu.intel.updateMicrocode = lib.mkForce true;
+
+  # Cap journald usage to reduce eMMC writes on low-capacity storage
+  services.journald.extraConfig = ''
+    SystemMaxUse=100M
+    RuntimeMaxUse=50M
+    RuntimeKeepFree=100M
+    SystemMaxFileSize=10M
+  '';
 
   services.resolved = {
     enable = true;

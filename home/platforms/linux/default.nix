@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 {
   home.packages =
     lib.mkIf (!pkgs.stdenv.isDarwin) (
@@ -61,4 +66,12 @@
       WantedBy = [ "default.target" ];
     };
   };
+
+  # Ensure user systemd dirs are executable so Home Manager can place wants symlinks
+  home.activation.fixSystemdUserDirs = lib.mkIf (!pkgs.stdenv.isDarwin) (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    mkdir -p "${config.xdg.configHome}/systemd/user/default.target.wants"
+    chmod 755 "${config.xdg.configHome}/systemd"
+    chmod 755 "${config.xdg.configHome}/systemd/user"
+    chmod 700 "${config.xdg.configHome}/systemd/user/default.target.wants"
+  '');
 }
