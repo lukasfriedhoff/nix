@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Block committing unencrypted secrets or raw private keys.
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACM || true)"
+[ -z "$staged_files" ] && exit 0
+
+fail() {
+  echo "pre-commit: $*" >&2
+  exit 1
+}
+
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  # Skip deleted files
+  if ! [ -e "$file" ]; then
+    continue
+  fi
+
+  # Any staged file containing a raw OpenSSH private key is blocked.
+  if git show :"$file" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
+    fail "refusing to commit raw private key in $file; encrypt with sops first"
+  fi
+
+  # For anything under secrets/ (except markdown docs), require a sops payload.
+  if [[ "$file" == secrets/* ]]; then
+    case "$file" in
+      *.md) ;;
+      *)
+        if ! git show :"$file" | grep -q '"sops":'; then
+          fail "refusing to commit unencrypted secret $file (missing sops payload)"
+        fi
+      ;;
+    esac
+  fi
+done <<< "$staged_files"
+
+exit 0

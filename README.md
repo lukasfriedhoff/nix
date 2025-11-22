@@ -14,6 +14,18 @@ customer-facing servers. The important entry points are:
 - `docs/` – long-form documentation (see especially
   [`docs/deployment/remote-servers.md`](docs/deployment/remote-servers.md))
 
+## Git hooks
+
+This repo provides a pre-commit hook that blocks committing unencrypted secrets.
+Enable it locally:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook rejects commits containing raw private keys or `.priv` files without a
+`"sops"` payload.
+
 ### Deployment model
 
 - Desktops are upgraded manually with `nixos-rebuild` / `darwin-rebuild`.

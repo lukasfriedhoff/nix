@@ -1,7 +1,11 @@
 [
   {
-    secret = "ssh/chaospott/noc.priv";
+    secret = "ssh/chaospott_noc.priv";
     path = ".ssh/personal/chaospott/noc";
+  }
+  {
+    secret = "ssh/chaospott_git.priv";
+    path = ".ssh/personal/chaospott/git";
   }
   {
     secret = "ssh/chaospott_door.priv";

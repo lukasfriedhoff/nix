@@ -14,7 +14,7 @@ in
   ];
   # Keep local workspaces ready; directory creation uses the XDG home to stay portable.
   home.activation.ensureGitDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${homeDir}/git/lukasfriedhoff" "${homeDir}/git/dacoso-devops"
+    mkdir -p "${homeDir}/git/lukasfriedhoff" "${homeDir}/git/dacoso-devops" "${homeDir}/git/chaospott"
   '';
 
   programs.git = {
@@ -46,6 +46,8 @@ in
 
       # Optional: cover gists too
       "url \"git@gist.github.com:\"".insteadOf = "https://gist.github.com/";
+      # Chaospott GitLab: prefer SSH
+      "url \"git@git.chaospott.de:\"".insteadOf = "https://git.chaospott.de/";
       # includeIf blocks must use absolute paths + trailing slash
       # See scripts/update-gitignore.sh for refreshing the global ignore list safely.
       "includeIf \"gitdir:${homeDir}/git/lukasfriedhoff/\"" = {
@@ -53,6 +55,9 @@ in
       };
       "includeIf \"gitdir:${homeDir}/git/dacoso-devops/\"" = {
         path = "~/.gitconfig-dacoso-devops";
+      };
+      "includeIf \"gitdir:${homeDir}/git/chaospott/\"" = {
+        path = "~/.gitconfig-chaospott";
       };
     };
   };
@@ -75,6 +80,18 @@ in
       name  = Lukas Friedhoff
       email = lukas.friedhoff@dacoso.com
       signingkey = 22C3C5DEAA39D79FB12328CFE43A3F179FCDD279
+    [commit]
+      gpgSign = true
+    [gpg]
+      program = gpg
+  '';
+
+  # chaospott per-path config
+  home.file.".gitconfig-chaospott".text = ''
+    [user]
+      name = lukasfriedhoff
+      email = 155996615+lukasfriedhoff@users.noreply.github.com
+      signingkey = 7357275F6DFB9956E72B5BF9F52D0D35FC8BD0DF
     [commit]
       gpgSign = true
     [gpg]

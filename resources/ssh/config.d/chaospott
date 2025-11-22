@@ -49,3 +49,16 @@ Host jitsi.viktoria.chaospott.de
 
 Host test-new-docker-host.viktoria.chaospott.de
     HostName 10.42.0.146
+
+# Git hosting
+Host git.chaospott.de
+    User git
+    IdentityFile ~/.ssh/personal/chaospott/git
+    IdentitiesOnly yes
+    HostkeyAlgorithms ssh-ed25519
+    PubkeyAcceptedAlgorithms ssh-ed25519
+
+# Door controllers
+Host 10.42.1.28 10.42.1.20
+    IdentitiesOnly yes
+    IdentityFile ~/.ssh/personal/chaospott/door
