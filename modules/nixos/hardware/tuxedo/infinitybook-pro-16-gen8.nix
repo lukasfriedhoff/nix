@@ -31,7 +31,9 @@
 
   hardware.nvidia = {
     modesetting.enable = true;
-    open = false;
+    powerManagement.enable = false;
+    powerManagement.finegrained = false;
+    open = true;
     package = config.boot.kernelPackages.nvidiaPackages.beta;
     prime = {
       offload.enable = false;

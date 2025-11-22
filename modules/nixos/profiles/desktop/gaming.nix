@@ -32,15 +32,48 @@ in
     hardware.graphics.enable = true;
     hardware.graphics.enable32Bit = true;
 
-    environment.systemPackages = with pkgs; [
-      mangohud
-      goverlay
-      vkbasalt
-      protontricks
-      lutris
-      wineWowPackages.full
-      discord
-    ];
+    environment.systemPackages =
+      let
+        steamGameWrapper = pkgs.writeShellScriptBin "steam-game" ''
+          set -euo pipefail
+          if [ $# -lt 1 ]; then
+            echo "usage: steam-game <steam-app-id> [extra steam args]" >&2
+            exit 1
+          fi
+
+          appid="$1"
+          shift || true
+
+          cmd="steam -applaunch \"$appid\" $*"
+
+          if [ "$"'{USE_MANGOHUD:-1}' != "0" ]; then
+            cmd="mangohud $cmd"
+          fi
+
+          if [ "$"'{USE_GAMEMODE:-1}' != "0" ]; then
+            cmd="gamemoderun $cmd"
+          fi
+
+          ${lib.optionalString (cfg.defaultRenderer == "intel") ''
+            export __NV_PRIME_RENDER_OFFLOAD=1
+            export __GLX_VENDOR_LIBRARY_NAME=nvidia
+            export __VK_LAYER_NV_optimus=NVIDIA_only
+          ''}
+
+          exec bash -lc "$cmd"
+        '';
+      in
+      with pkgs; [
+        mangohud
+        goverlay
+        vkbasalt
+        protontricks
+        lutris
+        wineWowPackages.full
+        discord
+        steam-tui
+        steamGameWrapper
+      ];
 
     environment.sessionVariables = {
       PROTON_ENABLE_NVAPI = "1";
@@ -49,7 +82,6 @@ in
       WINE_FULLSCREEN_FSR = "1";
       VKD3D_CONFIG = "dxr11";
       MANGOHUD = "0";
-      GAMEMODERUNEXEC = "1";
     }
     // lib.optionalAttrs (cfg.defaultRenderer == "nvidia") {
       __GLX_VENDOR_LIBRARY_NAME = "nvidia";
