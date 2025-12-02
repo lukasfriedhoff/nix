@@ -59,7 +59,7 @@ in
       };
       path = mkOption {
         type = types.str;
-        default = "./clusters/smc-gpu-01";
+        default = "./clusters/<cluster-name>";
         description = "Kustomization path within the GitOps repository.";
       };
       interval = mkOption {

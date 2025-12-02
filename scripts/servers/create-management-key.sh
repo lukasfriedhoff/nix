@@ -17,6 +17,9 @@ fi
 
 host="$1"
 scope="$2"
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 key_label="${host}-${scope}-mgmt"
 tmpdir="$(mktemp -d)"
@@ -30,8 +33,7 @@ identity_hint="personal"
 case "${scope}" in
   personal)
     manager_paths=(
-      "secrets/profiles/personal/desktops/tux-h4xx-01/ssh"
-      "secrets/profiles/personal/desktops/tab-h4xx-02/ssh"
+      "secrets/profiles/personal/desktops/common/ssh"
     )
     identity_hint="personal"
     host_scope_dir="secrets/profiles/personal/servers/${host}/ssh"
@@ -54,7 +56,10 @@ for dir in "${manager_paths[@]}"; do
   dest_priv="${dir}/${key_label}.priv"
   echo ">> Storing encrypted private key at ${dest_priv}"
   if command -v sops >/dev/null 2>&1; then
-    sops --encrypt --input-type binary --output "${dest_priv}" "${tmpdir}/id_ed25519"
+    # Encrypt in place so creation rules match the destination path
+    cp "${tmpdir}/id_ed25519" "${dest_priv}"
+    SOPS_CONFIG="${repo_root}/.sops.yaml" \
+      sops --verbose --encrypt --input-type binary --in-place "${dest_priv}"
   else
     echo "!! sops not found – writing unencrypted private key. Run 'nix run nixpkgs#sops -- --encrypt ${dest_priv}' later!" >&2
     cp "${tmpdir}/id_ed25519" "${dest_priv}"
@@ -62,8 +67,18 @@ for dir in "${manager_paths[@]}"; do
 done
 
 mkdir -p "${host_scope_dir}"
-cp "${tmpdir}/id_ed25519.pub" "${host_scope_dir}/${key_label}.pub"
-echo ">> Saved public key to ${host_scope_dir}/${key_label}.pub"
+dest_host_pub="${host_scope_dir}/${key_label}.pub"
+cp "${tmpdir}/id_ed25519.pub" "${dest_host_pub}"
+SOPS_CONFIG="${repo_root}/.sops.yaml" \
+  sops --verbose --encrypt --input-type binary --in-place "${dest_host_pub}"
+for dir in "${manager_paths[@]}"; do
+  dest_pub="${dir}/${key_label}.pub"
+  echo ">> Storing encrypted public key at ${dest_pub}"
+  cp "${tmpdir}/id_ed25519.pub" "${dest_pub}"
+  SOPS_CONFIG="${repo_root}/.sops.yaml" \
+    sops --verbose --encrypt --input-type binary --in-place "${dest_pub}"
+done
+echo ">> Saved encrypted public key to ${dest_host_pub} and manager paths"
 
 cat <<EOF
 

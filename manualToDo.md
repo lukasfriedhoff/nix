@@ -15,7 +15,6 @@ Companion to the Codex automation for the Nix repo.
   - `secrets/profiles/personal/desktops/tux-h4xx-01/`
   - `secrets/profiles/personal/desktops/tab-h4xx-02/`
   - `secrets/profiles/personal/servers/srv4-vm-01/`
-  - `secrets/profiles/personal/servers/smc-gpu-01/`
   - `secrets/profiles/work/desktops/macbook-pro/`
   - `secrets/profiles/work/servers/docker-host-01/`
   - `secrets/profiles/work/servers/timebutler-test-vm/`

@@ -68,24 +68,6 @@
         "*" = {
           identitiesOnly = true;
         };
-        "*.chaospott.de" = {
-          user = "h4xx";
-          identitiesOnly = true;
-          identityFile = [ "${config.home.homeDirectory}/.ssh/personal/chaospott/noc" ];
-        };
-        "git.chaospott.de" = {
-          user = "git";
-          identitiesOnly = true;
-          identityFile = [ "${config.home.homeDirectory}/.ssh/personal/chaospott/git" ];
-        };
-        "10.42.1.28" = {
-          identitiesOnly = true;
-          identityFile = [ "${config.home.homeDirectory}/.ssh/personal/chaospott/door" ];
-        };
-        "10.42.1.20" = {
-          identitiesOnly = true;
-          identityFile = [ "${config.home.homeDirectory}/.ssh/personal/chaospott/door" ];
-        };
         "github.com" = {
           hostname = "github.com";
           user = "git";

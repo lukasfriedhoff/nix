@@ -7,7 +7,7 @@ Usage: scripts/servers/deploy-from-iso.sh <nixosConfiguration> <target> [extra n
 
 Examples:
   scripts/servers/deploy-from-iso.sh docker-host-01 root@10.7.5.5
-  scripts/servers/deploy-from-iso.sh smc-gpu-01 root@192.168.42.15 --kexec
+  scripts/servers/deploy-from-iso.sh my-homelab-node root@192.168.42.15 --kexec
 
 This is a thin wrapper around nixos-anywhere. The first argument must match a nixosConfigurations.<name>
 defined in the flake. The target is the SSH destination of the temporary installer environment.

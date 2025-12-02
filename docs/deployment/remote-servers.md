@@ -26,7 +26,7 @@ managing workstation. Run this from the repo root:
 ```bash
 scripts/servers/create-management-key.sh docker-host-01 dacoso
 # or, for personal machines:
-scripts/servers/create-management-key.sh smc-gpu-01 personal
+scripts/servers/create-management-key.sh my-homelab-node personal
 ```
 
 What this does:

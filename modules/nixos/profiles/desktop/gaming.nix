@@ -44,14 +44,15 @@ in
           appid="$1"
           shift || true
 
-          cmd="steam -applaunch \"$appid\" $*"
+          cmd=( steam -applaunch "$appid" "$@" )
 
-          if [ "$"'{USE_MANGOHUD:-1}' != "0" ]; then
-            cmd="mangohud $cmd"
+          if [ ''${USE_MANGOHUD:-1} != 0 ]; then
+            cmd=( mangohud ''${cmd[@]} )
           fi
 
-          if [ "$"'{USE_GAMEMODE:-1}' != "0" ]; then
-            cmd="gamemoderun $cmd"
+          if [ ''${USE_GAMEMODE:-0} != 0 ]; then
+            export GAMEMODEAUTO="${pkgs.gamemode}/lib/libgamemodeauto.so.0"
+            cmd=( gamemoderun ''${cmd[@]} )
           fi
 
           ${lib.optionalString (cfg.defaultRenderer == "intel") ''
@@ -60,7 +61,7 @@ in
             export __VK_LAYER_NV_optimus=NVIDIA_only
           ''}
 
-          exec bash -lc "$cmd"
+          exec ''${cmd[@]}
         '';
       in
       with pkgs; [

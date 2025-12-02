@@ -118,14 +118,6 @@
               root = personalDesktopRoot "tab-h4xx-02";
               personal = personalDesktopRoot "tab-h4xx-02";
             };
-            "smc-gpu-01" = {
-              primary = personalServerRoot "smc-gpu-01";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "smc-gpu-01";
-              personal = personalServerRoot "smc-gpu-01";
-            };
             mac = {
               primary = workDesktopRoot "macbook-pro";
               shared = sharedCommonRoot;
@@ -243,13 +235,6 @@
                   stylix.homeModules.stylix
                   ./home
                 ])
-              ]
-            );
-
-            smc-gpu-01 = mkNixosHost "smc-gpu-01" (
-              homelabServerModules
-              ++ [
-                ./hosts/smc-gpu-01/configuration.nix
               ]
             );
 
