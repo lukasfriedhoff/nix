@@ -47,6 +47,7 @@ in
     ./programs/maven-config/default.nix
     ./programs/cassandra-tools/default.nix
     ./programs/mariadb-tools/default.nix
+    ./programs/icarus-mod-manager/default.nix
     ./programs/vscode/default.nix
     ./programs/evolution/default.nix
     # Theme customisations applied via stylix' home module.

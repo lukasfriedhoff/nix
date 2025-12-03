@@ -28,6 +28,7 @@ in
       # Enable theming for the tools we actively use.
       vscode.enable = true;
       alacritty.enable = true;
+      fontconfig.enable = false;
     };
     fonts = {
       serif = {

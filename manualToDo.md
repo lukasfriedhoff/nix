@@ -55,3 +55,10 @@ Companion to the Codex automation for the Nix repo.
 - Consider adding K9s hotkeys for Flux GitRepositories if used.
 - Evaluate alias completion coverage after adding new shell aliases.
 - Update the cheat sheet periodically when leader mappings change.
+
+## 8. Repo-Wide Follow-ups (Dec 2025)
+- Run `sudo nixos-rebuild switch --flake /home/lukasf/git/lukasfriedhoff/nix#tux-h4xx-01` once the stylix/Home Manager warning is addressed and keep an eye on `/mnt/windows` (currently fails because `nvme1n1p2` is dirty NTFS; either repair in Windows or run `ntfsfix` before the next switch).
+- Re-run `nix flake check` after verifying that the removal of `smc-gpu-01` left no dangling references (docs, scripts, and secrets were cleaned, but the flake output still needs a full check).
+- Validate the new Icarus Mod Manager launcher (`home/programs/icarus-mod-manager/default.nix`) on tux: ensure the Wine prefix gets `.NET 8` installed and document any manual mod import/export workflow.
+- Decide whether stylix should manage fontconfig again. If yes, drop `fonts.fontconfig.enable = lib.mkForce false;` (home/platforms/linux/default.nix) and reconfigure stylix’ font targets so `home-manager.users.*.fonts.fontconfig` stops evaluating to `null`.
+- Review SSH layout simplification opportunities: `resources/ssh/hosts.nix` duplicates some `identityFile` paths that now live under `~/.ssh/personal`. Consider deriving them automatically from `identity` enums to keep host entries smaller.

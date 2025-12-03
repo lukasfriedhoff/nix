@@ -74,4 +74,6 @@
     chmod 755 "${config.xdg.configHome}/systemd/user"
     chmod 700 "${config.xdg.configHome}/systemd/user/default.target.wants"
   '');
+
+  fonts.fontconfig.enable = lib.mkForce false;
 }
