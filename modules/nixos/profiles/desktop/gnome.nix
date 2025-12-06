@@ -10,9 +10,7 @@ let
     nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
     postInstall = (old.postInstall or "") + ''
       wrapProgram $out/bin/firefox \
-        --set MOZ_ENABLE_WAYLAND 1 \
-        --set MOZ_DRM_DEVICE /dev/dri/card1 \
-        --set DRI_PRIME 0
+        --set MOZ_ENABLE_WAYLAND 1
     '';
   });
 in

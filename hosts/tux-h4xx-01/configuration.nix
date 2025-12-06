@@ -96,6 +96,10 @@
     dnssec = "false";
     fallbackDns = [ "1.1.1.1" "9.9.9.9" ];
   };
+  environment.systemPackages = with pkgs; [
+    smartmontools
+  ];
+
   networking.networkmanager.dns = "systemd-resolved";
   networking.resolvconf.enable = lib.mkForce false;
 }
