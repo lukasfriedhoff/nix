@@ -128,65 +128,37 @@ PY
 
 echo ">> Removing flake.nix entries (secretsByProfile + nixosConfigurations) if present"
 python3 - "$host" "flake.nix" <<'PY'
+import sys, pathlib, re
+host, path = sys.argv[1], pathlib.Path(sys.argv[2])
+text = path.read_text()
+
+# Remove any secretsByProfile entry for this host
+text = re.sub(
+    rf"\n\s*{re.escape(host)}\s*=\s*\{{\n(?:[^\{{\}}]*\n)*?\s*\}};\n",
+    "\n",
+    text,
+    flags=re.MULTILINE,
+)
+
+# Remove any nixosConfigurations entry for this host
+text = re.sub(
+    rf"\n\s*{re.escape(host)}\s*=\s*mkNixosHost\s*\"{re.escape(host)}\"\s*\(\n(?:.*?\n)*?\s*\);\n",
+    "\n",
+    text,
+    flags=re.MULTILINE,
+)
+
+path.write_text(text)
+PY
+
+# Purge host-specific Age recipient comments from .sops.yaml
+python3 - "$host" ".sops.yaml" <<'PY'
 import sys, pathlib
 host, path = sys.argv[1], pathlib.Path(sys.argv[2])
-lines = path.read_text().splitlines(keepends=True)
-
-def remove_entry(lines, block_start, entry_prefix, end_pred, use_parens=False):
-    try:
-        start_idx = next(i for i, l in enumerate(lines) if block_start in l)
-    except StopIteration:
-        return lines
-    try:
-        end_idx = next(i for i in range(start_idx + 1, len(lines)) if end_pred(lines[i]))
-    except StopIteration:
-        return lines
-
-    prefix = lines[: start_idx + 1]
-    suffix = lines[end_idx:]
-    body = lines[start_idx + 1 : end_idx]
-
-    out = []
-    i = 0
-    while i < len(body):
-        line = body[i]
-        if line.strip().startswith(entry_prefix):
-            depth = line.count("{") - line.count("}")
-            paren = line.count("(") - line.count(")")
-            i += 1
-            while i < len(body):
-                depth += body[i].count("{") - body[i].count("}")
-                paren += body[i].count("(") - body[i].count(")")
-                i += 1
-                if use_parens:
-                    if depth <= 0 and paren <= 0 and body[i - 1].strip().endswith(");"):
-                        break
-                else:
-                    if depth <= 0:
-                        break
-            continue
-        out.append(line)
-        i += 1
-
-    return prefix + out + suffix
-
-lines = remove_entry(
-    lines,
-    "secretsByProfile = {",
-    f"{host} =",
-    lambda l: l.strip() == "};",
-    use_parens=False,
-)
-
-lines = remove_entry(
-    lines,
-    "nixosConfigurations = {",
-    f"{host} =",
-    lambda l: l.strip() == "};",
-    use_parens=True,
-)
-
-path.write_text("".join(lines))
+text = path.read_text()
+if host in text:
+    new = "\n".join(line for line in text.splitlines() if host not in line)
+    path.write_text(new + ("\n" if text.endswith("\n") else ""))
 PY
 
 if [[ "$delete_secrets" == true ]]; then
@@ -197,6 +169,18 @@ if [[ "$delete_secrets" == true ]]; then
   else
     echo ">> Secrets dir not found (skipping): ${secrets_dir}"
   fi
+
+  # Remove desktop-common management key copies
+  desk_priv="secrets/profiles/personal/desktops/common/ssh/${host}-personal-mgmt.priv"
+  desk_pub="secrets/profiles/personal/desktops/common/ssh/${host}-personal-mgmt.pub"
+  for f in "$desk_priv" "$desk_pub"; do
+    if [[ -f "$f" ]]; then
+      echo ">> Deleting ${f}"
+      rm -f -- "$f"
+    else
+      echo ">> Desktop secret not found (skipping): $f"
+    fi
+  done
 else
   echo ">> Secrets dir kept (use --delete-secrets to remove): secrets/profiles/personal/servers/${host}"
 fi

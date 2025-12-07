@@ -139,7 +139,7 @@
               root = workServerRoot "timebutler-test-vm";
               dacoso = workDesktopRoot "macbook-pro";
             };
-          };
+};
 
           mkSpecialArgs = profile: {
             inherit inputs linuxUser macUser;
@@ -260,9 +260,7 @@
                 ./hosts/dacoso/timebutler-test-vm/configuration.nix
               ]
             );
-
-
-          };
+};
 
           darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {
             system = darwinSystem;

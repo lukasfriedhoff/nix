@@ -190,29 +190,59 @@ else
   echo ">> Generating Age key at ${age_key}"
   mkdir -p "$(dirname "$age_key")"
   age-keygen -o "$age_key"
+  echo ">> Encrypting Age key with sops"
+  SOPS_CONFIG="${repo_root}/.sops.yaml" sops --encrypt --input-type binary --in-place "$age_key"
 fi
-echo ">> Encrypting Age key with sops"
-SOPS_CONFIG="${repo_root}/.sops.yaml" sops --encrypt --input-type binary --in-place "$age_key"
-age_recipient="$(age-keygen -y "$age_key")"
+
+echo ">> Deriving Age recipient"
+if grep -q '^AGE-SECRET-KEY-' "$age_key" 2>/dev/null; then
+  age_recipient="$(age-keygen -y "$age_key")"
+else
+  # Encrypted with sops; decrypt to a temp file for deriving the recipient.
+  tmp="$(mktemp)"
+  SOPS_CONFIG="${repo_root}/.sops.yaml" sops -d "$age_key" > "$tmp"
+  age_recipient="$(age-keygen -y "$tmp")"
+  rm -f "$tmp"
+fi
 
 echo ">> Ensuring .sops.yaml contains Age recipient (commented with hostname)"
 python3 - "$host" "$age_recipient" ".sops.yaml" <<'PY'
-import re, sys, pathlib
+import sys, pathlib
 host, recipient, path = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
-text = path.read_text()
-m = re.search(
-    r"(  - path_regex: \^secrets/profiles/personal/servers/.*?\n    key_groups:\n      - age:\n)((?:          - .*\n)+)",
-    text,
-    re.S,
-)
-if not m:
+lines = path.read_text().splitlines(keepends=True)
+
+# Drop any existing line mentioning this host or this recipient.
+lines = [l for l in lines if (f"# {host}" not in l and recipient not in l)]
+
+# Find the personal servers block and insert after the last age entry therein.
+block_start = None
+for i, l in enumerate(lines):
+  if "path_regex: ^secrets/profiles/personal/servers/" in l:
+        block_start = i
+        break
+if block_start is None:
     sys.exit("could not locate personal servers block in .sops.yaml")
-entries = m.group(2)
-if recipient in entries:
-    sys.exit(0)
-new_entries = entries + f"          - {recipient} # {host}\n"
-updated = text[: m.start(2)] + new_entries + text[m.end(2) :]
-path.write_text(updated)
+
+insert_at = None
+for i in range(block_start, len(lines)):
+    if lines[i].startswith("  # Work profile shared secrets"):
+        insert_at = i
+        break
+if insert_at is None:
+    insert_at = len(lines)
+
+# Walk backwards from insert_at to find last age entry within the block.
+last_age_idx = None
+for i in range(insert_at - 1, block_start, -1):
+    if lines[i].startswith("          - "):
+        last_age_idx = i
+        break
+
+insert_pos = last_age_idx + 1 if last_age_idx is not None else insert_at
+new_line = f"          - {recipient} # {host}\n"
+lines.insert(insert_pos, new_line)
+
+path.write_text("".join(lines))
 PY
 
 luks_secret="secrets/profiles/personal/shared/luks/${host}.txt"
@@ -355,16 +385,25 @@ entry = f'''            {host} = {{
             }};
 '''
 
-# Insert secretsByProfile entry if missing
-profile_start = text.find("secretsByProfile = {")
-if profile_start == -1:
+# Insert secretsByProfile entry if missing (brace balanced)
+sp_start = text.find("secretsByProfile = {")
+if sp_start == -1:
   sys.exit("could not find secretsByProfile block in flake.nix")
-profile_end = text.find("\n          };", profile_start)
-if profile_end == -1:
+depth = 0
+sp_end = None
+for i in range(sp_start, len(text)):
+  if text[i] == "{":
+    depth += 1
+  elif text[i] == "}":
+    depth -= 1
+    if depth == 0:
+      sp_end = i
+      break
+if sp_end is None:
   sys.exit("could not find end of secretsByProfile block in flake.nix")
-profile_body = text[profile_start:profile_end]
-if f"{host} =" not in profile_body:
-  text = text[:profile_end] + "\n" + entry + text[profile_end:]
+sp_body = text[sp_start:sp_end]
+if f"{host} =" not in sp_body:
+  text = text[:sp_end] + "\n" + entry + text[sp_end:]
 
 # Insert nixosConfigurations entry if missing
 nixos_marker = "nixosConfigurations = {"
@@ -379,12 +418,21 @@ nixos_entry = f'''
               ]
             );
 '''
-nixos_end = text.find("\n          };", nidx)
-if nixos_end == -1:
+n_depth = 0
+n_end = None
+for i in range(nidx, len(text)):
+  if text[i] == "{":
+    n_depth += 1
+  elif text[i] == "}":
+    n_depth -= 1
+    if n_depth == 0:
+      n_end = i
+      break
+if n_end is None:
   sys.exit("could not find end of nixosConfigurations block in flake.nix")
-nixos_body = text[nidx:nixos_end]
-if f"{host} =" not in nixos_body:
-  text = text[:nixos_end] + nixos_entry + text[nixos_end:]
+n_body = text[nidx:n_end]
+if f"{host} =" not in n_body:
+  text = text[:n_end] + nixos_entry + text[n_end:]
 
 path.write_text(text)
 PY
