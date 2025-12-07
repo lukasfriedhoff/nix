@@ -21,10 +21,22 @@
     let
       sshData = import ../../../resources/ssh/hosts.nix;
 
+      keyFromName =
+        host:
+        if lib.hasAttr "keyName" host then
+          "${config.home.homeDirectory}/.ssh/personal/${host.keyName}"
+        else
+          null;
+
       identityFor =
         host:
+        let
+          namedKey = keyFromName host;
+        in
         if lib.hasAttr "identityFile" host then
           host.identityFile
+        else if namedKey != null then
+          namedKey
         else if host.identity or "" == "work" then
           sshData.defaults.workIdentity
         else

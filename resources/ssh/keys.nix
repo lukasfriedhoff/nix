@@ -1,4 +1,6 @@
 [
+  # Add new personal homelab management keys here, e.g.:
+  # { secret = "ssh/<short>-personal-mgmt.priv"; path = ".ssh/personal/<short>-personal-mgmt"; }
   {
     secret = "ssh/chaospott_noc.priv";
     path = ".ssh/personal/chaospott/noc";
@@ -14,10 +16,6 @@
   {
     secret = "ssh/ci.priv";
     path = ".ssh/personal/ci";
-  }
-  {
-    secret = "ssh/cloud-init.priv";
-    path = ".ssh/personal/cloud-init";
   }
   {
     secret = "ssh/docker-host.priv";
@@ -40,10 +38,6 @@
     path = ".ssh/personal/ionos2";
   }
   {
-    secret = "ssh/labrouter.priv";
-    path = ".ssh/personal/labrouter";
-  }
-  {
     secret = "ssh/nas01.priv";
     path = ".ssh/personal/nas01";
   }
@@ -56,11 +50,8 @@
     path = ".ssh/personal/storage01";
   }
   {
-    secret = "ssh/srv1.priv";
-    path = ".ssh/personal/srv1";
-  }
-  {
     secret = "ssh/srv4.priv";
     path = ".ssh/personal/srv4";
   }
+
 ]

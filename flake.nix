@@ -106,7 +106,7 @@
               primary = personalDesktopRoot "tux-h4xx-01";
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
-               profileCommon = personalCommonDesktopRoot;
+              profileCommon = personalCommonDesktopRoot;
               root = personalDesktopRoot "tux-h4xx-01";
               personal = personalDesktopRoot "tux-h4xx-01";
             };
@@ -192,6 +192,13 @@
             ./modules/nixos/profiles/server/comin.nix
           ];
 
+          personalHomelabServerModules = [
+            ./modules/nixos/profiles/base.nix
+            ./modules/nixos/services/wireguard-homelab.nix
+            ./modules/nixos/profiles/homelab/personal-server.nix
+            sops-nix.nixosModules.sops
+          ];
+
           mkNixosHost =
             profile: extraModules:
             nixpkgs.lib.nixosSystem {
@@ -253,6 +260,8 @@
                 ./hosts/dacoso/timebutler-test-vm/configuration.nix
               ]
             );
+
+
           };
 
           darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {

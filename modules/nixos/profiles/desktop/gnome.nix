@@ -90,5 +90,11 @@ in
 
   programs.seahorse.enable = true;
 
+  # Keep USB keyboards/mice from entering autosuspend.
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030101:*", TEST=="power/control", ATTR{power/control}="on"
+    ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030102:*", TEST=="power/control", ATTR{power/control}="on"
+  '';
+
   nixpkgs.config.allowUnfree = true;
 }
