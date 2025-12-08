@@ -31,13 +31,13 @@
 
   hardware.nvidia = {
     modesetting.enable = true;
-    powerManagement.enable = false;
-    powerManagement.finegrained = false;
-    open = true;
-    package = config.boot.kernelPackages.nvidiaPackages.beta;
+    powerManagement.enable = true;
+    powerManagement.finegrained = true;
+    open = false;
+    package = config.boot.kernelPackages.nvidiaPackages.stable;
     prime = {
-      offload.enable = false;
-      sync.enable = true; # run GNOME directly on NVIDIA
+      offload.enable = true;
+      sync.enable = false;
       intelBusId = "PCI:0:2:0";
       nvidiaBusId = "PCI:1:0:0";
     };
