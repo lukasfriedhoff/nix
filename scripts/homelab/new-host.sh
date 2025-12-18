@@ -335,11 +335,11 @@ updated = txt.rstrip().rstrip(']') + "\n" + block + "]\n"
 path.write_text(updated)
 PY
 
-echo ">> Adding SSH host entries (access + unlock) to resources/ssh/hosts.nix"
-python3 - "$host" "$fqdn" "$ip_hint" "resources/ssh/hosts.nix" <<'PY'
+echo ">> Adding SSH host entries (access + unlock) to resources/ssh/hosts/personal.nix"
+python3 - "$host" "$fqdn" "$ip_hint" "resources/ssh/hosts/personal.nix" <<'PY'
 import sys, pathlib
 host, fqdn, ip_hint, path = sys.argv[1], sys.argv[2], sys.argv[3], pathlib.Path(sys.argv[4])
-host_target = ip_hint or fqdn or host
+host_target = fqdn or host
 entry_access = f'''    {{
       match = "{host}";
       alias = "{host}";
@@ -360,10 +360,10 @@ entry_unlock = f'''    {{
 txt = path.read_text()
 if f'match = "{host}"' in txt and f'match = "unlock-{host}"' in txt:
     sys.exit(0)
-anchor = txt.rfind("  ];")
+anchor = txt.rfind("]")
 if anchor == -1:
-    sys.exit("unexpected format in resources/ssh/hosts.nix (missing closing '  ];')")
-updated = txt[:anchor].rstrip() + "\n" + entry_access + entry_unlock + txt[anchor:]
+    sys.exit("unexpected format in resources/ssh/hosts/personal.nix (missing closing ']')")
+updated = txt[:anchor].rstrip() + "\n" + entry_access + entry_unlock + "\n" + txt[anchor:]
 path.write_text(updated)
 PY
 

@@ -31,7 +31,7 @@ unless you flip `usePasswordAuth`).
      ```nix
      { secret = "ssh/${host}-personal-mgmt.priv"; path = ".ssh/personal/${host}-personal-mgmt"; }
      ```
-   - Add a host entry to `resources/ssh/hosts.nix` (the new `keyName` field expands to `~/.ssh/personal/<name>`):
+  - Add a host entry to `resources/ssh/hosts/personal.nix` (the new `keyName` field expands to `~/.ssh/personal/<name>`):
      ```nix
      {
        match = "${host}";
@@ -106,7 +106,11 @@ with that recipient.
     };
   };
   ```
-- Add an unlock entry to `resources/ssh/hosts.nix` so you can target the
+- Add an unlock entry to `resources/ssh/hosts/personal.nix` so you can target the
+
+If this repo is published, keep private IP addresses out of `resources/ssh/hosts/personal.nix`
+and instead add them to the SOPS secret `ssh/hostnames-private.conf` (decrypted to
+`~/.ssh/config.d/15-hostnames-private`).
   initramfs SSH listener:
   ```nix
   {

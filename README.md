@@ -44,7 +44,8 @@ errors out of `develop`.
 
 ### SSH + secrets
 
-SSH hosts and identities are consolidated under `resources/ssh/hosts.nix` and
+SSH hosts and identities are consolidated under `resources/ssh/hosts.nix` (which
+imports `resources/ssh/hosts/personal.nix` and `resources/ssh/hosts/dacoso.nix`) and
 consumed by Home Manager. Keys are created through
 `scripts/servers/create-management-key.sh`, which also writes the SOPS-encrypted
 material into the correct secret directories.

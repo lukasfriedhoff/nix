@@ -84,7 +84,7 @@ cat <<EOF
 
 Next steps for ${host}:
   1. Commit the new key material in secrets (they are encrypted according to .sops.yaml).
-  2. Add the following entry to resources/ssh/hosts.nix if it does not exist yet:
+  2. Add the following entry to resources/ssh/hosts/personal.nix if it does not exist yet:
 
      {
        alias = "${host}";
