@@ -26,7 +26,13 @@
         "editor.formatOnSave" = true;
         "editor.tabSize" = 2;
         "files.trimTrailingWhitespace" = true;
+        "files.autoSave" = "afterDelay";
+        "files.autoSaveDelay" = 1000;
         "window.zoomLevel" = 2;
+        "update.mode" = "none";
+        "update.showReleaseNotes" = false;
+        "extensions.autoUpdate" = false;
+        "extensions.autoCheckUpdates" = false;
         "terminal.integrated.defaultProfile.linux" = "Nix Bash";
         "terminal.integrated.profiles.linux" = {
           "Nix Bash" = {
