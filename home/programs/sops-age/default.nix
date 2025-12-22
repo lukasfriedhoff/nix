@@ -4,6 +4,7 @@
   pkgs,
   config,
   secrets,
+  workSystem ? false,
   ...
 }:
 
@@ -37,6 +38,8 @@ let
   gpgSecret = secretPath "git-personal-gpg.asc";
   openAIEnv = secretPath "openai.env";
   extraSshKeys = import ../../../resources/ssh/keys.nix;
+  extraSshConfigSnippets = import ../../../resources/ssh/config-snippets.nix;
+  managedSshFiles = (lib.optionals (!workSystem) extraSshKeys) ++ extraSshConfigSnippets;
   ageKeyFile = "${config.xdg.configHome}/sops/age/keys.txt";
   personalSshDir = "${config.home.homeDirectory}/.ssh/personal";
 in
@@ -62,7 +65,7 @@ in
   '';
 
   # --- robust SSH key install from SOPS, matching your filenames ---
-  home.activation.installPersonalSshKey = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.installPersonalSshKey = lib.mkIf (!workSystem) (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     set -eu
     export SOPS_AGE_KEY_FILE='${ageKeyFile}'
 
@@ -74,12 +77,19 @@ in
 
     mkdir -p "${config.home.homeDirectory}/.ssh"
     chmod 700 "${config.home.homeDirectory}/.ssh"
+    mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
+    chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
     mkdir -p "${personalSshDir}"
     chmod 700 "${personalSshDir}"
 
+    is_valid_ssh_key() {
+      # `ssh-keygen -y` exits non-zero if the file isn't a valid private key.
+      ${pkgs.openssh}/bin/ssh-keygen -y -f "$1" >/dev/null 2>&1
+    }
+
     # If an old/broken key exists (empty or not PEM), remove it first
     if [ -f "${personalSshDir}/id_ed25519" ]; then
-      if ! head -n1 "${personalSshDir}/id_ed25519" | grep -q '^-----BEGIN OPENSSH PRIVATE KEY-----'; then
+      if ! is_valid_ssh_key "${personalSshDir}/id_ed25519"; then
         echo "[HM][ssh] Removing malformed ${personalSshDir}/id_ed25519"
         rm -f "${personalSshDir}/id_ed25519"
       fi
@@ -93,13 +103,13 @@ in
 
         # Decrypt to temp, then atomically move into place
         if ${sopsBin} -d '${sshKeyPrivSecret}' > "$tmpdir/priv"; then
-          if head -n1 "$tmpdir/priv" | grep -q '^-----BEGIN OPENSSH PRIVATE KEY-----'; then
+          if is_valid_ssh_key "$tmpdir/priv"; then
             umask 177
             mv -f "$tmpdir/priv" "${personalSshDir}/id_ed25519"
             chmod 600 "${personalSshDir}/id_ed25519"
             echo "[HM][ssh] Installed ${personalSshDir}/id_ed25519"
           else
-            echo "[HM][ssh] Decrypted private key did not look like an OpenSSH key; aborting write"
+            echo "[HM][ssh] Decrypted private key did not validate; aborting write"
           fi
         else
           echo "[HM][ssh] sops decryption failed for ${sshKeyPrivSecret}"
@@ -115,7 +125,7 @@ in
 
     ln -sf "${personalSshDir}/id_ed25519" "${config.home.homeDirectory}/.ssh/id_ed25519"
     ln -sf "${personalSshDir}/id_ed25519.pub" "${config.home.homeDirectory}/.ssh/id_ed25519.pub"
-  '';
+  '');
 
   home.activation.decryptOpenAIEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     set -eu
@@ -161,26 +171,20 @@ in
           fi
         '';
     in
-    lib.hm.dag.entryAfter [ "installPersonalSshKey" ] ''
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       set -eu
       export SOPS_AGE_KEY_FILE='${ageKeyFile}'
 
     mkdir -p "${config.home.homeDirectory}/.ssh"
     chmod 700 "${config.home.homeDirectory}/.ssh"
+    mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
+    chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
     mkdir -p "${personalSshDir}"
     chmod 700 "${personalSshDir}"
 
-      ${lib.concatMapStrings mkCommands extraSshKeys}
+      ${lib.concatMapStrings mkCommands managedSshFiles}
     '';
 
   # Ensure SSH uses that key for GitHub personal remotes
-  programs.ssh = {
-    enable = true;
-    matchBlocks."github.com" = {
-      hostname = "github.com";
-      user = "git";
-      identitiesOnly = true;
-      identityFile = [ "${config.home.homeDirectory}/.ssh/id_ed25519" ];
-    };
-  };
+  programs.ssh.enable = true;
 }

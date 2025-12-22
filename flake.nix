@@ -149,9 +149,16 @@
             };
           };
 
+          workProfiles = [
+            "mac"
+            "docker-host-01"
+            "timebutler-test-vm"
+          ];
+
           mkSpecialArgs = profile: {
             inherit inputs linuxUser macUser;
             inherit profile;
+            workSystem = builtins.elem profile workProfiles;
             repoRoot = self;
             secrets = secretsByProfile.${profile};
           };

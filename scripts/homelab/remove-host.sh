@@ -85,18 +85,16 @@ while i < len(lines):
 path.write_text("".join(out))
 PY
 
-echo ">> Removing SSH host entries (access + unlock) from resources/ssh/hosts.nix (if present)"
-python3 - "$host" "resources/ssh/hosts.nix" <<'PY'
+echo ">> Removing SSH host entries (access + unlock) from resources/ssh/hosts/personal.nix (if present)"
+python3 - "$host" "resources/ssh/hosts/personal.nix" <<'PY'
 import sys, pathlib
 host, path = sys.argv[1], pathlib.Path(sys.argv[2])
 lines = path.read_text().splitlines(keepends=True)
 
-start = next((i for i, l in enumerate(lines) if "hosts = [" in l), None)
-end = None
-if start is not None:
-    end = next((i for i in range(start, len(lines)) if lines[i].strip() == "];"), None)
-if start is None or end is None:
-    sys.exit("could not locate hosts list in resources/ssh/hosts.nix")
+start = next((i for i, l in enumerate(lines) if l.strip() == "["), None)
+end = next((i for i, l in enumerate(lines) if l.strip() == "]"), None)
+if start is None or end is None or end <= start:
+    sys.exit("could not locate list in resources/ssh/hosts/personal.nix")
 
 prefix = lines[: start + 1]
 suffix = lines[end:]

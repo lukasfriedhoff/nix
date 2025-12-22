@@ -35,7 +35,7 @@ What this does:
 2. Encrypts the private key into the appropriate secret directories (based on
    `.sops.yaml` rules).
 3. Stores the public key under `secrets/profiles/<scope>/servers/<hostname>/ssh/`.
-4. Prints a ready-to-paste entry for `resources/ssh/hosts.nix`.
+4. Prints a ready-to-paste entry for `resources/ssh/hosts/personal.nix`.
 
 Commit the resulting secret files (they are encrypted). On the managing
 workstations you can decrypt/install the key with:
@@ -45,7 +45,7 @@ sops -d secrets/profiles/personal/desktops/tux-h4xx-01/ssh/<host>-personal-mgmt.
 chmod 600 ~/.ssh/<host>-mgmt
 ```
 
-Update `resources/ssh/hosts.nix` so Home Manager automatically wires the new
+Update `resources/ssh/hosts/personal.nix` so Home Manager automatically wires the new
 identity into `~/.ssh/config`.
 
 ### 2. Allow the ISO to trust the new key
@@ -84,7 +84,7 @@ the `<target>` argument. The tool will:
 After the machine reboots into the freshly installed system:
 
 1. `ssh ${host}` using the management key you just installed (entries come from
-   `resources/ssh/hosts.nix`)
+   `resources/ssh/hosts/personal.nix`)
 2. `sudo ln -s /run/secrets /var/lib/sops` if the host consumes additional
    secrets during first boot (for dacoso hosts see `dacoso.server` module)
 3. Verify that comin pulled the latest generation:
@@ -96,7 +96,12 @@ After the machine reboots into the freshly installed system:
 
 ### 5. Updating SSH configs for operators
 
-All host-specific SSH match blocks live in `resources/ssh/hosts.nix`. Each entry
+All host-specific SSH match blocks live in `resources/ssh/hosts/personal.nix` (personal)
+and `resources/ssh/hosts/dacoso.nix` (work). Each entry
+
+If this repository is public, keep private IPs out of git by putting the real
+`HostName` mappings into the per-profile SOPS secret `ssh/hostnames-private.conf`
+(decrypted to `~/.ssh/config.d/15-hostnames-private`).
 defines the alias, user, and which identity to use (`personal` or `work`). Once
 you add/adjust a host:
 
