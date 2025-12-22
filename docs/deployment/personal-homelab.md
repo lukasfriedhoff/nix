@@ -17,9 +17,10 @@ unless you flip `usePasswordAuth`).
    $EDITOR hosts/homelab/${host}/configuration.nix
    # set networking.hostName/domain, managementPubKey ("ssh/${host}-personal-mgmt.pub"), extraHosts hint
    ```
-   Replace `hardware-configuration.nix` with the generated one from the installer:
+   Replace `hardware-configuration.nix` with the generated one from the installer (no secrets involved). You can use the helper to fetch it plus disk/NIC info:
    ```bash
-   ssh root@<installer-ip> nixos-generate-config --show-hardware-config > "hosts/homelab/${host}/hardware-configuration.nix"
+   scripts/homelab/probe-installer.sh --target root@<installer-ip> --host "${host}" \
+     --write-hw "hosts/homelab/${host}/hardware-configuration.nix"
    ```
 3. Generate the per-host SSH key (lives under `secrets/profiles/personal/desktops/common/ssh/`)
    ```bash
@@ -64,7 +65,8 @@ unless you flip `usePasswordAuth`).
      ```
 6. Deploy from the installer with nixos-anywhere
    ```bash
-   scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip>
+   scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
+     --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt"
    ```
 7. After the first boot, change the default password and confirm the management
    key works:

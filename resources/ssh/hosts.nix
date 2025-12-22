@@ -88,5 +88,20 @@
       user = "root";
       identityFile = "~/.ssh/personal/nas01-unlock";
     }
+    {
+      match = "srv1";
+      alias = "srv1";
+      hostName = "10.1.30.12";
+      user = "root";
+      keyName = "srv1-personal-mgmt";
+    }
+    {
+      match = "unlock-srv1";
+      alias = "unlock-srv1";
+      hostName = "10.1.30.12";
+      port = 2222;
+      user = "root";
+      keyName = "srv1-personal-mgmt";
+    }
   ];
 }

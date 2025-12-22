@@ -65,6 +65,7 @@ cd "$repo_root"
 
 template_dir="hosts/homelab/_template"
 dest_dir="hosts/homelab/${host}"
+new_dir=false
 [[ -d "$template_dir" ]] || die "template not found at ${template_dir}"
 if [[ -e "$dest_dir" ]]; then
   if [[ "$allow_existing" == true ]]; then
@@ -75,6 +76,7 @@ if [[ -e "$dest_dir" ]]; then
 else
   echo ">> Copying template to ${dest_dir}"
   cp -r "$template_dir" "$dest_dir"
+  new_dir=true
 fi
 
 domain="${fqdn#*.}"
@@ -89,6 +91,11 @@ else
 fi
 [[ -f "$mgmt_pub_secret" ]] || die "expected management pubkey at ${mgmt_pub_secret}"
 mgmt_pub="$(sops -d "$mgmt_pub_secret")"
+initrd_auth="${dest_dir}/initrd-authorized.pub"
+if [[ ! -f "$initrd_auth" ]] || [[ "$rewrite_config" == true ]] || [[ "$new_dir" == true ]]; then
+  echo ">> Writing initrd authorized key to ${initrd_auth}"
+  printf "%s\n" "$mgmt_pub" > "$initrd_auth"
+fi
 
 echo ">> Writing disko layout to ${dest_dir}/disko.nix (fs=${fs_type})"
 mkdir -p "$dest_dir"
@@ -122,7 +129,10 @@ else
             content = {
               type = "luks";
               name = "cryptroot";
-              settings.allowDiscards = true;
+              settings = {
+                allowDiscards = true;
+                keyFile = "/tmp/luks.key";
+              };
               content = {
                 type = "filesystem";
                 format = "ext4";
@@ -163,7 +173,10 @@ EOF
             content = {
               type = "luks";
               name = "cryptroot";
-              settings.allowDiscards = true;
+              settings = {
+                allowDiscards = true;
+                keyFile = "/tmp/luks.key";
+              };
               content = {
                 type = "btrfs";
                 extraArgs = [ "-f" ];
@@ -262,7 +275,7 @@ PY
 fi
 
 config_path="${dest_dir}/configuration.nix"
-if [[ -f "$config_path" ]] && [[ "$rewrite_config" == false ]]; then
+if [[ -f "$config_path" ]] && [[ "$rewrite_config" == false ]] && [[ "$new_dir" == false ]]; then
   echo ">> Keeping existing ${config_path} (use --rewrite-config to regenerate)"
 else
   echo ">> Writing ${config_path}"
@@ -270,7 +283,7 @@ else
 import sys, pathlib
 host, fqdn, domain, ip_hint, pubkey, path = sys.argv[1:]
 ip_comment = f"# {host} {fqdn}" + (f" {ip_hint}" if ip_hint else "")
-domain_eff = domain or fqdn
+domain_eff = domain
 p = pathlib.Path(path)
 cfg = f"""{{
   inputs,
@@ -281,6 +294,7 @@ cfg = f"""{{
 {{
   imports = [
     inputs.disko.nixosModules.disko
+    ./hardware-configuration.nix
     ./disko.nix
   ];
 
@@ -289,7 +303,7 @@ cfg = f"""{{
 
   homelab.personalServer = {{
     enable = true;
-    managementPubKey = "ssh/{host}-personal-mgmt.pub";
+    managementPubKey = null;
     usePasswordAuth = false;
   }};
 
@@ -303,10 +317,13 @@ cfg = f"""{{
     ssh = {{
       enable = true;
       port = 2222;
-      authorizedKeys = [ "{pubkey.strip()}" ];
-      generateHostKeys = true;
+      authorizedKeys = [ (builtins.readFile ./initrd-authorized.pub) ];
+      hostKeys = [ "/etc/ssh/ssh_host_ed25519_key" ];
     }};
   }};
+
+  users.users.root.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
+  users.users.nixos.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
 
   networking.extraHosts = ''
     {ip_comment}
