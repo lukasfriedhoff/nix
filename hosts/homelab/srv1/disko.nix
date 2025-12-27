@@ -23,9 +23,9 @@
             content = {
               type = "luks";
               name = "cryptroot";
+              passwordFile = "/tmp/luks.key";
               settings = {
                 allowDiscards = true;
-                keyFile = "/tmp/luks.key";
               };
               content = {
                 type = "filesystem";

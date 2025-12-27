@@ -139,6 +139,7 @@
               root = workServerRoot "timebutler-test-vm";
               dacoso = workDesktopRoot "macbook-pro";
             };
+          
             srv1 = {
               primary = personalServerRoot "srv1";
               shared = sharedCommonRoot;
@@ -147,7 +148,7 @@
               root = personalServerRoot "srv1";
               personal = personalServerRoot "srv1";
             };
-          };
+};
 
           workProfiles = [
             "mac"
@@ -275,13 +276,13 @@
                 ./hosts/dacoso/timebutler-test-vm/configuration.nix
               ]
             );
-
+          
             srv1 = mkNixosHost "srv1" (
               personalHomelabServerModules ++ [
                 ./hosts/homelab/srv1/configuration.nix
               ]
             );
-          };
+};
 
           darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {
             system = darwinSystem;

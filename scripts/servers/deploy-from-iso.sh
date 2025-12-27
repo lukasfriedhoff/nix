@@ -56,6 +56,17 @@ if [[ -n "$luks_secret" ]]; then
   extra_args+=(--disk-encryption-keys /tmp/luks.key "$tmp_key")
 fi
 
+copy_host_keys=true
+for arg in "${extra_args[@]}"; do
+  if [[ "$arg" == "--copy-host-keys" ]]; then
+    copy_host_keys=false
+    break
+  fi
+done
+if [[ "$copy_host_keys" == true ]]; then
+  extra_args+=(--copy-host-keys)
+fi
+
 echo ">> Deploying ${flake} to ${target}"
 # Make sure initrd SSH host key exists on the installer so boot.initrd.network.ssh.hostKeys can read it.
 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${target}" \

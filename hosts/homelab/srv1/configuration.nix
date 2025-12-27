@@ -16,14 +16,14 @@
 
   homelab.personalServer = {
     enable = true;
-    managementPubKey = null;
+    managementPubKey = "ssh/srv1-personal-mgmt.pub";
     usePasswordAuth = false;
   };
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  sops.age.keyFile = "/home/lukasf/.config/sops/age/keys.txt";
+  sops.age.keyFile = "/var/lib/sops-nix/age/keys.txt";
 
   boot.initrd.network = {
     enable = true;

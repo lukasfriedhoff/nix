@@ -67,8 +67,7 @@ echo "==> probing ${target}"
 out="$(ssh "${ssh_opts[@]}" "${target}" "$cmd")"
 
 hw_cfg_sanitized="$(
-  python3 - <<'PY'
-import sys
+  python3 -c 'import sys
 text = sys.stdin.read().splitlines()
 hardware = []
 collect = False
@@ -96,9 +95,8 @@ sanitized = "\n".join(out).strip()
 if not sanitized:
     # Fallback to raw hardware config if sanitisation accidentally removed everything.
     sanitized = "\n".join(hardware).strip()
-print(sanitized + ("\n" if sanitized else ""))
-PY
-)" <<< "$out"
+print(sanitized + ("\n" if sanitized else ""))' <<< "$out"
+)"
 
 printf "%s\n" "$out"
 

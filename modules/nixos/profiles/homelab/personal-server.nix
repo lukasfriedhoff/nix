@@ -69,18 +69,17 @@ in
         PasswordAuthentication = cfg.usePasswordAuth;
         KbdInteractiveAuthentication = cfg.usePasswordAuth;
       };
-      authorizedKeysFiles = lib.mkDefault [ "/etc/ssh/authorized_keys.d/%u" ];
+      authorizedKeysFiles =
+        lib.mkIf (cfg.managementPubKey != null)
+          (lib.mkAfter [ config.sops.secrets."homelab-mgmt-key".path ]);
     };
 
     sops.secrets."homelab-mgmt-key" = lib.mkIf (cfg.managementPubKey != null) {
       sopsFile = resolveSecret cfg.managementPubKey;
+      format = "binary";
       mode = "0400";
       owner = "root";
     };
 
-    users.users.root.openssh.authorizedKeys.keyFiles =
-      lib.mkIf (cfg.managementPubKey != null) [ config.sops.secrets."homelab-mgmt-key".path ];
-    users.users.nixos.openssh.authorizedKeys.keyFiles =
-      lib.mkIf (cfg.managementPubKey != null) [ config.sops.secrets."homelab-mgmt-key".path ];
   };
 }
