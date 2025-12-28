@@ -48,6 +48,14 @@
     endpointFile = config.sops.secrets."wireguard-endpoint".path;
   };
 
+  lukasf.nixCache = {
+    enable = true;
+    serve = false;
+    configureClient = true;
+    cacheHost = "srv1.h4xx.local";
+    publicKey = builtins.readFile ../../resources/nix-cache/personal-cache.pub;
+  };
+
   # Power management
   powerManagement.powertop.enable = true;
   networking.networkmanager.wifi.powersave = true;

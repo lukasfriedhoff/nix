@@ -192,6 +192,7 @@
           baseServerModules = [
             ./modules/nixos/profiles/base.nix
             ./modules/nixos/services/wireguard-homelab.nix
+            ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/profiles/dacoso/server.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
@@ -201,6 +202,7 @@
           homelabServerModules = [
             ./modules/nixos/profiles/base.nix
             ./modules/nixos/services/wireguard-homelab.nix
+            ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/profiles/homelab/kubernetes.nix
             ./modules/nixos/profiles/homelab/gitops.nix
             sops-nix.nixosModules.sops
@@ -211,6 +213,7 @@
           personalHomelabServerModules = [
             ./modules/nixos/profiles/base.nix
             ./modules/nixos/services/wireguard-homelab.nix
+            ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/profiles/homelab/personal-server.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin

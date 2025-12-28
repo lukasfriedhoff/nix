@@ -20,6 +20,14 @@
     usePasswordAuth = false;
   };
 
+  lukasf.nixCache = {
+    enable = true;
+    secretKeyFile = "nix-cache/nix-serve.key";
+    publicKey = builtins.readFile ../../../resources/nix-cache/personal-cache.pub;
+    openFirewall = true;
+    configureClient = true;
+  };
+
   lukasf.serverDeployment.enableComin = true;
 
   boot.loader.systemd-boot.enable = true;
