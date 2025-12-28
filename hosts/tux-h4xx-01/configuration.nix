@@ -70,6 +70,7 @@
       "umask=0022"
       "windows_names"
       "nofail"
+      "x-systemd.automount"
       "x-gvfs-show"
     ];
   };
