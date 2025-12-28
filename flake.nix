@@ -213,6 +213,8 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/profiles/homelab/personal-server.nix
             sops-nix.nixosModules.sops
+            comin.nixosModules.comin
+            ./modules/nixos/profiles/server/comin.nix
           ];
 
           mkNixosHost =
