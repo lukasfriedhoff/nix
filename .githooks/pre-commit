@@ -19,7 +19,7 @@ while IFS= read -r file; do
   fi
 
   # Any staged file containing a raw OpenSSH private key is blocked.
-  if git show :"$file" | grep -q '-----BEGIN OPENSSH PRIVATE KEY-----'; then
+  if git show :"$file" | grep -q -- '^-----BEGIN OPENSSH PRIVATE KEY-----$'; then
     fail "refusing to commit raw private key in $file; encrypt with sops first"
   fi
 
