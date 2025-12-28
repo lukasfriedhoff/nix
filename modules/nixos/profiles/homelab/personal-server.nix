@@ -1,11 +1,15 @@
-{ config, lib, secrets ? { }, ... }:
+{
+  config,
+  lib,
+  secrets ? { },
+  ...
+}:
 
 let
   cfg = config.homelab.personalServer;
 
   # Hash of the bootstrap password "ChangeMeNow!".
-  defaultPasswordHash =
-    "$6$glGvahkD70PkQnLA$lvYOyuqYSclm5/Y1IY60aeAUp06HVy7qhzTTibwkApJb2pZSZpP0HFWDwaCAqSOmSNljCkpIJ04yLdieM5Gsh1";
+  defaultPasswordHash = "$6$glGvahkD70PkQnLA$lvYOyuqYSclm5/Y1IY60aeAUp06HVy7qhzTTibwkApJb2pZSZpP0HFWDwaCAqSOmSNljCkpIJ04yLdieM5Gsh1";
 
   primaryRoot = secrets.primary or secrets.root or null;
   resolveSecret =
@@ -69,9 +73,9 @@ in
         PasswordAuthentication = cfg.usePasswordAuth;
         KbdInteractiveAuthentication = cfg.usePasswordAuth;
       };
-      authorizedKeysFiles =
-        lib.mkIf (cfg.managementPubKey != null)
-          (lib.mkAfter [ config.sops.secrets."homelab-mgmt-key".path ]);
+      authorizedKeysFiles = lib.mkIf (cfg.managementPubKey != null) (
+        lib.mkAfter [ config.sops.secrets."homelab-mgmt-key".path ]
+      );
     };
 
     sops.secrets."homelab-mgmt-key" = lib.mkIf (cfg.managementPubKey != null) {

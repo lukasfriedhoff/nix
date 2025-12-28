@@ -15,7 +15,10 @@
               type = "filesystem";
               format = "vfat";
               mountpoint = "/boot";
-              extraArgs = [ "-n" "EFI" ];
+              extraArgs = [
+                "-n"
+                "EFI"
+              ];
             };
           };
           root = {

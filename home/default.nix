@@ -16,9 +16,7 @@ let
     "tab"
   ];
   installEvolutionOnProfile =
-    (!pkgs.stdenv.isDarwin)
-    && profile != null
-    && lib.elem profile personalDesktopProfiles;
+    (!pkgs.stdenv.isDarwin) && profile != null && lib.elem profile personalDesktopProfiles;
 in
 {
   home = {
@@ -77,6 +75,7 @@ in
         gnused
         gnutar
         nixfmt-rfc-style
+        nixfmt-tree
         btop
         lsof
       ];
@@ -94,9 +93,7 @@ in
         python3
       ];
     in
-    basePackages
-    ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages
-    ++ desktopPackages;
+    basePackages ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages ++ desktopPackages;
 
   home.sessionVariables = {
     LANG = "en_US.UTF-8";

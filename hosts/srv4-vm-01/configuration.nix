@@ -1,4 +1,10 @@
-{ config, pkgs, lib, secrets, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  secrets,
+  ...
+}:
 
 {
   imports = [
@@ -43,7 +49,10 @@
   services.resolved = {
     enable = true;
     dnssec = "false";
-    fallbackDns = [ "1.1.1.1" "9.9.9.9" ];
+    fallbackDns = [
+      "1.1.1.1"
+      "9.9.9.9"
+    ];
   };
   networking.networkmanager.dns = "systemd-resolved";
   networking.resolvconf.enable = lib.mkForce false;

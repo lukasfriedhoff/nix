@@ -12,12 +12,7 @@ let
   defaultsProfile = if workSystem then sshData.defaults.dacoso else sshData.defaults.personal;
   hostsProfile = if workSystem then sshData.dacosoHosts else sshData.personalHosts;
 
-  keyFromName =
-    host:
-    if lib.hasAttr "keyName" host then
-      "~/.ssh/personal/${host.keyName}"
-    else
-      null;
+  keyFromName = host: if lib.hasAttr "keyName" host then "~/.ssh/personal/${host.keyName}" else null;
 
   identityFor =
     host:
@@ -32,8 +27,7 @@ let
       defaultsProfile.defaultIdentity;
 
   renderExtraOptions =
-    extra:
-    lib.concatStringsSep "" (lib.mapAttrsToList (k: v: "  ${k} ${toString v}\n") extra);
+    extra: lib.concatStringsSep "" (lib.mapAttrsToList (k: v: "  ${k} ${toString v}\n") extra);
 
   renderHost =
     host:
@@ -71,23 +65,22 @@ in
     find "${config.home.homeDirectory}/.ssh" -type f -exec chmod 600 {} +
   '';
 
-  programs.ssh =
-    {
-      enable = true;
-      enableDefaultConfig = false;
+  programs.ssh = {
+    enable = true;
+    enableDefaultConfig = false;
 
-      extraConfig = ''
-        SetEnv TERM=xterm
-        ServerAliveInterval 30
-        ServerAliveCountMax 3
-        VisualHostKey no
-        HashKnownHosts yes
-        IdentitiesOnly yes
-        Include ~/.ssh/config.d/*
-      '';
+    extraConfig = ''
+      SetEnv TERM=xterm
+      ServerAliveInterval 30
+      ServerAliveCountMax 3
+      VisualHostKey no
+      HashKnownHosts yes
+      IdentitiesOnly yes
+      Include ~/.ssh/config.d/*
+    '';
 
-      matchBlocks."*" = { };
-    };
+    matchBlocks."*" = { };
+  };
 
   home.file.".ssh/config.d/10-git".text =
     if workSystem then
@@ -121,7 +114,9 @@ in
           IdentityFile ~/.ssh/id_ed25519_dacoso
       '';
 
-  home.file.".ssh/config.d/20-hosts".text = renderHostsFile (if workSystem then "dacoso" else "personal") hostsProfile;
+  home.file.".ssh/config.d/20-hosts".text = renderHostsFile (
+    if workSystem then "dacoso" else "personal"
+  ) hostsProfile;
 
   home.file.".ssh/config.d/40-chaospott" = lib.mkIf (!workSystem && !pkgs.stdenv.isDarwin) {
     source = ../../../resources/ssh/config.d/chaospott;

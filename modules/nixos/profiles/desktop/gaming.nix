@@ -64,7 +64,8 @@ in
           exec ''${cmd[@]}
         '';
       in
-      with pkgs; [
+      with pkgs;
+      [
         mangohud
         goverlay
         vkbasalt

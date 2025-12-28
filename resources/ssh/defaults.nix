@@ -15,4 +15,3 @@
     defaultIdentity = "~/.ssh/id_ed25519_dacoso";
   };
 }
-

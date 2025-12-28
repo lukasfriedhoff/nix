@@ -65,67 +65,69 @@ in
   '';
 
   # --- robust SSH key install from SOPS, matching your filenames ---
-  home.activation.installPersonalSshKey = lib.mkIf (!workSystem) (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    set -eu
-    export SOPS_AGE_KEY_FILE='${ageKeyFile}'
+  home.activation.installPersonalSshKey = lib.mkIf (!workSystem) (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      set -eu
+      export SOPS_AGE_KEY_FILE='${ageKeyFile}'
 
-    # If the age key file isn't present, skip gracefully
-    if [ ! -r "${ageKeyFile}" ]; then
-      echo "[HM][ssh] Skipping: ${ageKeyFile} not found"
-      exit 0
-    fi
-
-    mkdir -p "${config.home.homeDirectory}/.ssh"
-    chmod 700 "${config.home.homeDirectory}/.ssh"
-    mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
-    chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
-    mkdir -p "${personalSshDir}"
-    chmod 700 "${personalSshDir}"
-
-    is_valid_ssh_key() {
-      # `ssh-keygen -y` exits non-zero if the file isn't a valid private key.
-      ${pkgs.openssh}/bin/ssh-keygen -y -f "$1" >/dev/null 2>&1
-    }
-
-    # If an old/broken key exists (empty or not PEM), remove it first
-    if [ -f "${personalSshDir}/id_ed25519" ]; then
-      if ! is_valid_ssh_key "${personalSshDir}/id_ed25519"; then
-        echo "[HM][ssh] Removing malformed ${personalSshDir}/id_ed25519"
-        rm -f "${personalSshDir}/id_ed25519"
+      # If the age key file isn't present, skip gracefully
+      if [ ! -r "${ageKeyFile}" ]; then
+        echo "[HM][ssh] Skipping: ${ageKeyFile} not found"
+        exit 0
       fi
-    fi
 
-    # Only install if we don't already have a good key
-    if [ ! -f "${personalSshDir}/id_ed25519" ]; then
-      if [ -f '${sshKeyPrivSecret}' ]; then
-        tmpdir="$(mktemp -d)"
-        trap 'rm -rf "$tmpdir"' EXIT
+      mkdir -p "${config.home.homeDirectory}/.ssh"
+      chmod 700 "${config.home.homeDirectory}/.ssh"
+      mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
+      chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
+      mkdir -p "${personalSshDir}"
+      chmod 700 "${personalSshDir}"
 
-        # Decrypt to temp, then atomically move into place
-        if ${sopsBin} -d '${sshKeyPrivSecret}' > "$tmpdir/priv"; then
-          if is_valid_ssh_key "$tmpdir/priv"; then
-            umask 177
-            mv -f "$tmpdir/priv" "${personalSshDir}/id_ed25519"
-            chmod 600 "${personalSshDir}/id_ed25519"
-            echo "[HM][ssh] Installed ${personalSshDir}/id_ed25519"
-          else
-            echo "[HM][ssh] Decrypted private key did not validate; aborting write"
-          fi
-        else
-          echo "[HM][ssh] sops decryption failed for ${sshKeyPrivSecret}"
+      is_valid_ssh_key() {
+        # `ssh-keygen -y` exits non-zero if the file isn't a valid private key.
+        ${pkgs.openssh}/bin/ssh-keygen -y -f "$1" >/dev/null 2>&1
+      }
+
+      # If an old/broken key exists (empty or not PEM), remove it first
+      if [ -f "${personalSshDir}/id_ed25519" ]; then
+        if ! is_valid_ssh_key "${personalSshDir}/id_ed25519"; then
+          echo "[HM][ssh] Removing malformed ${personalSshDir}/id_ed25519"
+          rm -f "${personalSshDir}/id_ed25519"
         fi
-
-        ${pkgs.openssh}/bin/ssh-keygen -y -f "${personalSshDir}/id_ed25519" \
-          > "${personalSshDir}/id_ed25519.pub" || true
-        chmod 644 "${personalSshDir}/id_ed25519.pub" || true
-      else
-        echo "[HM][ssh] Secret not found: ${sshKeyPrivSecret}"
       fi
-    fi
 
-    ln -sf "${personalSshDir}/id_ed25519" "${config.home.homeDirectory}/.ssh/id_ed25519"
-    ln -sf "${personalSshDir}/id_ed25519.pub" "${config.home.homeDirectory}/.ssh/id_ed25519.pub"
-  '');
+      # Only install if we don't already have a good key
+      if [ ! -f "${personalSshDir}/id_ed25519" ]; then
+        if [ -f '${sshKeyPrivSecret}' ]; then
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$tmpdir"' EXIT
+
+          # Decrypt to temp, then atomically move into place
+          if ${sopsBin} -d '${sshKeyPrivSecret}' > "$tmpdir/priv"; then
+            if is_valid_ssh_key "$tmpdir/priv"; then
+              umask 177
+              mv -f "$tmpdir/priv" "${personalSshDir}/id_ed25519"
+              chmod 600 "${personalSshDir}/id_ed25519"
+              echo "[HM][ssh] Installed ${personalSshDir}/id_ed25519"
+            else
+              echo "[HM][ssh] Decrypted private key did not validate; aborting write"
+            fi
+          else
+            echo "[HM][ssh] sops decryption failed for ${sshKeyPrivSecret}"
+          fi
+
+          ${pkgs.openssh}/bin/ssh-keygen -y -f "${personalSshDir}/id_ed25519" \
+            > "${personalSshDir}/id_ed25519.pub" || true
+          chmod 644 "${personalSshDir}/id_ed25519.pub" || true
+        else
+          echo "[HM][ssh] Secret not found: ${sshKeyPrivSecret}"
+        fi
+      fi
+
+      ln -sf "${personalSshDir}/id_ed25519" "${config.home.homeDirectory}/.ssh/id_ed25519"
+      ln -sf "${personalSshDir}/id_ed25519.pub" "${config.home.homeDirectory}/.ssh/id_ed25519.pub"
+    ''
+  );
 
   home.activation.decryptOpenAIEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     set -eu
@@ -172,17 +174,17 @@ in
         '';
     in
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      set -eu
-      export SOPS_AGE_KEY_FILE='${ageKeyFile}'
+        set -eu
+        export SOPS_AGE_KEY_FILE='${ageKeyFile}'
 
-    mkdir -p "${config.home.homeDirectory}/.ssh"
-    chmod 700 "${config.home.homeDirectory}/.ssh"
-    mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
-    chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
-    mkdir -p "${personalSshDir}"
-    chmod 700 "${personalSshDir}"
+      mkdir -p "${config.home.homeDirectory}/.ssh"
+      chmod 700 "${config.home.homeDirectory}/.ssh"
+      mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
+      chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
+      mkdir -p "${personalSshDir}"
+      chmod 700 "${personalSshDir}"
 
-      ${lib.concatMapStrings mkCommands managedSshFiles}
+        ${lib.concatMapStrings mkCommands managedSshFiles}
     '';
 
   # Ensure SSH uses that key for GitHub personal remotes

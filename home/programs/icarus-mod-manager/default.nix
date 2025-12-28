@@ -1,13 +1,26 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.programs.icarusModManager;
-  inherit (lib) mkEnableOption mkIf mkOption types optionalString;
+  inherit (lib)
+    mkEnableOption
+    mkIf
+    mkOption
+    types
+    optionalString
+    ;
 
   versionUnderscored = lib.replaceStrings [ "." ] [ "_" ] cfg.version;
 
   sourceUrl =
-    if cfg.source != null then cfg.source else
+    if cfg.source != null then
+      cfg.source
+    else
       "https://github.com/Jimk72/Icarus_Software/raw/main/Icarus_Mod_Manager_${versionUnderscored}.zip";
 
   dataPackage = pkgs.stdenvNoCC.mkDerivation {
@@ -30,13 +43,18 @@ let
     let
       xdgHome = config.xdg.dataHome or null;
     in
-    if xdgHome != null then "${xdgHome}/icarus-mod-manager" else "${config.home.homeDirectory}/.local/share/icarus-mod-manager";
+    if xdgHome != null then
+      "${xdgHome}/icarus-mod-manager"
+    else
+      "${config.home.homeDirectory}/.local/share/icarus-mod-manager";
 
   launcher = pkgs.writeShellApplication {
     name = "icarus-mod-manager";
-    runtimeInputs =
-      [ pkgs.wineWowPackages.full pkgs.coreutils ]
-      ++ (if cfg.autoInstallDotnet80 then [ pkgs.winetricks ] else [ ]);
+    runtimeInputs = [
+      pkgs.wineWowPackages.full
+      pkgs.coreutils
+    ]
+    ++ (if cfg.autoInstallDotnet80 then [ pkgs.winetricks ] else [ ]);
     text = ''
       set -euo pipefail
       prefix="${cfg.winePrefix}"
@@ -109,13 +127,19 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = [ launcher dataPackage ];
+    home.packages = [
+      launcher
+      dataPackage
+    ];
 
     xdg.desktopEntries."icarus-mod-manager" = {
       name = "Icarus Mod Manager";
       comment = "Run Icarus Mod Manager via Wine";
       exec = "icarus-mod-manager";
-      categories = [ "Game" "Utility" ];
+      categories = [
+        "Game"
+        "Utility"
+      ];
       terminal = false;
     };
   };

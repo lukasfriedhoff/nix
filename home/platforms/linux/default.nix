@@ -5,20 +5,19 @@
   ...
 }:
 {
-  home.packages =
-    lib.mkIf (!pkgs.stdenv.isDarwin) (
-      lib.mkAfter (
-        with pkgs;
-        [
-          htop
-          intel-gpu-tools
-          pavucontrol
-          element-desktop
-          chromium
-          virt-manager
-        ]
-      )
-    );
+  home.packages = lib.mkIf (!pkgs.stdenv.isDarwin) (
+    lib.mkAfter (
+      with pkgs;
+      [
+        htop
+        intel-gpu-tools
+        pavucontrol
+        element-desktop
+        chromium
+        virt-manager
+      ]
+    )
+  );
 
   xdg.desktopEntries."code" = lib.mkIf (!pkgs.stdenv.isDarwin) {
     name = "Visual Studio Code (Intel)";
@@ -64,12 +63,14 @@
   };
 
   # Ensure user systemd dirs are executable so Home Manager can place wants symlinks
-  home.activation.fixSystemdUserDirs = lib.mkIf (!pkgs.stdenv.isDarwin) (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${config.xdg.configHome}/systemd/user/default.target.wants"
-    chmod 755 "${config.xdg.configHome}/systemd"
-    chmod 755 "${config.xdg.configHome}/systemd/user"
-    chmod 700 "${config.xdg.configHome}/systemd/user/default.target.wants"
-  '');
+  home.activation.fixSystemdUserDirs = lib.mkIf (!pkgs.stdenv.isDarwin) (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      mkdir -p "${config.xdg.configHome}/systemd/user/default.target.wants"
+      chmod 755 "${config.xdg.configHome}/systemd"
+      chmod 755 "${config.xdg.configHome}/systemd/user"
+      chmod 700 "${config.xdg.configHome}/systemd/user/default.target.wants"
+    ''
+  );
 
   fonts.fontconfig.enable = lib.mkForce false;
 }

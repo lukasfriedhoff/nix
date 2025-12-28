@@ -67,20 +67,20 @@
     user = "root";
     identityFile = "~/.ssh/personal/nas01-unlock";
   }
-    {
-      match = "srv1";
-      alias = "srv1";
-      hostName = "srv1.h4xx.local";
-      user = "root";
-      keyName = "srv1-personal-mgmt";
-    }
-    {
-      match = "unlock-srv1";
-      alias = "unlock-srv1";
-      hostName = "srv1.h4xx.local";
-      port = 2222;
-      user = "root";
-      keyName = "srv1-personal-mgmt";
-    }
+  {
+    match = "srv1";
+    alias = "srv1";
+    hostName = "srv1.h4xx.local";
+    user = "root";
+    keyName = "srv1-personal-mgmt";
+  }
+  {
+    match = "unlock-srv1";
+    alias = "unlock-srv1";
+    hostName = "srv1.h4xx.local";
+    port = 2222;
+    user = "root";
+    keyName = "srv1-personal-mgmt";
+  }
 
 ]

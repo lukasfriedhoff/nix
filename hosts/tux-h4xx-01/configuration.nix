@@ -1,4 +1,10 @@
-{ config, pkgs, secrets, lib, ... }:
+{
+  config,
+  pkgs,
+  secrets,
+  lib,
+  ...
+}:
 
 {
   imports = [
@@ -94,7 +100,10 @@
   services.resolved = {
     enable = true;
     dnssec = "false";
-    fallbackDns = [ "1.1.1.1" "9.9.9.9" ];
+    fallbackDns = [
+      "1.1.1.1"
+      "9.9.9.9"
+    ];
   };
   environment.systemPackages = with pkgs; [
     smartmontools

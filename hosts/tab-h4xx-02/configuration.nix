@@ -1,4 +1,10 @@
-{ config, pkgs, secrets, lib, ... }:
+{
+  config,
+  pkgs,
+  secrets,
+  lib,
+  ...
+}:
 
 {
   imports = [
@@ -6,9 +12,9 @@
     ../../modules/nixos/hardware/asus/vivobook-t3300.nix
   ];
 
-
   networking.hostName = "tab-h4xx-02";
-  boot.initrd.luks.devices."luks-3ec9fc7f-dba1-4c81-9eb0-255731e15fd6".device = "/dev/disk/by-uuid/3ec9fc7f-dba1-4c81-9eb0-255731e15fd6";
+  boot.initrd.luks.devices."luks-3ec9fc7f-dba1-4c81-9eb0-255731e15fd6".device =
+    "/dev/disk/by-uuid/3ec9fc7f-dba1-4c81-9eb0-255731e15fd6";
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
@@ -99,7 +105,10 @@
   services.resolved = {
     enable = true;
     dnssec = "false";
-    fallbackDns = [ "1.1.1.1" "9.9.9.9" ];
+    fallbackDns = [
+      "1.1.1.1"
+      "9.9.9.9"
+    ];
   };
   networking.networkmanager.dns = "systemd-resolved";
   networking.resolvconf.enable = lib.mkForce false;
