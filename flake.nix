@@ -180,6 +180,7 @@
             ./modules/nixos/profiles/base.nix
             ./modules/nixos/profiles/desktop/libreoffice.nix
             ./modules/nixos/services/wireguard-homelab.nix
+            ./modules/nixos/services/nix-serve-cache.nix
             stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
             sops-nix.nixosModules.sops

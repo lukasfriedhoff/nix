@@ -27,7 +27,7 @@ in
     services.comin = {
       enable = true;
       hostname = lib.mkDefault config.networking.hostName;
-      flakeSubdirectory = ".";
+      repositorySubdir = ".";
       remotes = [
         {
           name = "origin";
