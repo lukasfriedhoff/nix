@@ -52,7 +52,7 @@
   };
 
   lukasf.wireguard.homelab = {
-    enable = false;
+    enable = true;
     address = "10.1.90.3/24";
     privateKeyFile = config.sops.secrets."wireguard-homelab-priv".path;
     dnsDomainFile = config.sops.secrets."wireguard-domain".path;
