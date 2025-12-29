@@ -39,6 +39,12 @@
     owner = "root";
     format = "binary";
   };
+  sops.secrets."srv1-builder-key" = {
+    sopsFile = "${secrets.profileCommon}/ssh/srv1-personal-mgmt.priv";
+    owner = "root";
+    format = "binary";
+    mode = "0400";
+  };
 
   lukasf.wireguard.homelab = {
     enable = true;
@@ -54,6 +60,18 @@
     configureClient = true;
     cacheHost = "srv1.h4xx.local";
     publicKey = builtins.readFile ../../resources/nix-cache/personal-cache.pub;
+  };
+
+  lukasf.remoteBuilds.sshKeyFile = config.sops.secrets."srv1-builder-key".path;
+  lukasf.remoteBuilds.publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURZeXEvNm9XNS9vTkhMazZOM1FLaWFjSVBnaEkrdW9VTlY1T0MyRXI0YUEgcm9vdEBuaXhvcwo=";
+
+  programs.ssh.knownHosts.srv1 = {
+    hostNames = [
+      "srv1"
+      "srv1.h4xx.local"
+      "10.1.30.12"
+    ];
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDYyq/6oW5/oNHLk6N3QKiacIPghI+uoUNV5OC2Er4aA";
   };
 
   # Power management

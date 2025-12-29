@@ -36,9 +36,15 @@ in
     };
 
     sshKeyFile = mkOption {
-      type = types.nullOr types.path;
+      type = types.nullOr types.str;
       default = null;
-      description = "Optional SSH private key for the builder connection.";
+      description = "Optional SSH private key path for the builder connection (must be a local path, not a store path).";
+    };
+
+    publicHostKey = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Optional base64-encoded SSH host key for the builder (base64 -w0 /etc/ssh/ssh_host_ed25519_key.pub).";
     };
 
     system = mkOption {
@@ -92,6 +98,9 @@ in
           }
           // optionalAttrs (cfg.sshKeyFile != null) {
             sshKey = cfg.sshKeyFile;
+          }
+          // optionalAttrs (cfg.publicHostKey != null) {
+            publicHostKey = cfg.publicHostKey;
           }
         )
       ];
