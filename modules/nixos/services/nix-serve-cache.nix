@@ -143,7 +143,7 @@ in
 
       nix.settings = mkIf cfg.configureClient (
         {
-          substituters = lib.mkAfter [ cacheUrl ];
+          substituters = lib.mkBefore [ cacheUrl ];
         }
         // optionalAttrs (cfg.publicKey != null) {
           trusted-public-keys = lib.mkAfter [ cfg.publicKey ];
