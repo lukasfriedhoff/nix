@@ -328,7 +328,11 @@ in
       ++ (lib.optionals (hasRole "volume") (
         map (dir: "d ${dir} 0750 seaweedfs seaweedfs -") volumeDataDirs
       ))
-      ++ (optional (hasRole "filer") "d ${cfg.filer.storeDir} 0750 seaweedfs seaweedfs -");
+      ++ (lib.optionals (hasRole "volume") (
+        map (dir: "z ${dir} 0750 seaweedfs seaweedfs -") volumeDataDirs
+      ))
+      ++ (optional (hasRole "filer") "d ${cfg.filer.storeDir} 0750 seaweedfs seaweedfs -")
+      ++ (optional (hasRole "filer") "z ${cfg.filer.storeDir} 0750 seaweedfs seaweedfs -");
 
     environment.etc = optionalAttrs (cfg.filer.configText != null) {
       "seaweedfs/filer.toml".text = cfg.filer.configText;
