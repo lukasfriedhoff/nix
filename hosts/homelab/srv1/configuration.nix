@@ -89,6 +89,8 @@ in
   users.users.root.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
   users.users.nixos.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
 
+  networking.firewall.allowedTCPPorts = [ 4243 ];
+
   networking.extraHosts = ''
     # srv1 srv1.h4xx.local 10.1.30.12
   '';
