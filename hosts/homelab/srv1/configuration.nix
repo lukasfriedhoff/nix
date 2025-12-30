@@ -59,6 +59,7 @@ in
       "volume"
       "filer"
     ];
+    cluster.defaultReplication = "000";
     volume = {
       disks = seaweedDisks;
       mountBase = "/mnt/seaweedfs";
