@@ -440,7 +440,7 @@ in
                 set -euo pipefail
                 for disk in ${lib.concatStringsSep " " cfg.volume.disks}; do
                   disk_id="$(${pkgs.coreutils}/bin/basename "$disk")"
-                  part="${disk}-part1"
+                  part="$disk-part1"
                   if [ ! -b "$part" ]; then
                     ${pkgs.gptfdisk}/bin/sgdisk --clear "$disk"
                     ${pkgs.gptfdisk}/bin/sgdisk --new=1:0:0 --typecode=1:8300 "$disk"
