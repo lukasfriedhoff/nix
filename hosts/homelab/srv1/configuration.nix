@@ -1,12 +1,28 @@
 {
+  config,
   inputs,
+  lib,
   secrets,
   ...
 }:
 
 let
   seaweedDisks = import ../../../resources/seaweedfs/srv1-disks.nix;
-  seaweedDataDirs = map (disk: "/mnt/seaweedfs/${builtins.baseNameOf disk}") seaweedDisks;
+  seaweedDiskIds = map builtins.baseNameOf seaweedDisks;
+  seaweedKeySecrets = lib.listToAttrs (
+    map (diskId: {
+      name = "seaweedfs-${diskId}-key";
+      value = {
+        sopsFile = "${secrets.primary}/seaweedfs/${diskId}.key";
+        owner = "root";
+        format = "binary";
+        mode = "0400";
+      };
+    }) seaweedDiskIds
+  );
+  seaweedKeyFiles = lib.genAttrs seaweedDiskIds (
+    diskId: config.sops.secrets."seaweedfs-${diskId}-key".path
+  );
 in
 {
   imports = [
@@ -23,6 +39,8 @@ in
     managementPubKey = "ssh/srv1-personal-mgmt.pub";
     usePasswordAuth = false;
   };
+
+  sops.secrets = seaweedKeySecrets;
 
   lukasf.nixCache = {
     enable = true;
@@ -41,7 +59,16 @@ in
       "volume"
       "filer"
     ];
-    volume.dataDirs = seaweedDataDirs;
+    volume = {
+      disks = seaweedDisks;
+      mountBase = "/mnt/seaweedfs";
+      filesystem = "xfs";
+      formatIfMissing = true;
+      encryption = {
+        enable = true;
+        keyFiles = seaweedKeyFiles;
+      };
+    };
   };
 
   boot.loader.systemd-boot.enable = true;

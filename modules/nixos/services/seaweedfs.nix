@@ -48,8 +48,34 @@ let
     cfg.cluster.bootstrapMaster
     || (cfg.cluster.autoBootstrap && hasRole "master" && lib.length masterAddresses == 1);
 
+  diskEntries = map (
+    disk:
+    let
+      diskId = builtins.baseNameOf disk;
+      mountPoint = "${cfg.volume.mountBase}/${diskId}";
+      partDevice = "${disk}-part1";
+      mapperName = "${cfg.volume.encryption.namePrefix}-${diskId}";
+      mapperDevice = "/dev/mapper/${mapperName}";
+      keyFile = cfg.volume.encryption.keyFiles.${diskId} or null;
+    in
+    {
+      inherit
+        disk
+        diskId
+        mountPoint
+        partDevice
+        mapperName
+        mapperDevice
+        keyFile
+        ;
+    }
+  ) cfg.volume.disks;
+
+  volumeDataDirs =
+    if cfg.volume.disks != [ ] then map (entry: entry.mountPoint) diskEntries else cfg.volume.dataDirs;
+
   weed = "${pkgs.seaweedfs}/bin/weed";
-  volumeDirs = concatStringsSep "," cfg.volume.dataDirs;
+  volumeDirs = concatStringsSep "," volumeDataDirs;
 in
 {
   options.lukasf.seaweedfs = {
@@ -170,10 +196,60 @@ in
     };
 
     volume = {
+      disks = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Device paths (prefer /dev/disk/by-id/...) to use for SeaweedFS volumes.";
+      };
+
+      mountBase = mkOption {
+        type = types.str;
+        default = "/mnt/seaweedfs";
+        description = "Base directory for SeaweedFS volume mounts when disks are managed.";
+      };
+
       dataDirs = mkOption {
         type = types.listOf types.str;
         default = [ "/var/lib/seaweedfs/volume" ];
         description = "Directories for volume data.";
+      };
+
+      filesystem = mkOption {
+        type = types.str;
+        default = "xfs";
+        description = "Filesystem to create on managed disks (e.g., xfs, ext4).";
+      };
+
+      formatIfMissing = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Format and partition disks if they are uninitialized.";
+      };
+
+      encryption = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Enable per-disk LUKS encryption for volume disks.";
+        };
+
+        namePrefix = mkOption {
+          type = types.str;
+          default = "seaweed";
+          description = "Prefix for LUKS mapper device names.";
+        };
+
+        keyFiles = mkOption {
+          type = types.attrsOf types.str;
+          default = { };
+          description = "Key files for each disk, keyed by disk id (baseNameOf the disk path).";
+        };
+
+        allowDiscards = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Allow discards for encrypted SSDs.";
+        };
       };
 
       maxVolumes = mkOption {
@@ -230,6 +306,15 @@ in
         assertion = (!hasRole "volume" && !hasRole "filer") || masterAddresses != [ ];
         message = "lukasf.seaweedfs: volume/filer roles require master servers.";
       }
+      {
+        assertion =
+          cfg.volume.disks == [ ] || lib.all (d: lib.hasPrefix "/dev/disk/by-id/" d) cfg.volume.disks;
+        message = "lukasf.seaweedfs: volume.disks should use /dev/disk/by-id paths so partition names are stable.";
+      }
+      {
+        assertion = (!cfg.volume.encryption.enable) || lib.all (entry: entry.keyFile != null) diskEntries;
+        message = "lukasf.seaweedfs: encryption enabled but missing keyFiles for one or more disks.";
+      }
     ];
 
     users.groups.seaweedfs = { };
@@ -241,7 +326,7 @@ in
     systemd.tmpfiles.rules =
       (optional (hasRole "master") "d ${cfg.master.metaDir} 0750 seaweedfs seaweedfs -")
       ++ (lib.optionals (hasRole "volume") (
-        map (dir: "d ${dir} 0750 seaweedfs seaweedfs -") cfg.volume.dataDirs
+        map (dir: "d ${dir} 0750 seaweedfs seaweedfs -") volumeDataDirs
       ))
       ++ (optional (hasRole "filer") "d ${cfg.filer.storeDir} 0750 seaweedfs seaweedfs -");
 
@@ -276,9 +361,15 @@ in
 
     systemd.services.seaweedfs-volume = mkIf (hasRole "volume") {
       description = "SeaweedFS volume server";
-      after = [ "network-online.target" ];
+      after = [
+        "local-fs.target"
+        "network-online.target"
+      ];
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
+      unitConfig = {
+        RequiresMountsFor = volumeDataDirs;
+      };
       serviceConfig = {
         User = "seaweedfs";
         Group = "seaweedfs";
@@ -323,6 +414,123 @@ in
         );
       };
     };
+
+    systemd.services.seaweedfs-format-disks =
+      mkIf (cfg.volume.formatIfMissing && cfg.volume.disks != [ ])
+        {
+          description = "SeaweedFS disk preparation";
+          after = [ "systemd-udev-settle.service" ];
+          wants = [ "systemd-udev-settle.service" ];
+          before =
+            (optional (hasRole "volume") "seaweedfs-volume.service")
+            ++ (lib.optionals cfg.volume.encryption.enable (
+              map (entry: "seaweedfs-cryptsetup-${entry.diskId}.service") diskEntries
+            ));
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart =
+              let
+                allowDiscards = optionalString cfg.volume.encryption.allowDiscards "--allow-discards";
+              in
+              pkgs.writeShellScript "seaweedfs-format-disks" ''
+                set -euo pipefail
+                for disk in ${lib.concatStringsSep " " cfg.volume.disks}; do
+                  disk_id="$(${pkgs.coreutils}/bin/basename "$disk")"
+                  part="${disk}-part1"
+                  if [ ! -b "$part" ]; then
+                    ${pkgs.gptfdisk}/bin/sgdisk --clear "$disk"
+                    ${pkgs.gptfdisk}/bin/sgdisk --new=1:0:0 --typecode=1:8300 "$disk"
+                    ${pkgs.parted}/bin/partprobe "$disk"
+                    ${pkgs.systemd}/bin/udevadm settle
+                  fi
+
+                  target="$part"
+                  if ${lib.boolToString cfg.volume.encryption.enable}; then
+                    key_file_map="${
+                      lib.concatStringsSep " " (map (entry: "${entry.diskId}:${entry.keyFile or ""}") diskEntries)
+                    }"
+                    key="$(printf '%s\n' "$key_file_map" | ${pkgs.gnugrep}/bin/grep "^${disk_id}:" | ${pkgs.coreutils}/bin/cut -d: -f2-)"
+                    if [ -z "$key" ]; then
+                      echo "Missing key file for $disk_id" >&2
+                      exit 1
+                    fi
+                    if ! ${pkgs.cryptsetup}/bin/cryptsetup isLuks "$part" >/dev/null 2>&1; then
+                      ${pkgs.cryptsetup}/bin/cryptsetup -q luksFormat "$part" --key-file "$key"
+                    fi
+                    mapper="/dev/mapper/${cfg.volume.encryption.namePrefix}-$disk_id"
+                    if [ ! -e "$mapper" ]; then
+                      ${pkgs.cryptsetup}/bin/cryptsetup open "$part" "${cfg.volume.encryption.namePrefix}-$disk_id" --key-file "$key" ${allowDiscards}
+                    fi
+                    target="$mapper"
+                  fi
+
+                  if ! ${pkgs.util-linux}/bin/blkid -o value -s TYPE "$target" >/dev/null 2>&1; then
+                    case "${cfg.volume.filesystem}" in
+                      xfs)
+                        ${pkgs.xfsprogs}/bin/mkfs.xfs -f "$target"
+                        ;;
+                      ext4)
+                        ${pkgs.e2fsprogs}/bin/mkfs.ext4 -F "$target"
+                        ;;
+                      *)
+                        echo "Unsupported filesystem: ${cfg.volume.filesystem}" >&2
+                        exit 1
+                        ;;
+                    esac
+                  fi
+                done
+              '';
+          };
+          wantedBy = [ "multi-user.target" ];
+        };
+
+    systemd.services = lib.listToAttrs (
+      lib.optionals cfg.volume.encryption.enable (
+        map (entry: {
+          name = "seaweedfs-cryptsetup-${entry.diskId}";
+          value = {
+            description = "SeaweedFS LUKS unlock for ${entry.diskId}";
+            after = [
+              "network-online.target"
+            ]
+            ++ optional cfg.volume.formatIfMissing "seaweedfs-format-disks.service";
+            wants = [ "network-online.target" ];
+            wantedBy = [ "multi-user.target" ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart =
+                let
+                  allowDiscards = optionalString cfg.volume.encryption.allowDiscards "--allow-discards";
+                in
+                "${pkgs.cryptsetup}/bin/cryptsetup open ${entry.partDevice} ${entry.mapperName} --key-file ${entry.keyFile} ${allowDiscards}";
+              ExecStop = "${pkgs.cryptsetup}/bin/cryptsetup close ${entry.mapperName}";
+            };
+          };
+        }) diskEntries
+      )
+    );
+
+    fileSystems = lib.mkIf (cfg.volume.disks != [ ]) (
+      lib.listToAttrs (
+        map (entry: {
+          name = entry.mountPoint;
+          value = {
+            device = if cfg.volume.encryption.enable then entry.mapperDevice else entry.partDevice;
+            fsType = cfg.volume.filesystem;
+            options = [
+              "noatime"
+              "nodiratime"
+              "nofail"
+              "x-systemd.device-timeout=1min"
+            ]
+            ++ optional (cfg.volume.encryption.enable) "x-systemd.requires=seaweedfs-cryptsetup-${entry.diskId}.service"
+            ++ optional (cfg.volume.encryption.enable) "x-systemd.after=seaweedfs-cryptsetup-${entry.diskId}.service";
+          };
+        }) diskEntries
+      )
+    );
 
     networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall (
       (optional (hasRole "master") cfg.cluster.masterPort)
