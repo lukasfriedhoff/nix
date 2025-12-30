@@ -1,0 +1,7 @@
+[
+  "/dev/disk/by-id/ata-T-FORCE_1TB_TPBF2208240050700816"
+  "/dev/disk/by-id/ata-T-FORCE_1TB_TPBF2208240050700434"
+  "/dev/disk/by-id/ata-T-FORCE_1TB_TPBF2209130010100025"
+  "/dev/disk/by-id/ata-T-FORCE_1TB_TPBF2209020040602776"
+  "/dev/disk/by-id/ata-T-FORCE_1TB_TPBF2209020040601421"
+]

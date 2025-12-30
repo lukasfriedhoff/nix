@@ -4,6 +4,10 @@
   ...
 }:
 
+let
+  seaweedDisks = import ../../../resources/seaweedfs/srv1-disks.nix;
+  seaweedDataDirs = map (disk: "/mnt/seaweedfs/${builtins.baseNameOf disk}") seaweedDisks;
+in
 {
   imports = [
     inputs.disko.nixosModules.disko
@@ -29,6 +33,16 @@
   };
 
   lukasf.serverDeployment.enableComin = true;
+
+  lukasf.seaweedfs = {
+    enable = true;
+    roles = [
+      "master"
+      "volume"
+      "filer"
+    ];
+    volume.dataDirs = seaweedDataDirs;
+  };
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;

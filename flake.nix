@@ -182,6 +182,7 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
+            ./modules/nixos/services/seaweedfs.nix
             stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
             sops-nix.nixosModules.sops
@@ -196,6 +197,7 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
+            ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/profiles/dacoso/server.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
@@ -207,6 +209,7 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
+            ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/profiles/homelab/kubernetes.nix
             ./modules/nixos/profiles/homelab/gitops.nix
             sops-nix.nixosModules.sops
@@ -219,6 +222,7 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
+            ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/profiles/homelab/personal-server.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
