@@ -334,90 +334,93 @@ in
       "seaweedfs/filer.toml".text = cfg.filer.configText;
     };
 
-    systemd.services.seaweedfs-master = mkIf (hasRole "master") {
-      description = "SeaweedFS master";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        User = "seaweedfs";
-        Group = "seaweedfs";
-        Restart = "on-failure";
-        ExecStart = concatStringsSep " " (
-          [
-            weed
-            "master"
-            "-ip=${nodeAddress}"
-            "-ip.bind=${cfg.bindAddress}"
-            "-port=${toString cfg.cluster.masterPort}"
-            "-mdir=${cfg.master.metaDir}"
-            "-defaultReplication=${cfg.cluster.defaultReplication}"
-          ]
-          ++ optional (masterPeers != "") "-peers=${masterPeers}"
-          ++ optional bootstrapMaster "-raftBootstrap"
-        );
-      };
-    };
-
-    systemd.services.seaweedfs-volume = mkIf (hasRole "volume") {
-      description = "SeaweedFS volume server";
-      after = [
-        "local-fs.target"
-        "network-online.target"
-      ];
-      wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-      unitConfig = {
-        RequiresMountsFor = volumeDataDirs;
-      };
-      serviceConfig = {
-        User = "seaweedfs";
-        Group = "seaweedfs";
-        Restart = "on-failure";
-        ExecStart = concatStringsSep " " (
-          [
-            weed
-            "volume"
-            "-ip=${nodeAddress}"
-            "-ip.bind=${cfg.bindAddress}"
-            "-port=${toString cfg.cluster.volumePort}"
-            "-dir=${volumeDirs}"
-            "-max=${toString cfg.volume.maxVolumes}"
-            "-mserver=${masterList}"
-          ]
-          ++ optional (cfg.volume.publicUrl != null) "-publicUrl=${cfg.volume.publicUrl}"
-        );
-      };
-    };
-
-    systemd.services.seaweedfs-filer = mkIf (hasRole "filer") {
-      description = "SeaweedFS filer";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        User = "seaweedfs";
-        Group = "seaweedfs";
-        Restart = "on-failure";
-        ExecStart = concatStringsSep " " (
-          [
-            weed
-            "filer"
-            "-ip=${nodeAddress}"
-            "-ip.bind=${cfg.bindAddress}"
-            "-port=${toString cfg.cluster.filerPort}"
-            "-master=${masterList}"
-            "-defaultStoreDir=${cfg.filer.storeDir}"
-          ]
-          ++ optional cfg.filer.enableS3 "-s3"
-          ++ optional cfg.filer.enableS3 "-s3.port=${toString cfg.filer.s3Port}"
-        );
-      };
-    };
-
-    systemd.services.seaweedfs-format-disks =
-      mkIf (cfg.volume.formatIfMissing && cfg.volume.disks != [ ])
-        {
+    systemd.services = lib.mkMerge [
+      (lib.optionalAttrs (hasRole "master") {
+        seaweedfs-master = {
+          description = "SeaweedFS master";
+          after = [ "network-online.target" ];
+          wants = [ "network-online.target" ];
+          wantedBy = [ "multi-user.target" ];
+          serviceConfig = {
+            User = "seaweedfs";
+            Group = "seaweedfs";
+            Restart = "on-failure";
+            ExecStart = concatStringsSep " " (
+              [
+                weed
+                "master"
+                "-ip=${nodeAddress}"
+                "-ip.bind=${cfg.bindAddress}"
+                "-port=${toString cfg.cluster.masterPort}"
+                "-mdir=${cfg.master.metaDir}"
+                "-defaultReplication=${cfg.cluster.defaultReplication}"
+              ]
+              ++ optional (masterPeers != "") "-peers=${masterPeers}"
+              ++ optional bootstrapMaster "-raftBootstrap"
+            );
+          };
+        };
+      })
+      (lib.optionalAttrs (hasRole "volume") {
+        seaweedfs-volume = {
+          description = "SeaweedFS volume server";
+          after = [
+            "local-fs.target"
+            "network-online.target"
+          ];
+          wants = [ "network-online.target" ];
+          wantedBy = [ "multi-user.target" ];
+          unitConfig = {
+            RequiresMountsFor = volumeDataDirs;
+          };
+          serviceConfig = {
+            User = "seaweedfs";
+            Group = "seaweedfs";
+            Restart = "on-failure";
+            ExecStart = concatStringsSep " " (
+              [
+                weed
+                "volume"
+                "-ip=${nodeAddress}"
+                "-ip.bind=${cfg.bindAddress}"
+                "-port=${toString cfg.cluster.volumePort}"
+                "-dir=${volumeDirs}"
+                "-max=${toString cfg.volume.maxVolumes}"
+                "-mserver=${masterList}"
+              ]
+              ++ optional (cfg.volume.publicUrl != null) "-publicUrl=${cfg.volume.publicUrl}"
+            );
+          };
+        };
+      })
+      (lib.optionalAttrs (hasRole "filer") {
+        seaweedfs-filer = {
+          description = "SeaweedFS filer";
+          after = [ "network-online.target" ];
+          wants = [ "network-online.target" ];
+          wantedBy = [ "multi-user.target" ];
+          serviceConfig = {
+            User = "seaweedfs";
+            Group = "seaweedfs";
+            Restart = "on-failure";
+            ExecStart = concatStringsSep " " (
+              [
+                weed
+                "filer"
+                "-ip=${nodeAddress}"
+                "-ip.bind=${cfg.bindAddress}"
+                "-port=${toString cfg.cluster.filerPort}"
+                "-master=${masterList}"
+                "-defaultStoreDir=${cfg.filer.storeDir}"
+              ]
+              ++ optional cfg.filer.enableS3 "-s3"
+              ++ optional cfg.filer.enableS3 "-s3.port=${toString cfg.filer.s3Port}"
+            );
+          };
+        };
+      })
+      (lib.optionalAttrs (cfg.volume.formatIfMissing && cfg.volume.disks != [ ]) {
+        seaweedfs-format-disks = {
           description = "SeaweedFS disk preparation";
           after = [ "systemd-udev-settle.service" ];
           wants = [ "systemd-udev-settle.service" ];
@@ -484,33 +487,34 @@ in
           };
           wantedBy = [ "multi-user.target" ];
         };
-
-    systemd.services = lib.listToAttrs (
-      lib.optionals cfg.volume.encryption.enable (
-        map (entry: {
-          name = "seaweedfs-cryptsetup-${entry.diskId}";
-          value = {
-            description = "SeaweedFS LUKS unlock for ${entry.diskId}";
-            after = [
-              "network-online.target"
-            ]
-            ++ optional cfg.volume.formatIfMissing "seaweedfs-format-disks.service";
-            wants = [ "network-online.target" ];
-            wantedBy = [ "multi-user.target" ];
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-              ExecStart =
-                let
-                  allowDiscards = optionalString cfg.volume.encryption.allowDiscards "--allow-discards";
-                in
-                "${pkgs.cryptsetup}/bin/cryptsetup open ${entry.partDevice} ${entry.mapperName} --key-file ${entry.keyFile} ${allowDiscards}";
-              ExecStop = "${pkgs.cryptsetup}/bin/cryptsetup close ${entry.mapperName}";
+      })
+      (lib.optionalAttrs cfg.volume.encryption.enable (
+        lib.listToAttrs (
+          map (entry: {
+            name = "seaweedfs-cryptsetup-${entry.diskId}";
+            value = {
+              description = "SeaweedFS LUKS unlock for ${entry.diskId}";
+              after = [
+                "network-online.target"
+              ]
+              ++ optional cfg.volume.formatIfMissing "seaweedfs-format-disks.service";
+              wants = [ "network-online.target" ];
+              wantedBy = [ "multi-user.target" ];
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                ExecStart =
+                  let
+                    allowDiscards = optionalString cfg.volume.encryption.allowDiscards "--allow-discards";
+                  in
+                  "${pkgs.cryptsetup}/bin/cryptsetup open ${entry.partDevice} ${entry.mapperName} --key-file ${entry.keyFile} ${allowDiscards}";
+                ExecStop = "${pkgs.cryptsetup}/bin/cryptsetup close ${entry.mapperName}";
+              };
             };
-          };
-        }) diskEntries
-      )
-    );
+          }) diskEntries
+        )
+      ))
+    ];
 
     fileSystems = lib.mkIf (cfg.volume.disks != [ ]) (
       lib.listToAttrs (
