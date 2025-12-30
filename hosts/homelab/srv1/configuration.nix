@@ -7,22 +7,9 @@
 }:
 
 let
-  seaweedDisks = import ../../../resources/seaweedfs/srv1-disks.nix;
-  seaweedDiskIds = map builtins.baseNameOf seaweedDisks;
-  seaweedKeySecrets = lib.listToAttrs (
-    map (diskId: {
-      name = "seaweedfs-${diskId}-key";
-      value = {
-        sopsFile = "${secrets.primary}/seaweedfs/${diskId}.key";
-        owner = "root";
-        format = "binary";
-        mode = "0400";
-      };
-    }) seaweedDiskIds
-  );
-  seaweedKeyFiles = lib.genAttrs seaweedDiskIds (
-    diskId: config.sops.secrets."seaweedfs-${diskId}-key".path
-  );
+  homelabDisks = import ../../../resources/homelab/disks.nix;
+  cephDiskEntries = lib.filterAttrs (_: v: v.host == "srv1" && v.purpose == "ceph") homelabDisks;
+  cephDisks = map (diskId: "/dev/disk/by-id/${diskId}") (lib.attrNames cephDiskEntries);
 in
 {
   imports = [
@@ -40,8 +27,6 @@ in
     usePasswordAuth = false;
   };
 
-  sops.secrets = seaweedKeySecrets;
-
   lukasf.nixCache = {
     enable = true;
     secretKeyFile = "nix-cache/nix-serve.key";
@@ -52,23 +37,19 @@ in
 
   lukasf.serverDeployment.enableComin = true;
 
-  lukasf.seaweedfs = {
+  lukasf.seaweedfs.enable = false;
+
+  lukasf.ceph = {
     enable = true;
-    roles = [
-      "master"
-      "volume"
-      "filer"
-    ];
-    cluster.defaultReplication = "000";
-    volume = {
-      disks = seaweedDisks;
-      mountBase = "/mnt/seaweedfs";
-      filesystem = "xfs";
-      formatIfMissing = true;
-      encryption = {
-        enable = true;
-        keyFiles = seaweedKeyFiles;
-      };
+    bootstrap = {
+      monIp = "10.1.30.5";
+      singleHostDefaults = true;
+      skipDashboard = true;
+    };
+    osd = {
+      devices = cephDisks;
+      encrypted = true;
+      autoProvision = true;
     };
   };
 
