@@ -451,9 +451,9 @@ in
                   target="$part"
                   if ${lib.boolToString cfg.volume.encryption.enable}; then
                     key_file_map="${
-                      lib.concatStringsSep " " (map (entry: "${entry.diskId}:${entry.keyFile or ""}") diskEntries)
+                      lib.concatStringsSep "\n" (map (entry: "${entry.diskId}:${entry.keyFile or ""}") diskEntries)
                     }"
-                    key="$(printf '%s\n' "$key_file_map" | ${pkgs.gnugrep}/bin/grep "^\${disk_id}:" | ${pkgs.coreutils}/bin/cut -d: -f2-)"
+                    key="$(printf '%s\n' "$key_file_map" | ${pkgs.gnugrep}/bin/grep "^$disk_id:" | ${pkgs.coreutils}/bin/cut -d: -f2-)"
                     if [ -z "$key" ]; then
                       echo "Missing key file for $disk_id" >&2
                       exit 1
