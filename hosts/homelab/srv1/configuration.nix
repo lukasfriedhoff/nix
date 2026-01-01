@@ -37,6 +37,11 @@ in
 
   lukasf.serverDeployment.enableComin = true;
 
+  lukasf.wolf = {
+    enable = true;
+    backend = "docker";
+  };
+
   lukasf.seaweedfs.enable = false;
 
   lukasf.ceph = {

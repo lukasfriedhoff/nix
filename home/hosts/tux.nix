@@ -11,6 +11,8 @@
     autoInstallDotnet80 = true;
   };
 
+  programs.wolfClient.enable = true;
+
   dconf.settings."org/gnome/desktop/wm/keybindings" = {
     "switch-windows" = [ "<Alt>Tab" ];
     "switch-windows-backward" = [ "<Shift><Alt>Tab" ];
