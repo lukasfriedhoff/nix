@@ -184,6 +184,7 @@
             ./modules/nixos/services/remote-builders.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
+            ./modules/nixos/services/wolf.nix
             stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
             sops-nix.nixosModules.sops
@@ -200,6 +201,7 @@
             ./modules/nixos/services/remote-builders.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
+            ./modules/nixos/services/wolf.nix
             ./modules/nixos/profiles/dacoso/server.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
@@ -213,6 +215,7 @@
             ./modules/nixos/services/remote-builders.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
+            ./modules/nixos/services/wolf.nix
             ./modules/nixos/profiles/homelab/kubernetes.nix
             ./modules/nixos/profiles/homelab/gitops.nix
             sops-nix.nixosModules.sops
@@ -227,6 +230,7 @@
             ./modules/nixos/services/remote-builders.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
+            ./modules/nixos/services/wolf.nix
             ./modules/nixos/profiles/homelab/personal-server.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
@@ -275,6 +279,7 @@
                 (mkDesktopHome "tab" [
                   stylix.homeModules.stylix
                   ./home
+                  ./home/hosts/tab.nix
                 ])
               ]
             );

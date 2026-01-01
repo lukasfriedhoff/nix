@@ -48,6 +48,7 @@ in
     ./programs/icarus-mod-manager/default.nix
     ./programs/vscode/default.nix
     ./programs/evolution/default.nix
+    ./programs/wolf-client/default.nix
     # Theme customisations applied via stylix' home module.
     ./programs/stylix/default.nix
     ./programs/codex/default.nix
