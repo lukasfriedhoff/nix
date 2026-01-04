@@ -7,10 +7,23 @@
 
 let
   cfg = config.lukasf.ceph;
-  pyyaml = pkgs.python3Packages.pyyaml;
+  pythonWithCephadmDeps = pkgs.python3.withPackages (ps: [
+    ps.bcrypt
+    ps.certifi
+    ps.cherrypy
+    ps.cryptography
+    ps.idna
+    ps.jinja2
+    ps.prettytable
+    ps.pyopenssl
+    ps.pyyaml
+    ps.requests
+    ps.six
+    ps.urllib3
+  ]);
   pythonSite = pkgs.python3.sitePackages;
-  cephadm = pkgs.writeShellScript "cephadm-with-yaml" ''
-    export PYTHONPATH="${pyyaml}/${pythonSite}:''${PYTHONPATH:-}"
+  cephadm = pkgs.writeShellScript "cephadm-with-deps" ''
+    export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
     exec ${cfg.package}/bin/cephadm "$@"
   '';
   python = "${pkgs.python3}/bin/python3";
