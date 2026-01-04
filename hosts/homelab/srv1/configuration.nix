@@ -20,6 +20,15 @@ in
 
   networking.hostName = "srv1";
   networking.domain = "lab.h4xx.io";
+  networking.interfaces.eno1 = {
+    useDHCP = true;
+    ipv4.addresses = [
+      {
+        address = "10.1.30.5";
+        prefixLength = 24;
+      }
+    ];
+  };
 
   homelab.personalServer = {
     enable = true;
