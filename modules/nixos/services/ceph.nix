@@ -168,7 +168,10 @@ in
       }
     ];
 
-    environment.systemPackages = [ cfg.package ];
+    environment.systemPackages = [
+      cfg.package
+      pkgs.python3
+    ];
 
     virtualisation.podman.enable = true;
 
