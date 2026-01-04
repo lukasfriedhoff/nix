@@ -278,8 +278,11 @@ in
 
                         devices_json="$(${cephadm} shell -- ceph orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p')"
                         if [ -z "$devices_json" ]; then
-                          echo "Failed to read device list from ceph orch." >&2
-                          exit 1
+                          echo "Device list unavailable, attempting direct OSD adds." >&2
+                          for dev in ${deviceList}; do
+                            ${cephadm} shell -- ceph orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
+                          done
+                          exit 0
                         fi
                         for dev in ${deviceList}; do
                           if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
