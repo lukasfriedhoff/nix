@@ -58,7 +58,7 @@
     enable = true;
     serve = false;
     configureClient = true;
-    cacheHost = "srv1.h4xx.local";
+    cacheHost = "srv1.lab.h4xx.io";
     publicKey = builtins.readFile ../../resources/nix-cache/personal-cache.pub;
   };
 
@@ -68,7 +68,7 @@
   programs.ssh.knownHosts.srv1 = {
     hostNames = [
       "srv1"
-      "srv1.h4xx.local"
+      "srv1.lab.h4xx.io"
       "10.1.30.12"
     ];
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDYyq/6oW5/oNHLk6N3QKiacIPghI+uoUNV5OC2Er4aA";

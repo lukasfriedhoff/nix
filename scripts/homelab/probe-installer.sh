@@ -114,6 +114,6 @@ if [[ -n "$host" ]]; then
   echo
   echo "==> suggested template edits for ${host}"
   echo "  networking.hostName = \"${host}\";"
-  echo "  networking.domain = \"${host}.h4xx.local\";  # adjust domain"
+  echo "  networking.domain = \"${host}.lab.h4xx.io\";  # adjust domain"
   echo "  # Set disko device to a stable /dev/disk/by-id from above."
 fi

@@ -25,7 +25,7 @@ in
 
     hostName = mkOption {
       type = types.str;
-      default = "srv1.h4xx.local";
+      default = "srv1.lab.h4xx.io";
       description = "Builder hostname (srv1).";
     };
 

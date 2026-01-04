@@ -70,14 +70,14 @@
   {
     match = "srv1";
     alias = "srv1";
-    hostName = "srv1.h4xx.local";
+    hostName = "srv1.lab.h4xx.io";
     user = "root";
     keyName = "srv1-personal-mgmt";
   }
   {
     match = "unlock-srv1";
     alias = "unlock-srv1";
-    hostName = "srv1.h4xx.local";
+    hostName = "srv1.lab.h4xx.io";
     port = 2222;
     user = "root";
     keyName = "srv1-personal-mgmt";

@@ -19,7 +19,7 @@ in
   ];
 
   networking.hostName = "srv1";
-  networking.domain = "h4xx.local";
+  networking.domain = "lab.h4xx.io";
 
   homelab.personalServer = {
     enable = true;
@@ -74,6 +74,6 @@ in
   networking.firewall.allowedTCPPorts = [ 4243 ];
 
   networking.extraHosts = ''
-    # srv1 srv1.h4xx.local 10.1.30.12
+    # srv1 srv1.lab.h4xx.io 10.1.30.12
   '';
 }
