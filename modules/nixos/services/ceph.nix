@@ -7,6 +7,20 @@
 
 let
   cfg = config.lukasf.ceph;
+  cephadmPath = with pkgs; [
+    bash
+    coreutils
+    findutils
+    gawk
+    gnugrep
+    gnused
+    iproute2
+    iputils
+    jq
+    lvm2
+    podman
+    util-linux
+  ];
   pythonWithCephadmDeps = pkgs.python3.withPackages (ps: [
     ps.bcrypt
     ps.certifi
@@ -154,6 +168,7 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
+      path = cephadmPath;
       unitConfig = {
         ConditionPathExists = "!/etc/ceph/ceph.conf";
       };
@@ -189,6 +204,7 @@ in
       ];
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
+      path = cephadmPath;
       unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
       serviceConfig = {
         Type = "oneshot";
