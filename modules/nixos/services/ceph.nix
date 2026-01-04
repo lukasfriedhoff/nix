@@ -32,6 +32,7 @@ let
     coreutils
     findutils
     gawk
+    gptfdisk
     gnugrep
     gnused
     iproute2
@@ -335,6 +336,9 @@ in
 
                         if [ "${zapDevicesFlag}" = "true" ]; then
                           for dev in ${deviceList}; do
+                            wipefs --all --force "$dev" || true
+                            sgdisk --zap-all "$dev" || true
+                            partprobe "$dev" || true
                             ceph_cmd orch device zap "${osdHost}" "$dev" --force || true
                           done
                         fi
