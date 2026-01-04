@@ -173,6 +173,9 @@ in
     virtualisation.podman.enable = true;
 
     systemd.tmpfiles.rules = [
+      "d /bin 0755 root root -"
+      "L+ /bin/bash - - - - ${pkgs.bashInteractive}/bin/bash"
+      "L+ /bin/rm - - - - ${pkgs.coreutils}/bin/rm"
       "d /etc/ceph 0755 root root -"
       "d /etc/logrotate.d 0755 root root -"
       "d /var/lib/ceph 0755 root root -"
