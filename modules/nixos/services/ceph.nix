@@ -240,7 +240,23 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = "${cephadm} shell -- ceph config set mon public_network ${cfg.bootstrap.publicNetwork}";
+        ExecStart =
+          let
+            publicNetwork = cfg.bootstrap.publicNetwork;
+          in
+          pkgs.writeShellScript "cephadm-public-network" ''
+            set -euo pipefail
+            fsid=""
+            if [ -f /etc/ceph/ceph.conf ]; then
+              fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+            fi
+
+            if [ -n "$fsid" ]; then
+              exec ${cephadm} shell --fsid "$fsid" -- ceph config set mon public_network ${publicNetwork}
+            fi
+
+            exec ${cephadm} shell -- ceph config set mon public_network ${publicNetwork}
+          '';
       };
     };
 
@@ -269,21 +285,59 @@ in
                           exit 0
                         fi
 
+                        fsid=""
+                        if [ -f /etc/ceph/ceph.conf ]; then
+                          fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+                        fi
+
+                        ceph_cmd() {
+                          if [ -n "$fsid" ]; then
+                            ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+                          else
+                            ${cephadm} shell -- ceph "$@"
+                          fi
+                        }
+
                         for _ in $(seq 1 30); do
-                          if ${cephadm} shell -- ceph status >/dev/null 2>&1; then
+                          if ceph_cmd status >/dev/null 2>&1; then
                             break
                           fi
                           sleep 2
                         done
 
-                        devices_json="$(${cephadm} shell -- ceph orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p')"
+                        devices_json="$(ceph_cmd orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
                         if [ -z "$devices_json" ]; then
                           echo "Device list unavailable, attempting direct OSD adds." >&2
                           for dev in ${deviceList}; do
-                            ${cephadm} shell -- ceph orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
+                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
                           done
                           exit 0
                         fi
+
+                        host_devices="$(
+                          printf '%s' "$devices_json" | ${python} - "${osdHost}" <<'PY' || true
+            import json, sys
+            host = sys.argv[1]
+            try:
+                data = json.load(sys.stdin)
+            except json.JSONDecodeError:
+                sys.exit(2)
+            devices = []
+            for entry in data:
+                if entry.get("name") == host or entry.get("addr") == host:
+                    devices.extend(entry.get("devices", []))
+            print(len(devices))
+            PY
+                        )"
+
+                        if [ "${host_devices: -0}" -eq 0 ]; then
+                          echo "No devices reported by cephadm, attempting direct OSD adds." >&2
+                          for dev in ${deviceList}; do
+                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
+                          done
+                          exit 0
+                        fi
+
                         for dev in ${deviceList}; do
                           if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
             import json, sys
@@ -296,7 +350,7 @@ in
             sys.exit(2)
             PY
                           then
-                            ${cephadm} shell -- ceph orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
+                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
                           else
                             echo "Skipping $dev (not available for OSD provisioning)" >&2
                           fi
