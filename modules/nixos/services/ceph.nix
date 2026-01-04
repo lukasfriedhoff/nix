@@ -7,7 +7,12 @@
 
 let
   cfg = config.lukasf.ceph;
-  cephadm = "${cfg.package}/bin/cephadm";
+  pyyaml = pkgs.python3Packages.pyyaml;
+  pythonSite = pkgs.python3.sitePackages;
+  cephadm = pkgs.writeShellScript "cephadm-with-yaml" ''
+    export PYTHONPATH="${pyyaml}/${pythonSite}:''${PYTHONPATH:-}"
+    exec ${cfg.package}/bin/cephadm "$@"
+  '';
   python = "${pkgs.python3}/bin/python3";
   hostName = config.networking.hostName;
   osdHost = cfg.osd.host;
