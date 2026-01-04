@@ -276,7 +276,11 @@ in
                           sleep 2
                         done
 
-                        devices_json="$(${cephadm} shell -- ceph orch device ls --format json)"
+                        devices_json="$(${cephadm} shell -- ceph orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p')"
+                        if [ -z "$devices_json" ]; then
+                          echo "Failed to read device list from ceph orch." >&2
+                          exit 1
+                        fi
                         for dev in ${deviceList}; do
                           if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
             import json, sys
