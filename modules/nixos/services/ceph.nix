@@ -187,6 +187,7 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        BindPaths = [ "/run/systemd/system:/etc/systemd/system" ];
         ExecStart = lib.concatStringsSep " " (
           [
             cephadm
