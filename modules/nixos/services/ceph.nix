@@ -330,7 +330,11 @@ in
             PY
                         )"
 
-                        if [ "${host_devices: -0}" -eq 0 ]; then
+                        if [ -z "$host_devices" ]; then
+                          host_devices=0
+                        fi
+
+                        if [ "$host_devices" -eq 0 ]; then
                           echo "No devices reported by cephadm, attempting direct OSD adds." >&2
                           for dev in ${deviceList}; do
                             ceph_cmd orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
