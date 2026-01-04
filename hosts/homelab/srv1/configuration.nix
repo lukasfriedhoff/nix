@@ -64,6 +64,7 @@ in
       devices = cephDisks;
       encrypted = true;
       autoProvision = true;
+      zapDevices = true;
     };
   };
 

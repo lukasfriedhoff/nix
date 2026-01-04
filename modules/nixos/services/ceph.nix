@@ -161,6 +161,12 @@ in
         description = "Use dm-crypt for OSDs managed by cephadm.";
       };
 
+      zapDevices = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Zap OSD devices before provisioning (destructive).";
+      };
+
       autoProvision = lib.mkOption {
         type = lib.types.bool;
         default = false;
@@ -286,6 +292,7 @@ in
           let
             methodFlag = cfg.osd.method;
             dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
+            zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
             deviceList = lib.concatStringsSep " " cfg.osd.devices;
           in
           pkgs.writeShellScript "cephadm-osd-provision" ''
@@ -325,6 +332,12 @@ in
                           fi
                           sleep 2
                         done
+
+                        if [ "${zapDevicesFlag}" = "true" ]; then
+                          for dev in ${deviceList}; do
+                            ceph_cmd orch device zap "${osdHost}" "$dev" --force || true
+                          done
+                        fi
 
                         devices_json="$(ceph_cmd orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
                         if [ -z "$devices_json" ]; then
