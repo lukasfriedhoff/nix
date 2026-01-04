@@ -132,6 +132,7 @@ in
 
     systemd.tmpfiles.rules = [
       "d /etc/ceph 0755 root root -"
+      "d /etc/logrotate.d 0755 root root -"
       "d /var/lib/ceph 0755 root root -"
     ];
 
