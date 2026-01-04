@@ -7,11 +7,27 @@
 
 let
   cfg = config.lukasf.ceph;
+  systemctlShim = pkgs.writeShellScriptBin "systemctl" ''
+    set -euo pipefail
+    runtime=0
+    for arg in "$@"; do
+      if [ "$arg" = "enable" ] || [ "$arg" = "reenable" ]; then
+        runtime=1
+        break
+      fi
+    done
+    if [ "$runtime" -eq 1 ]; then
+      exec ${pkgs.systemd}/bin/systemctl --runtime "$@"
+    else
+      exec ${pkgs.systemd}/bin/systemctl "$@"
+    fi
+  '';
   cephadmArgs = lib.flatten [
     (lib.optional (cfg.cephadm.unitDir != null) "--unit-dir")
     (lib.optional (cfg.cephadm.unitDir != null) cfg.cephadm.unitDir)
   ];
   cephadmPath = with pkgs; [
+    systemctlShim
     bash
     coreutils
     findutils
