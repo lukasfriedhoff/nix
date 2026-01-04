@@ -146,6 +146,15 @@ in
         description = "List of device paths (prefer /dev/disk/by-id/*) to provision as OSDs.";
       };
 
+      method = lib.mkOption {
+        type = lib.types.enum [
+          "raw"
+          "lvm"
+        ];
+        default = "raw";
+        description = "OSD provisioning method used by cephadm.";
+      };
+
       encrypted = lib.mkOption {
         type = lib.types.bool;
         default = true;
@@ -275,7 +284,8 @@ in
         RemainAfterExit = true;
         ExecStart =
           let
-            encryptedFlag = lib.optionalString cfg.osd.encrypted "--encrypted";
+            methodFlag = cfg.osd.method;
+            dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
             deviceList = lib.concatStringsSep " " cfg.osd.devices;
           in
           pkgs.writeShellScript "cephadm-osd-provision" ''
@@ -298,6 +308,17 @@ in
                           fi
                         }
 
+                        add_osd() {
+                          local dev="$1"
+                          if [ -n "${dmcryptFlag}" ]; then
+                            if ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} ${dmcryptFlag}; then
+                              return 0
+                            fi
+                            echo "OSD add with dmcrypt failed, retrying without." >&2
+                          fi
+                          ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} || true
+                        }
+
                         for _ in $(seq 1 30); do
                           if ceph_cmd status >/dev/null 2>&1; then
                             break
@@ -309,7 +330,7 @@ in
                         if [ -z "$devices_json" ]; then
                           echo "Device list unavailable, attempting direct OSD adds." >&2
                           for dev in ${deviceList}; do
-                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
+                            add_osd "$dev"
                           done
                           exit 0
                         fi
@@ -337,7 +358,7 @@ in
                         if [ "$host_devices" -eq 0 ]; then
                           echo "No devices reported by cephadm, attempting direct OSD adds." >&2
                           for dev in ${deviceList}; do
-                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
+                            add_osd "$dev"
                           done
                           exit 0
                         fi
@@ -354,7 +375,7 @@ in
             sys.exit(2)
             PY
                           then
-                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${encryptedFlag} || true
+                            add_osd "$dev"
                           else
                             echo "Skipping $dev (not available for OSD provisioning)" >&2
                           fi
