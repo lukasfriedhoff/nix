@@ -7,6 +7,10 @@
 
 let
   cfg = config.lukasf.ceph;
+  cephadmArgs = lib.flatten [
+    (lib.optional (cfg.cephadm.unitDir != null) "--unit-dir")
+    (lib.optional (cfg.cephadm.unitDir != null) cfg.cephadm.unitDir)
+  ];
   cephadmPath = with pkgs; [
     bash
     coreutils
@@ -38,7 +42,7 @@ let
   pythonSite = pkgs.python3.sitePackages;
   cephadm = pkgs.writeShellScript "cephadm-with-deps" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
-    exec ${cfg.package}/bin/cephadm "$@"
+    exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   python = "${pkgs.python3}/bin/python3";
   hostName = config.networking.hostName;
@@ -103,6 +107,14 @@ in
         type = lib.types.listOf lib.types.str;
         default = [ ];
         description = "Extra arguments passed to cephadm bootstrap.";
+      };
+    };
+
+    cephadm = {
+      unitDir = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = "/run/systemd/system";
+        description = "Directory where cephadm installs systemd units on the host.";
       };
     };
 
