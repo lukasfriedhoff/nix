@@ -55,6 +55,10 @@ in
       publicNetwork = "10.1.30.0/24";
       singleHostDefaults = true;
       skipDashboard = true;
+      extraArgs = [
+        "--log-to-file"
+        "--no-cleanup-on-failure"
+      ];
     };
     osd = {
       devices = cephDisks;
