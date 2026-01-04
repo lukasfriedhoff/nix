@@ -195,16 +195,29 @@ in
             cfg.bootstrap.monIp
             "--allow-fqdn-hostname"
           ]
+          ++ lib.optional (cfg.bootstrap.publicNetwork != null) "--skip-mon-network"
           ++ lib.optional cfg.bootstrap.singleHostDefaults "--single-host-defaults"
           ++ lib.optional cfg.bootstrap.skipDashboard "--skip-dashboard"
           ++ lib.optional (cfg.bootstrap.fsid != null) "--fsid"
           ++ lib.optional (cfg.bootstrap.fsid != null) cfg.bootstrap.fsid
-          ++ lib.optional (cfg.bootstrap.publicNetwork != null) "--public-network"
-          ++ lib.optional (cfg.bootstrap.publicNetwork != null) cfg.bootstrap.publicNetwork
           ++ lib.optional (cfg.bootstrap.clusterNetwork != null) "--cluster-network"
           ++ lib.optional (cfg.bootstrap.clusterNetwork != null) cfg.bootstrap.clusterNetwork
           ++ cfg.bootstrap.extraArgs
         );
+      };
+    };
+
+    systemd.services.cephadm-public-network = lib.mkIf (cfg.bootstrap.publicNetwork != null) {
+      description = "Cephadm public network configuration";
+      after = [ "cephadm-bootstrap.service" ];
+      wants = [ "cephadm-bootstrap.service" ];
+      wantedBy = [ "multi-user.target" ];
+      path = cephadmPath;
+      unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${cephadm} shell -- ceph config set mon public_network ${cfg.bootstrap.publicNetwork}";
       };
     };
 
