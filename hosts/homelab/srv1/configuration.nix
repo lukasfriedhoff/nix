@@ -52,6 +52,7 @@ in
     enable = true;
     bootstrap = {
       monIp = "10.1.30.5";
+      publicNetwork = "10.1.30.0/24";
       singleHostDefaults = true;
       skipDashboard = true;
     };
