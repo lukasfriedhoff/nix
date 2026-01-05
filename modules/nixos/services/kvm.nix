@@ -88,8 +88,8 @@ in
 
                   monPort = lib.mkOption {
                     type = lib.types.int;
-                    default = 6789;
-                    description = "Ceph monitor port for the RBD pool.";
+                    default = 3300;
+                    description = "Ceph monitor port for the RBD pool (v2 default is 3300).";
                   };
                 };
               }
@@ -143,8 +143,8 @@ in
 
         monPort = lib.mkOption {
           type = lib.types.int;
-          default = 6789;
-          description = "Ceph monitor port for the single-pool setup.";
+          default = 3300;
+          description = "Ceph monitor port for the single-pool setup (v2 default is 3300).";
         };
       };
     };
