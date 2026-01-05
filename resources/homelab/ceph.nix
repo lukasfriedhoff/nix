@@ -34,6 +34,7 @@
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
           monHost = "10.1.30.5";
+          monPort = 3300;
         }
         {
           name = "ceph-vmdisks";
@@ -43,6 +44,7 @@
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
           monHost = "10.1.30.5";
+          monPort = 3300;
         }
       ];
     };
