@@ -420,12 +420,12 @@ in
               ceph_bin="${cfg.package}/bin/ceph"
 
               connect_addrs=""
-              for addr in ${legacyAddr} ${targetAddr}; do
+              for addr in ${targetAddr} ${legacyAddr}; do
                 if [ -z "$addr" ]; then
                   continue
                 fi
                 candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
-                if "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
                   connect_addrs="$candidate_addrs"
                   break
                 fi
