@@ -47,6 +47,8 @@ Notes:
 - `enable` (bool): enable the module.
 - `package` (pkg): ceph package.
 - `openFirewall` (bool, default true): open Ceph ports.
+- `monHosts` (list of strings): default monitor hosts/IPs for client configs.
+- `monPort` (int, default 3300): default monitor port for client configs.
 
 `lukasf.ceph.bootstrap`:
 - `enable` (bool, default true): run bootstrap if no cluster exists.
@@ -79,8 +81,8 @@ Notes:
 - `enable` (bool): write a client `ceph.conf`.
 - `clusterName` (string, default `ceph`): cluster name.
 - `fsid` (string|null): optional FSID pin.
-- `monHosts` (list of strings): monitor hosts/IPs for `mon_host`.
-- `monPort` (int, default 3300): v2 monitor port.
+- `monHosts` (list of strings): monitor hosts/IPs for `mon_host` (defaults to `lukasf.ceph.monHosts`).
+- `monPort` (int, default 3300): v2 monitor port (defaults to `lukasf.ceph.monPort`).
 - `publicNetwork` (string|null): optional public network CIDR(s).
 - `confFile` (string, default `/etc/ceph/ceph.conf`): target config path.
 - `extraConfig` (lines): extra config lines appended.
@@ -169,11 +171,16 @@ let
   cephCluster = cephTopology.clusters.${cephHost.cluster};
   hasRole = role: lib.elem role cephHost.roles;
 in {
-  lukasf.ceph.bootstrap.enable = hasRole "bootstrap";
-  lukasf.ceph.bootstrap.monIp = cephCluster.monIp;
-  lukasf.ceph.bootstrap.publicNetwork = cephCluster.publicNetwork;
-  lukasf.ceph.pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
-  lukasf.ceph.osd.autoProvision = hasRole "osd";
+  lukasf.ceph = {
+    enable = true;
+    monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
+    monPort = cephCluster.monPort or 3300;
+    bootstrap.enable = hasRole "bootstrap";
+    bootstrap.monIp = cephCluster.monIp;
+    bootstrap.publicNetwork = cephCluster.publicNetwork;
+    pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
+    osd.autoProvision = hasRole "osd";
+  };
 }
 ```
 
@@ -186,8 +193,6 @@ let
 in {
   lukasf.ceph.client = {
     enable = true;
-    monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
-    monPort = cephCluster.monPort or 3300;
     fsid = cephCluster.fsid or null;
   };
 }

@@ -77,6 +77,18 @@ in
       description = "Open the default Ceph ports in the firewall.";
     };
 
+    monHosts = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Default monitor hosts/IPs used for client mon_host entries.";
+    };
+
+    monPort = lib.mkOption {
+      type = lib.types.int;
+      default = 3300;
+      description = "Default monitor port for client mon_host entries.";
+    };
+
     bootstrap = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -274,13 +286,13 @@ in
 
       monHosts = lib.mkOption {
         type = lib.types.listOf lib.types.str;
-        default = [ ];
+        default = config.lukasf.ceph.monHosts;
         description = "Monitor hosts or IPs used to populate mon_host in ceph.conf.";
       };
 
       monPort = lib.mkOption {
         type = lib.types.int;
-        default = 3300;
+        default = config.lukasf.ceph.monPort;
         description = "Monitor port for mon_host entries (v2 default is 3300).";
       };
 

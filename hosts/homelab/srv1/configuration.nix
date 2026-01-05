@@ -63,6 +63,8 @@ in
 
   lukasf.ceph = {
     enable = true;
+    monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
+    monPort = cephCluster.monPort or 3300;
     bootstrap = {
       enable = hasRole "bootstrap";
       monIp = cephCluster.monIp;
@@ -88,8 +90,6 @@ in
 
   lukasf.ceph.client = lib.mkIf (hasRole "kvm") {
     enable = true;
-    monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
-    monPort = cephCluster.monPort or 3300;
     fsid = cephCluster.fsid or null;
     publicNetwork = cephCluster.publicNetwork or null;
   };
