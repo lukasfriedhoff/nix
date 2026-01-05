@@ -7,6 +7,11 @@
 
 let
   cfg = config.lukasf.kvm;
+  libvirtPkg =
+    if cfg.storage.backend == "ceph" then
+      pkgs.libvirt.override { enableCeph = true; }
+    else
+      pkgs.libvirt;
   cephPools =
     if cfg.storage.ceph.pools != [ ] then
       cfg.storage.ceph.pools
@@ -154,13 +159,14 @@ in
     ];
 
     environment.systemPackages = [
-      pkgs.libvirt
+      libvirtPkg
       pkgs.qemu_kvm
       pkgs.virtiofsd
       pkgs.virt-top
     ];
 
     virtualisation.libvirtd.enable = true;
+    virtualisation.libvirtd.package = libvirtPkg;
     virtualisation.libvirtd.qemu = {
       package = pkgs.qemu_kvm;
       runAsRoot = true;
@@ -178,7 +184,7 @@ in
       ];
       wantedBy = [ "multi-user.target" ];
       path = [
-        pkgs.libvirt
+        libvirtPkg
         pkgs.coreutils
         pkgs.gawk
       ];
