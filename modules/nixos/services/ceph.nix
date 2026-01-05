@@ -550,7 +550,7 @@ in
                           deviceList="$resolved_devices"
 
                           if [ "${zapDevicesFlag}" = "true" ]; then
-                            for dev in ${deviceList}; do
+                            for dev in $deviceList; do
                               wipefs --all --force "$dev" || true
                               sgdisk --zap-all "$dev" || true
                               partprobe "$dev" || true
@@ -561,7 +561,7 @@ in
                           devices_json="$(ceph_cmd orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
                           if [ -z "$devices_json" ]; then
                             echo "Device list unavailable, attempting direct OSD adds." >&2
-                            for dev in ${deviceList}; do
+                            for dev in $deviceList; do
                               add_osd "$dev"
                             done
                             exit 0
@@ -589,13 +589,13 @@ in
 
                           if [ "$host_devices" -eq 0 ]; then
                             echo "No devices reported by cephadm, attempting direct OSD adds." >&2
-                            for dev in ${deviceList}; do
+                            for dev in $deviceList; do
                               add_osd "$dev"
                             done
                             exit 0
                           fi
 
-                          for dev in ${deviceList}; do
+                          for dev in $deviceList; do
                             if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
               import json, sys
               dev = sys.argv[1]
