@@ -33,6 +33,7 @@
           secretUuid = "ff27139e-00e7-4e00-9708-5f22e9b94a31";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
+          monHost = "10.1.30.5";
         }
         {
           name = "ceph-vmdisks";
@@ -41,6 +42,7 @@
           secretUuid = "ff27139e-00e7-4e00-9708-5f22e9b94a31";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
+          monHost = "10.1.30.5";
         }
       ];
     };

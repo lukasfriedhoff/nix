@@ -19,6 +19,8 @@ let
           secretUuid = cfg.storage.ceph.secretUuid;
           keyringFile = cfg.storage.ceph.keyringFile;
           confFile = cfg.storage.ceph.confFile;
+          monHost = cfg.storage.ceph.monHost;
+          monPort = cfg.storage.ceph.monPort;
         }
       ];
 in
@@ -72,6 +74,18 @@ in
                     type = lib.types.str;
                     description = "Path to ceph.conf for libvirt RBD access.";
                   };
+
+                  monHost = lib.mkOption {
+                    type = lib.types.nullOr lib.types.str;
+                    default = null;
+                    description = "Ceph monitor hostname or IP for the RBD pool.";
+                  };
+
+                  monPort = lib.mkOption {
+                    type = lib.types.int;
+                    default = 6789;
+                    description = "Ceph monitor port for the RBD pool.";
+                  };
                 };
               }
             )
@@ -114,6 +128,18 @@ in
           type = lib.types.str;
           default = "/etc/ceph/ceph.conf";
           description = "Path to ceph.conf for libvirt RBD access.";
+        };
+
+        monHost = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "Ceph monitor hostname or IP for the single-pool setup.";
+        };
+
+        monPort = lib.mkOption {
+          type = lib.types.int;
+          default = 6789;
+          description = "Ceph monitor port for the single-pool setup.";
         };
       };
     };
@@ -163,47 +189,50 @@ in
           set -euo pipefail
           ${lib.concatStringsSep "\n" (
             map (pool: ''
-                            export CEPH_CONF="${pool.confFile}"
-                            if [ ! -r "${pool.keyringFile}" ]; then
-                              echo "Missing Ceph keyring: ${pool.keyringFile}" >&2
-                              exit 1
-                            fi
+                                          export CEPH_CONF="${pool.confFile}"
+                                          if [ ! -r "${pool.keyringFile}" ]; then
+                                            echo "Missing Ceph keyring: ${pool.keyringFile}" >&2
+                                            exit 1
+                                          fi
 
-                            key="$(awk -F ' = ' '/key[[:space:]]*=/{print $2; exit}' "${pool.keyringFile}")"
-                            if [ -z "$key" ]; then
-                              echo "Failed to read key from ${pool.keyringFile}" >&2
-                              exit 1
-                            fi
+                                          key="$(awk -F ' = ' '/key[[:space:]]*=/{print $2; exit}' "${pool.keyringFile}")"
+                                          if [ -z "$key" ]; then
+                                            echo "Failed to read key from ${pool.keyringFile}" >&2
+                                            exit 1
+                                          fi
 
-                            if ! virsh secret-lookup-by-uuid "${pool.secretUuid}" >/dev/null 2>&1; then
-                              cat >"/run/libvirt-ceph-secret-${pool.name}.xml" <<'XML'
-              <secret ephemeral='no' private='yes'>
-                <uuid>${pool.secretUuid}</uuid>
-                <usage type='ceph'>
-                  <name>client.${pool.user} secret</name>
-                </usage>
-              </secret>
-              XML
-                              virsh secret-define --file "/run/libvirt-ceph-secret-${pool.name}.xml"
-                            fi
-                            virsh secret-set-value --secret "${pool.secretUuid}" --base64 "$key"
+                                          if ! virsh secret-lookup-by-uuid "${pool.secretUuid}" >/dev/null 2>&1; then
+                                            cat >"/run/libvirt-ceph-secret-${pool.name}.xml" <<'XML'
+                            <secret ephemeral='no' private='yes'>
+                              <uuid>${pool.secretUuid}</uuid>
+                              <usage type='ceph'>
+                                <name>client.${pool.user} secret</name>
+                              </usage>
+                            </secret>
+                            XML
+                                            virsh secret-define --file "/run/libvirt-ceph-secret-${pool.name}.xml"
+                                          fi
+                                          virsh secret-set-value --secret "${pool.secretUuid}" --base64 "$key"
 
-                            if ! virsh pool-info "${pool.name}" >/dev/null 2>&1; then
-                              cat >"/run/libvirt-ceph-pool-${pool.name}.xml" <<'XML'
-              <pool type='rbd'>
-                <name>${pool.name}</name>
-                <source>
-                  <name>${pool.pool}</name>
-                  <auth type='ceph' username='client.${pool.user}'>
-                    <secret uuid='${pool.secretUuid}'/>
-                  </auth>
-                </source>
-              </pool>
-              XML
-                              virsh pool-define --file "/run/libvirt-ceph-pool-${pool.name}.xml"
-                            fi
-                            virsh pool-autostart "${pool.name}"
-                            virsh pool-start "${pool.name}" || true
+                                          if ! virsh pool-info "${pool.name}" >/dev/null 2>&1; then
+                                            cat >"/run/libvirt-ceph-pool-${pool.name}.xml" <<'XML'
+                            <pool type='rbd'>
+                              <name>${pool.name}</name>
+                              <source>
+                                <name>${pool.pool}</name>
+              ${lib.optionalString (
+                pool.monHost != null
+              ) "                  <host name='${pool.monHost}' port='${toString pool.monPort}'/>"}
+                                <auth type='ceph' username='client.${pool.user}'>
+                                  <secret uuid='${pool.secretUuid}'/>
+                                </auth>
+                              </source>
+                            </pool>
+                            XML
+                                            virsh pool-define --file "/run/libvirt-ceph-pool-${pool.name}.xml"
+                                          fi
+                                          virsh pool-autostart "${pool.name}"
+                                          virsh pool-start "${pool.name}" || true
             '') cephPools
           )}
         '';
