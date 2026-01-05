@@ -407,6 +407,7 @@ in
               if [ -f /etc/ceph/ceph.conf ]; then
                 fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
               fi
+              mon_unit=""
 
               if [ -n "$fsid" ]; then
                 exec ${cephadm} shell --fsid "$fsid" -- ceph config set mon public_network ${publicNetwork}
@@ -676,21 +677,47 @@ in
                 exit 0
               fi
 
-              mon_dump="$(ceph_cmd mon dump -f json || true)"
-              if [ -z "$mon_dump" ]; then
-                echo "ceph mon update: unable to read monmap" >&2
-                exit 0
-              fi
-
+              mon=""
               if [ -n "${monName}" ]; then
                 mon="${monName}"
-              else
+                if [ -n "$fsid" ] && [ -f "/run/systemd/system/ceph-${fsid}@.service" ]; then
+                  mon_unit="ceph-${fsid}@mon.${mon}.service"
+                  if ! systemctl is-active --quiet "$mon_unit"; then
+                    systemctl start "$mon_unit" || true
+                    for _ in $(seq 1 15); do
+                      if systemctl is-active --quiet "$mon_unit"; then
+                        break
+                      fi
+                      sleep 2
+                    done
+                  fi
+                fi
+              fi
+
+              mon_dump=""
+              for _ in $(seq 1 15); do
+                mon_dump="$(timeout 10 ceph_cmd mon dump -f json 2>/dev/null || true)"
+                if [ -n "$mon_dump" ]; then
+                  break
+                fi
+                sleep 2
+              done
+
+              if [ -z "$mon_dump" ]; then
+                echo "ceph mon update: unable to read monmap" >&2
+                exit 1
+              fi
+
+              if [ -z "$mon" ]; then
                 mon_count="$(printf '%s' "$mon_dump" | ${pkgs.jq}/bin/jq '.mons | length')"
                 if [ "$mon_count" -ne 1 ]; then
                   echo "ceph mon update: mon name required when more than one mon exists" >&2
                   exit 1
                 fi
                 mon="$(printf '%s' "$mon_dump" | ${pkgs.jq}/bin/jq -r '.mons[0].name')"
+                if [ -n "$fsid" ] && [ -f "/run/systemd/system/ceph-${fsid}@.service" ]; then
+                  mon_unit="ceph-${fsid}@mon.${mon}.service"
+                fi
               fi
 
               desired_addrs="v2:${targetAddr}:${toString v2Port},v1:${targetAddr}:${toString v1Port}"
@@ -700,6 +727,10 @@ in
               fi
 
               ceph_cmd mon set-addrs "$mon" "$desired_addrs"
+
+              if [ -n "$fsid" ] && [ -n "$mon_unit" ]; then
+                systemctl try-restart "$mon_unit" || true
+              fi
             '';
         };
       };
