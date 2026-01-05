@@ -217,6 +217,34 @@ in
       };
     };
 
+    monUpdate = {
+      enable = lib.mkEnableOption "Update monitor addresses in the monmap";
+
+      name = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Monitor name to update (defaults to the single mon in the monmap).";
+      };
+
+      address = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Monitor IP address to set for the monmap entry.";
+      };
+
+      v1Port = lib.mkOption {
+        type = lib.types.int;
+        default = 6789;
+        description = "Legacy v1 monitor port.";
+      };
+
+      v2Port = lib.mkOption {
+        type = lib.types.int;
+        default = 3300;
+        description = "v2 monitor port.";
+      };
+    };
+
     client = {
       enable = lib.mkEnableOption "Ceph client configuration";
 
@@ -574,6 +602,74 @@ in
                                 ''}
                 '') cfg.pools
               )}
+            '';
+        };
+      };
+
+      systemd.services.cephadm-mon-update = lib.mkIf cfg.monUpdate.enable {
+        description = "Ceph monitor address update";
+        after = [
+          "network-online.target"
+          "cephadm-bootstrap.service"
+        ];
+        wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart =
+            let
+              targetAddr = cfg.monUpdate.address;
+              monName = cfg.monUpdate.name;
+              v1Port = cfg.monUpdate.v1Port;
+              v2Port = cfg.monUpdate.v2Port;
+            in
+            pkgs.writeShellScript "cephadm-mon-update" ''
+              set -euo pipefail
+              fsid=""
+              if [ -f /etc/ceph/ceph.conf ]; then
+                fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+              fi
+
+              ceph_cmd() {
+                if [ -n "$fsid" ]; then
+                  ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+                else
+                  ${cephadm} shell -- ceph "$@"
+                fi
+              }
+
+              if [ -z "${targetAddr}" ]; then
+                echo "ceph mon update: target address not set" >&2
+                exit 0
+              fi
+
+              mon_dump="$(ceph_cmd mon dump -f json || true)"
+              if [ -z "$mon_dump" ]; then
+                echo "ceph mon update: unable to read monmap" >&2
+                exit 0
+              fi
+
+              if [ -n "${monName}" ]; then
+                mon="${monName}"
+              else
+                mon_count="$(printf '%s' "$mon_dump" | ${pkgs.jq}/bin/jq '.mons | length')"
+                if [ "$mon_count" -ne 1 ]; then
+                  echo "ceph mon update: mon name required when more than one mon exists" >&2
+                  exit 1
+                fi
+                mon="$(printf '%s' "$mon_dump" | ${pkgs.jq}/bin/jq -r '.mons[0].name')"
+              fi
+
+              desired_addrs="v2:${targetAddr}:${toString v2Port},v1:${targetAddr}:${toString v1Port}"
+              current_addrs="$(printf '%s' "$mon_dump" | ${pkgs.jq}/bin/jq -r --arg mon "$mon" '.mons[] | select(.name == $mon) | .public_addrs.addrvec | map(.addr) | join(",")')"
+              if [ "$current_addrs" = "$desired_addrs" ]; then
+                exit 0
+              fi
+
+              ceph_cmd mon set-addrs "$mon" "$desired_addrs"
             '';
         };
       };

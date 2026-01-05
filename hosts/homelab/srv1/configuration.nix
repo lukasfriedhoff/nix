@@ -78,6 +78,11 @@ in
       autoProvision = hasRole "osd";
       zapDevices = true;
     };
+    monUpdate = {
+      enable = hasRole "bootstrap";
+      name = hostName;
+      address = cephCluster.monIp;
+    };
   };
 
   lukasf.ceph.client = lib.mkIf (hasRole "kvm") {
