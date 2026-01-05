@@ -227,21 +227,31 @@ in
                               host_xml="    <host name='${pool.monHost}' port='${toString pool.monPort}'/>"
                             fi
 
-                            if ! virsh pool-info "${pool.name}" >/dev/null 2>&1; then
-                              cat >"/run/libvirt-ceph-pool-${pool.name}.xml" <<XML
-              <pool type='rbd'>
-                <name>${pool.name}</name>
-                <source>
-                  <name>${pool.pool}</name>
-                  $host_xml
-                  <auth type='ceph' username='client.${pool.user}'>
-                    <secret uuid='${pool.secretUuid}'/>
-                  </auth>
-                </source>
-              </pool>
-              XML
-                              virsh pool-define --file "/run/libvirt-ceph-pool-${pool.name}.xml"
-                            fi
+                                          pool_xml="/run/libvirt-ceph-pool-${pool.name}.xml"
+                                          cat >"$pool_xml" <<XML
+                            <pool type='rbd'>
+                              <name>${pool.name}</name>
+                              <source>
+                                <name>${pool.pool}</name>
+                                $host_xml
+                                <auth type='ceph' username='client.${pool.user}'>
+                                  <secret uuid='${pool.secretUuid}'/>
+                                </auth>
+                              </source>
+                            </pool>
+                            XML
+
+                                          if virsh pool-info "${pool.name}" >/dev/null 2>&1; then
+                                            current_sum="$(virsh pool-dumpxml "${pool.name}" | sha256sum | awk '{print $1}')"
+                                            desired_sum="$(sha256sum "$pool_xml" | awk '{print $1}')"
+                                            if [ "$current_sum" != "$desired_sum" ]; then
+                                              virsh pool-destroy "${pool.name}" || true
+                                              virsh pool-undefine "${pool.name}" || true
+                                              virsh pool-define --file "$pool_xml"
+                                            fi
+                                          else
+                                            virsh pool-define --file "$pool_xml"
+                                          fi
                             virsh pool-autostart "${pool.name}"
                             virsh pool-start "${pool.name}" || true
             '') cephPools
