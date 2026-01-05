@@ -216,319 +216,400 @@ in
         description = "Automatically provision OSDs on the specified devices.";
       };
     };
+
+    client = {
+      enable = lib.mkEnableOption "Ceph client configuration";
+
+      clusterName = lib.mkOption {
+        type = lib.types.str;
+        default = "ceph";
+        description = "Ceph cluster name used in the generated config.";
+      };
+
+      fsid = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Optional cluster FSID to pin clients to a specific cluster.";
+      };
+
+      monHosts = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Monitor hosts or IPs used to populate mon_host in ceph.conf.";
+      };
+
+      monPort = lib.mkOption {
+        type = lib.types.int;
+        default = 3300;
+        description = "Monitor port for mon_host entries (v2 default is 3300).";
+      };
+
+      publicNetwork = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Optional public network CIDR(s) for clients.";
+      };
+
+      confFile = lib.mkOption {
+        type = lib.types.str;
+        default = "/etc/ceph/ceph.conf";
+        description = "Path where the client ceph.conf is written.";
+      };
+
+      extraConfig = lib.mkOption {
+        type = lib.types.lines;
+        default = "";
+        description = "Extra config lines appended to the client ceph.conf.";
+      };
+    };
   };
 
-  config = lib.mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = (!cfg.bootstrap.enable) || (cfg.bootstrap.monIp != null && cfg.bootstrap.monIp != "");
-        message = "lukasf.ceph.bootstrap.monIp must be set when bootstrap is enabled.";
-      }
-    ];
-
-    environment.systemPackages = [
-      cfg.package
-      pkgs.python3
-    ];
-
-    virtualisation.podman.enable = true;
-
-    systemd.tmpfiles.rules = [
-      "d /bin 0755 root root -"
-      "L+ /bin/bash - - - - ${pkgs.bashInteractive}/bin/bash"
-      "L+ /bin/rm - - - - ${pkgs.coreutils}/bin/rm"
-      "d /etc/ceph 0755 root root -"
-      "d /etc/logrotate.d 0755 root root -"
-      "d /var/lib/ceph 0755 root root -"
-    ];
-
-    networking.firewall = lib.mkIf cfg.openFirewall {
-      allowedTCPPorts = [
-        3300
-        6789
-      ];
-      allowedTCPPortRanges = [
+  config = lib.mkMerge [
+    (lib.mkIf cfg.enable {
+      assertions = [
         {
-          from = 6800;
-          to = 7300;
+          assertion = (!cfg.bootstrap.enable) || (cfg.bootstrap.monIp != null && cfg.bootstrap.monIp != "");
+          message = "lukasf.ceph.bootstrap.monIp must be set when bootstrap is enabled.";
         }
       ];
-    };
 
-    systemd.services.cephadm-bootstrap = lib.mkIf cfg.bootstrap.enable {
-      description = "Cephadm bootstrap (single-host)";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-      path = cephadmPath;
-      unitConfig = {
-        ConditionPathExists = "!/etc/ceph/ceph.conf";
-      };
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        BindPaths = [ "/run/systemd/system:/etc/systemd/system" ];
-        ExecStart = lib.concatStringsSep " " (
-          [
-            cephadm
-            "bootstrap"
-            "--mon-ip"
-            cfg.bootstrap.monIp
-            "--allow-fqdn-hostname"
-          ]
-          ++ lib.optional (cfg.bootstrap.publicNetwork != null) "--skip-mon-network"
-          ++ lib.optional cfg.bootstrap.singleHostDefaults "--single-host-defaults"
-          ++ lib.optional cfg.bootstrap.skipDashboard "--skip-dashboard"
-          ++ lib.optional (cfg.bootstrap.fsid != null) "--fsid"
-          ++ lib.optional (cfg.bootstrap.fsid != null) cfg.bootstrap.fsid
-          ++ lib.optional (cfg.bootstrap.clusterNetwork != null) "--cluster-network"
-          ++ lib.optional (cfg.bootstrap.clusterNetwork != null) cfg.bootstrap.clusterNetwork
-          ++ cfg.bootstrap.extraArgs
-        );
-      };
-    };
-
-    systemd.services.cephadm-public-network = lib.mkIf (cfg.bootstrap.publicNetwork != null) {
-      description = "Cephadm public network configuration";
-      after = [ "cephadm-bootstrap.service" ];
-      wants = [ "cephadm-bootstrap.service" ];
-      wantedBy = [ "multi-user.target" ];
-      path = cephadmPath;
-      unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart =
-          let
-            publicNetwork = cfg.bootstrap.publicNetwork;
-          in
-          pkgs.writeShellScript "cephadm-public-network" ''
-            set -euo pipefail
-            fsid=""
-            if [ -f /etc/ceph/ceph.conf ]; then
-              fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
-            fi
-
-            if [ -n "$fsid" ]; then
-              exec ${cephadm} shell --fsid "$fsid" -- ceph config set mon public_network ${publicNetwork}
-            fi
-
-            exec ${cephadm} shell -- ceph config set mon public_network ${publicNetwork}
-          '';
-      };
-    };
-
-    systemd.services.cephadm-osd = lib.mkIf cfg.osd.autoProvision {
-      description = "Cephadm OSD provisioning";
-      after = [
-        "network-online.target"
-        "cephadm-bootstrap.service"
+      environment.systemPackages = [
+        cfg.package
+        pkgs.python3
       ];
-      wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-      path = cephadmPath;
-      unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart =
-          let
-            methodFlag = cfg.osd.method;
-            dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
-            zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
-            deviceList = lib.concatStringsSep " " cfg.osd.devices;
-          in
-          pkgs.writeShellScript "cephadm-osd-provision" ''
-                        set -euo pipefail
-                        if [ -z "${deviceList}" ]; then
-                          echo "No OSD devices configured, skipping." >&2
-                          exit 0
-                        fi
 
-                        fsid=""
-                        if [ -f /etc/ceph/ceph.conf ]; then
-                          fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
-                        fi
+      virtualisation.podman.enable = true;
 
-                        ceph_cmd() {
-                          if [ -n "$fsid" ]; then
-                            ${cephadm} shell --fsid "$fsid" -- ceph "$@"
-                          else
-                            ${cephadm} shell -- ceph "$@"
-                          fi
-                        }
-
-                        add_osd() {
-                          local dev="$1"
-                          if [ -n "${dmcryptFlag}" ]; then
-                            if ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} ${dmcryptFlag}; then
-                              return 0
-                            fi
-                            echo "OSD add with dmcrypt failed, retrying without." >&2
-                          fi
-                          ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} || true
-                        }
-
-                        for _ in $(seq 1 30); do
-                          if ceph_cmd status >/dev/null 2>&1; then
-                            break
-                          fi
-                          sleep 2
-                        done
-
-                        if [ "${zapDevicesFlag}" = "true" ]; then
-                          for dev in ${deviceList}; do
-                            wipefs --all --force "$dev" || true
-                            sgdisk --zap-all "$dev" || true
-                            partprobe "$dev" || true
-                            ceph_cmd orch device zap "${osdHost}" "$dev" --force || true
-                          done
-                        fi
-
-                        devices_json="$(ceph_cmd orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
-                        if [ -z "$devices_json" ]; then
-                          echo "Device list unavailable, attempting direct OSD adds." >&2
-                          for dev in ${deviceList}; do
-                            add_osd "$dev"
-                          done
-                          exit 0
-                        fi
-
-                        host_devices="$(
-                          printf '%s' "$devices_json" | ${python} - "${osdHost}" <<'PY' || true
-            import json, sys
-            host = sys.argv[1]
-            try:
-                data = json.load(sys.stdin)
-            except json.JSONDecodeError:
-                sys.exit(2)
-            devices = []
-            for entry in data:
-                if entry.get("name") == host or entry.get("addr") == host:
-                    devices.extend(entry.get("devices", []))
-            print(len(devices))
-            PY
-                        )"
-
-                        if [ -z "$host_devices" ]; then
-                          host_devices=0
-                        fi
-
-                        if [ "$host_devices" -eq 0 ]; then
-                          echo "No devices reported by cephadm, attempting direct OSD adds." >&2
-                          for dev in ${deviceList}; do
-                            add_osd "$dev"
-                          done
-                          exit 0
-                        fi
-
-                        for dev in ${deviceList}; do
-                          if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
-            import json, sys
-            dev = sys.argv[1]
-            data = json.load(sys.stdin)
-            for host in data:
-                for d in host.get("devices", []):
-                    if d.get("path") == dev:
-                        sys.exit(0 if d.get("available") else 1)
-            sys.exit(2)
-            PY
-                          then
-                            add_osd "$dev"
-                          else
-                            echo "Skipping $dev (not available for OSD provisioning)" >&2
-                          fi
-                        done
-          '';
-      };
-    };
-
-    systemd.services.cephadm-pools = lib.mkIf (cfg.pools != [ ]) {
-      description = "Ceph pool setup";
-      after = [
-        "network-online.target"
-        "cephadm-bootstrap.service"
+      systemd.tmpfiles.rules = [
+        "d /bin 0755 root root -"
+        "L+ /bin/bash - - - - ${pkgs.bashInteractive}/bin/bash"
+        "L+ /bin/rm - - - - ${pkgs.coreutils}/bin/rm"
+        "d /etc/ceph 0755 root root -"
+        "d /etc/logrotate.d 0755 root root -"
+        "d /var/lib/ceph 0755 root root -"
       ];
-      wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-      path = cephadmPath;
-      unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart =
-          let
-            allowPoolSizeOne = lib.any (pool: pool.size == 1) cfg.pools;
-          in
-          pkgs.writeShellScript "cephadm-pools" ''
-            set -euo pipefail
-            fsid=""
-            if [ -f /etc/ceph/ceph.conf ]; then
-              fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
-            fi
 
-            ceph_cmd() {
+      networking.firewall = lib.mkIf cfg.openFirewall {
+        allowedTCPPorts = [
+          3300
+          6789
+        ];
+        allowedTCPPortRanges = [
+          {
+            from = 6800;
+            to = 7300;
+          }
+        ];
+      };
+
+      systemd.services.cephadm-bootstrap = lib.mkIf cfg.bootstrap.enable {
+        description = "Cephadm bootstrap (single-host)";
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig = {
+          ConditionPathExists = "!/etc/ceph/ceph.conf";
+        };
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          BindPaths = [ "/run/systemd/system:/etc/systemd/system" ];
+          ExecStart = lib.concatStringsSep " " (
+            [
+              cephadm
+              "bootstrap"
+              "--mon-ip"
+              cfg.bootstrap.monIp
+              "--allow-fqdn-hostname"
+            ]
+            ++ lib.optional (cfg.bootstrap.publicNetwork != null) "--skip-mon-network"
+            ++ lib.optional cfg.bootstrap.singleHostDefaults "--single-host-defaults"
+            ++ lib.optional cfg.bootstrap.skipDashboard "--skip-dashboard"
+            ++ lib.optional (cfg.bootstrap.fsid != null) "--fsid"
+            ++ lib.optional (cfg.bootstrap.fsid != null) cfg.bootstrap.fsid
+            ++ lib.optional (cfg.bootstrap.clusterNetwork != null) "--cluster-network"
+            ++ lib.optional (cfg.bootstrap.clusterNetwork != null) cfg.bootstrap.clusterNetwork
+            ++ cfg.bootstrap.extraArgs
+          );
+        };
+      };
+
+      systemd.services.cephadm-public-network = lib.mkIf (cfg.bootstrap.publicNetwork != null) {
+        description = "Cephadm public network configuration";
+        after = [ "cephadm-bootstrap.service" ];
+        wants = [ "cephadm-bootstrap.service" ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart =
+            let
+              publicNetwork = cfg.bootstrap.publicNetwork;
+            in
+            pkgs.writeShellScript "cephadm-public-network" ''
+              set -euo pipefail
+              fsid=""
+              if [ -f /etc/ceph/ceph.conf ]; then
+                fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+              fi
+
               if [ -n "$fsid" ]; then
-                ${cephadm} shell --fsid "$fsid" -- ceph "$@"
-              else
-                ${cephadm} shell -- ceph "$@"
+                exec ${cephadm} shell --fsid "$fsid" -- ceph config set mon public_network ${publicNetwork}
               fi
-            }
 
-            for _ in $(seq 1 30); do
-              if ceph_cmd status >/dev/null 2>&1; then
-                break
-              fi
-              sleep 2
-            done
-
-            ${lib.optionalString allowPoolSizeOne ''
-              ceph_cmd config set mon mon_allow_pool_size_one true || true
-              ceph_cmd config set global mon_allow_pool_size_one true || true
-            ''}
-
-            pools_json="$(ceph_cmd osd pool ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
-            ${lib.concatStringsSep "\n" (
-              map (pool: ''
-                              if printf '%s' "$pools_json" | ${python} - "${pool.name}" <<'PY'
-                import json, sys
-                name = sys.argv[1]
-                try:
-                    data = json.load(sys.stdin)
-                except json.JSONDecodeError:
-                    sys.exit(1)
-                sys.exit(0 if name in data else 1)
-                PY
-                              then
-                                :
-                              else
-                                if [ -n "${lib.optionalString (pool.pgNum != null) (toString pool.pgNum)}" ]; then
-                                  ceph_cmd osd pool create "${pool.name}" ${
-                                    lib.optionalString (pool.pgNum != null) (toString pool.pgNum)
-                                  }
-                                else
-                                  ceph_cmd osd pool create "${pool.name}"
-                                fi
-                              fi
-
-                            ceph_cmd osd pool application enable "${pool.name}" "${pool.application}" >/dev/null 2>&1 || true
-                            ${
-                              if pool.size == 1 then
-                                ''
-                                  ceph_cmd osd pool set "${pool.name}" size 1 --yes-i-really-mean-it
-                                ''
-                              else
-                                ''
-                                  ceph_cmd osd pool set "${pool.name}" size ${toString pool.size}
-                                ''
-                            }
-                              ${lib.optionalString (pool.minSize != null) ''
-                                ceph_cmd osd pool set "${pool.name}" min_size ${toString pool.minSize}
-                              ''}
-              '') cfg.pools
-            )}
-          '';
+              exec ${cephadm} shell -- ceph config set mon public_network ${publicNetwork}
+            '';
+        };
       };
-    };
-  };
+
+      systemd.services.cephadm-osd = lib.mkIf cfg.osd.autoProvision {
+        description = "Cephadm OSD provisioning";
+        after = [
+          "network-online.target"
+          "cephadm-bootstrap.service"
+        ];
+        wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart =
+            let
+              methodFlag = cfg.osd.method;
+              dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
+              zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
+              deviceList = lib.concatStringsSep " " cfg.osd.devices;
+            in
+            pkgs.writeShellScript "cephadm-osd-provision" ''
+                          set -euo pipefail
+                          if [ -z "${deviceList}" ]; then
+                            echo "No OSD devices configured, skipping." >&2
+                            exit 0
+                          fi
+
+                          fsid=""
+                          if [ -f /etc/ceph/ceph.conf ]; then
+                            fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+                          fi
+
+                          ceph_cmd() {
+                            if [ -n "$fsid" ]; then
+                              ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+                            else
+                              ${cephadm} shell -- ceph "$@"
+                            fi
+                          }
+
+                          add_osd() {
+                            local dev="$1"
+                            if [ -n "${dmcryptFlag}" ]; then
+                              if ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} ${dmcryptFlag}; then
+                                return 0
+                              fi
+                              echo "OSD add with dmcrypt failed, retrying without." >&2
+                            fi
+                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} || true
+                          }
+
+                          for _ in $(seq 1 30); do
+                            if ceph_cmd status >/dev/null 2>&1; then
+                              break
+                            fi
+                            sleep 2
+                          done
+
+                          if [ "${zapDevicesFlag}" = "true" ]; then
+                            for dev in ${deviceList}; do
+                              wipefs --all --force "$dev" || true
+                              sgdisk --zap-all "$dev" || true
+                              partprobe "$dev" || true
+                              ceph_cmd orch device zap "${osdHost}" "$dev" --force || true
+                            done
+                          fi
+
+                          devices_json="$(ceph_cmd orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
+                          if [ -z "$devices_json" ]; then
+                            echo "Device list unavailable, attempting direct OSD adds." >&2
+                            for dev in ${deviceList}; do
+                              add_osd "$dev"
+                            done
+                            exit 0
+                          fi
+
+                          host_devices="$(
+                            printf '%s' "$devices_json" | ${python} - "${osdHost}" <<'PY' || true
+              import json, sys
+              host = sys.argv[1]
+              try:
+                  data = json.load(sys.stdin)
+              except json.JSONDecodeError:
+                  sys.exit(2)
+              devices = []
+              for entry in data:
+                  if entry.get("name") == host or entry.get("addr") == host:
+                      devices.extend(entry.get("devices", []))
+              print(len(devices))
+              PY
+                          )"
+
+                          if [ -z "$host_devices" ]; then
+                            host_devices=0
+                          fi
+
+                          if [ "$host_devices" -eq 0 ]; then
+                            echo "No devices reported by cephadm, attempting direct OSD adds." >&2
+                            for dev in ${deviceList}; do
+                              add_osd "$dev"
+                            done
+                            exit 0
+                          fi
+
+                          for dev in ${deviceList}; do
+                            if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
+              import json, sys
+              dev = sys.argv[1]
+              data = json.load(sys.stdin)
+              for host in data:
+                  for d in host.get("devices", []):
+                      if d.get("path") == dev:
+                          sys.exit(0 if d.get("available") else 1)
+              sys.exit(2)
+              PY
+                            then
+                              add_osd "$dev"
+                            else
+                              echo "Skipping $dev (not available for OSD provisioning)" >&2
+                            fi
+                          done
+            '';
+        };
+      };
+
+      systemd.services.cephadm-pools = lib.mkIf (cfg.pools != [ ]) {
+        description = "Ceph pool setup";
+        after = [
+          "network-online.target"
+          "cephadm-bootstrap.service"
+        ];
+        wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart =
+            let
+              allowPoolSizeOne = lib.any (pool: pool.size == 1) cfg.pools;
+            in
+            pkgs.writeShellScript "cephadm-pools" ''
+              set -euo pipefail
+              fsid=""
+              if [ -f /etc/ceph/ceph.conf ]; then
+                fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+              fi
+
+              ceph_cmd() {
+                if [ -n "$fsid" ]; then
+                  ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+                else
+                  ${cephadm} shell -- ceph "$@"
+                fi
+              }
+
+              for _ in $(seq 1 30); do
+                if ceph_cmd status >/dev/null 2>&1; then
+                  break
+                fi
+                sleep 2
+              done
+
+              ${lib.optionalString allowPoolSizeOne ''
+                ceph_cmd config set mon mon_allow_pool_size_one true || true
+                ceph_cmd config set global mon_allow_pool_size_one true || true
+              ''}
+
+              pools_json="$(ceph_cmd osd pool ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
+              ${lib.concatStringsSep "\n" (
+                map (pool: ''
+                                if printf '%s' "$pools_json" | ${python} - "${pool.name}" <<'PY'
+                  import json, sys
+                  name = sys.argv[1]
+                  try:
+                      data = json.load(sys.stdin)
+                  except json.JSONDecodeError:
+                      sys.exit(1)
+                  sys.exit(0 if name in data else 1)
+                  PY
+                                then
+                                  :
+                                else
+                                  if [ -n "${lib.optionalString (pool.pgNum != null) (toString pool.pgNum)}" ]; then
+                                    ceph_cmd osd pool create "${pool.name}" ${
+                                      lib.optionalString (pool.pgNum != null) (toString pool.pgNum)
+                                    }
+                                  else
+                                    ceph_cmd osd pool create "${pool.name}"
+                                  fi
+                                fi
+
+                              ceph_cmd osd pool application enable "${pool.name}" "${pool.application}" >/dev/null 2>&1 || true
+                              ${
+                                if pool.size == 1 then
+                                  ''
+                                    ceph_cmd osd pool set "${pool.name}" size 1 --yes-i-really-mean-it
+                                  ''
+                                else
+                                  ''
+                                    ceph_cmd osd pool set "${pool.name}" size ${toString pool.size}
+                                  ''
+                              }
+                                ${lib.optionalString (pool.minSize != null) ''
+                                  ceph_cmd osd pool set "${pool.name}" min_size ${toString pool.minSize}
+                                ''}
+                '') cfg.pools
+              )}
+            '';
+        };
+      };
+    })
+    (lib.mkIf cfg.client.enable (
+      let
+        confRel = lib.removePrefix "/etc/" cfg.client.confFile;
+        monHosts = lib.concatMapStringsSep "," (
+          host: "v2:${host}:${toString cfg.client.monPort}"
+        ) cfg.client.monHosts;
+        confLines = lib.filter (line: line != "") [
+          "[global]"
+          (lib.optionalString (cfg.client.clusterName != "ceph") "cluster = ${cfg.client.clusterName}")
+          (lib.optionalString (cfg.client.fsid != null) "fsid = ${cfg.client.fsid}")
+          "mon_host = ${monHosts}"
+          (lib.optionalString (
+            cfg.client.publicNetwork != null
+          ) "public_network = ${cfg.client.publicNetwork}")
+          cfg.client.extraConfig
+        ];
+        confText = lib.concatStringsSep "\n" confLines + "\n";
+      in
+      {
+        assertions = [
+          {
+            assertion = cfg.client.monHosts != [ ];
+            message = "lukasf.ceph.client.monHosts must be set when enabling the Ceph client.";
+          }
+          {
+            assertion = lib.hasPrefix "/etc/" cfg.client.confFile;
+            message = "lukasf.ceph.client.confFile must live under /etc.";
+          }
+        ];
+
+        environment.etc."${confRel}".text = confText;
+      }
+    ))
+  ];
 }

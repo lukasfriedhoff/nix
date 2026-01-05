@@ -66,6 +66,16 @@ Notes:
 - `zapDevices` (bool, default false): wipe disks before provisioning.
 - `autoProvision` (bool, default false): run OSD provisioning unit.
 
+`lukasf.ceph.client`:
+- `enable` (bool): write a client `ceph.conf`.
+- `clusterName` (string, default `ceph`): cluster name.
+- `fsid` (string|null): optional FSID pin.
+- `monHosts` (list of strings): monitor hosts/IPs for `mon_host`.
+- `monPort` (int, default 3300): v2 monitor port.
+- `publicNetwork` (string|null): optional public network CIDR(s).
+- `confFile` (string, default `/etc/ceph/ceph.conf`): target config path.
+- `extraConfig` (lines): extra config lines appended.
+
 `lukasf.ceph.pools`:
 - `name` (string): pool name.
 - `application` (string, default `rbd`): pool application.
@@ -119,6 +129,8 @@ Example topology file:
   clusters = {
     homelab = {
       monIp = "10.1.30.5";
+      monHosts = [ "ceph.lab.h4xx.io" ];
+      monPort = 3300;
       publicNetwork = "10.1.30.0/24";
       bootstrap = {
         singleHostDefaults = true;
@@ -153,6 +165,22 @@ in {
   lukasf.ceph.bootstrap.publicNetwork = cephCluster.publicNetwork;
   lukasf.ceph.pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
   lukasf.ceph.osd.autoProvision = hasRole "osd";
+}
+```
+
+Client config (example):
+
+```nix
+let
+  cephTopology = import ../../../resources/homelab/ceph.nix;
+  cephCluster = cephTopology.clusters.homelab;
+in {
+  lukasf.ceph.client = {
+    enable = true;
+    monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
+    monPort = cephCluster.monPort or 3300;
+    fsid = cephCluster.fsid or null;
+  };
 }
 ```
 

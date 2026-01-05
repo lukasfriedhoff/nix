@@ -73,6 +73,14 @@ in
     };
   };
 
+  lukasf.ceph.client = lib.mkIf (hasRole "kvm") {
+    enable = true;
+    monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
+    monPort = cephCluster.monPort or 3300;
+    fsid = cephCluster.fsid or null;
+    publicNetwork = cephCluster.publicNetwork or null;
+  };
+
   lukasf.kvm = lib.mkIf (hasRole "kvm") {
     enable = true;
     storage = {
