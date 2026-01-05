@@ -61,6 +61,11 @@ let
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
     exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
+  cephadmOrch = pkgs.writeShellScriptBin "cephadm-orch" ''
+    export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
+    exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
+  '';
+  cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
   python = "${pkgs.python3}/bin/python3";
   hostName = config.networking.hostName;
   osdHost = cfg.osd.host;
@@ -328,6 +333,7 @@ in
       environment.systemPackages = [
         cfg.package
         pkgs.python3
+        cephadmOrch
       ];
 
       virtualisation.podman.enable = true;
@@ -446,6 +452,7 @@ in
         description = "Cephadm OSD provisioning";
         after = [
           "network-online.target"
+          "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
         ];
         wants = [ "network-online.target" ];
@@ -499,6 +506,8 @@ in
                             fi
                             sleep 2
                           done
+
+                          ceph_cmd config set mgr cephadm_path "${cephadmOrchPath}" >/dev/null 2>&1 || true
 
                           if [ "${zapDevicesFlag}" = "true" ]; then
                             for dev in ${deviceList}; do
@@ -571,6 +580,7 @@ in
         description = "Ceph pool setup";
         after = [
           "network-online.target"
+          "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
         ];
         wants = [ "network-online.target" ];
@@ -660,6 +670,7 @@ in
         description = "Ceph monitor address update";
         after = [
           "network-online.target"
+          "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
         ];
         wants = [ "network-online.target" ];
@@ -768,6 +779,44 @@ in
                 systemctl try-restart "$mon_unit" || true
               fi
             '';
+        };
+      };
+
+      systemd.services.cephadm-cephadm-path = {
+        description = "Cephadm path configuration";
+        after = [
+          "network-online.target"
+          "cephadm-bootstrap.service"
+        ];
+        wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = pkgs.writeShellScript "cephadm-cephadm-path" ''
+            set -euo pipefail
+            fsid=""
+            if [ -f /etc/ceph/ceph.conf ]; then
+              fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+            fi
+
+            ceph_cmd() {
+              if [ -n "$fsid" ]; then
+                ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+              else
+                ${cephadm} shell -- ceph "$@"
+              fi
+            }
+
+            current="$(
+              ceph_cmd config get mgr cephadm_path 2>/dev/null || true
+            )"
+            if [ "$current" != "${cephadmOrchPath}" ]; then
+              ceph_cmd config set mgr cephadm_path "${cephadmOrchPath}"
+            fi
+          '';
         };
       };
     })
