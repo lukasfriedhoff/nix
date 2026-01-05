@@ -7,8 +7,14 @@
 }:
 
 let
+  hostName = "srv1";
   homelabDisks = import ../../../resources/homelab/disks.nix;
-  cephDiskEntries = lib.filterAttrs (_: v: v.host == "srv1" && v.purpose == "ceph") homelabDisks;
+  cephTopology = import ../../../resources/homelab/ceph.nix;
+  cephHost = cephTopology.hosts.${hostName};
+  cephCluster = cephTopology.clusters.${cephHost.cluster};
+  cephRoles = cephHost.roles;
+  hasRole = role: lib.elem role cephRoles;
+  cephDiskEntries = lib.filterAttrs (_: v: v.host == hostName && v.purpose == "ceph") homelabDisks;
   cephDisks = map (diskId: "/dev/disk/by-id/${diskId}") (lib.attrNames cephDiskEntries);
 in
 {
@@ -18,7 +24,7 @@ in
     ./disko.nix
   ];
 
-  networking.hostName = "srv1";
+  networking.hostName = hostName;
   networking.domain = "lab.h4xx.io";
   networking.interfaces.eno1 = {
     useDHCP = true;
@@ -51,20 +57,27 @@ in
   lukasf.ceph = {
     enable = true;
     bootstrap = {
-      monIp = "10.1.30.5";
-      publicNetwork = "10.1.30.0/24";
-      singleHostDefaults = true;
-      skipDashboard = true;
-      extraArgs = [
-        "--log-to-file"
-        "--no-cleanup-on-failure"
-      ];
+      enable = hasRole "bootstrap";
+      monIp = cephCluster.monIp;
+      publicNetwork = cephCluster.publicNetwork;
+      singleHostDefaults = cephCluster.bootstrap.singleHostDefaults;
+      skipDashboard = cephCluster.bootstrap.skipDashboard;
+      extraArgs = cephCluster.bootstrap.extraArgs;
     };
+    pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
     osd = {
       devices = cephDisks;
       encrypted = true;
-      autoProvision = true;
+      autoProvision = hasRole "osd";
       zapDevices = true;
+    };
+  };
+
+  lukasf.kvm = lib.mkIf (hasRole "kvm") {
+    enable = true;
+    storage = {
+      backend = "ceph";
+      ceph.pools = cephCluster.kvmPools;
     };
   };
 
