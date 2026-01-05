@@ -232,6 +232,18 @@ in
         description = "Monitor IP address to set for the monmap entry.";
       };
 
+      legacyAddress = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Optional legacy monitor IP to add to loopback during the update.";
+      };
+
+      legacyPrefixLength = lib.mkOption {
+        type = lib.types.int;
+        default = 32;
+        description = "Prefix length for the temporary legacy monitor IP.";
+      };
+
       v1Port = lib.mkOption {
         type = lib.types.int;
         default = 6789;
@@ -623,11 +635,17 @@ in
             let
               targetAddr = cfg.monUpdate.address;
               monName = cfg.monUpdate.name;
+              legacyAddr = cfg.monUpdate.legacyAddress;
+              legacyPrefix = cfg.monUpdate.legacyPrefixLength;
               v1Port = cfg.monUpdate.v1Port;
               v2Port = cfg.monUpdate.v2Port;
             in
             pkgs.writeShellScript "cephadm-mon-update" ''
               set -euo pipefail
+              if [ -n "${legacyAddr}" ]; then
+                ip addr add ${legacyAddr}/${toString legacyPrefix} dev lo 2>/dev/null || true
+                trap 'ip addr del ${legacyAddr}/${toString legacyPrefix} dev lo 2>/dev/null || true' EXIT
+              fi
               fsid=""
               if [ -f /etc/ceph/ceph.conf ]; then
                 fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"

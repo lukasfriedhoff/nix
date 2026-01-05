@@ -82,6 +82,7 @@ in
       enable = hasRole "bootstrap";
       name = hostName;
       address = cephCluster.monIp;
+      legacyAddress = "10.1.30.5";
     };
   };
 

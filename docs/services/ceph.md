@@ -70,6 +70,8 @@ Notes:
 - `enable` (bool): update mon addresses in the monmap.
 - `name` (string|null): mon name to update (single-mon auto if null).
 - `address` (string|null): target mon IP address.
+- `legacyAddress` (string|null): temporary legacy mon IP added to loopback during update.
+- `legacyPrefixLength` (int, default 32): prefix for the temporary legacy IP.
 - `v1Port` (int, default 6789): legacy port.
 - `v2Port` (int, default 3300): v2 port.
 
@@ -198,6 +200,7 @@ lukasf.ceph.monUpdate = {
   enable = true;
   name = "srv1";
   address = "10.1.30.12";
+  legacyAddress = "10.1.30.5";
 };
 ```
 
