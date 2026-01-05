@@ -456,60 +456,69 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = pkgs.writeShellScript "cephadm-pools" ''
-          set -euo pipefail
-          fsid=""
-          if [ -f /etc/ceph/ceph.conf ]; then
-            fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
-          fi
-
-          ceph_cmd() {
-            if [ -n "$fsid" ]; then
-              ${cephadm} shell --fsid "$fsid" -- ceph "$@"
-            else
-              ${cephadm} shell -- ceph "$@"
+        ExecStart =
+          let
+            allowPoolSizeOne = lib.any (pool: pool.size == 1) cfg.pools;
+          in
+          pkgs.writeShellScript "cephadm-pools" ''
+            set -euo pipefail
+            fsid=""
+            if [ -f /etc/ceph/ceph.conf ]; then
+              fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
             fi
-          }
 
-          for _ in $(seq 1 30); do
-            if ceph_cmd status >/dev/null 2>&1; then
-              break
-            fi
-            sleep 2
-          done
+            ceph_cmd() {
+              if [ -n "$fsid" ]; then
+                ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+              else
+                ${cephadm} shell -- ceph "$@"
+              fi
+            }
 
-          pools_json="$(ceph_cmd osd pool ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
-          ${lib.concatStringsSep "\n" (
-            map (pool: ''
-                            if printf '%s' "$pools_json" | ${python} - "${pool.name}" <<'PY'
-              import json, sys
-              name = sys.argv[1]
-              try:
-                  data = json.load(sys.stdin)
-              except json.JSONDecodeError:
-                  sys.exit(1)
-              sys.exit(0 if name in data else 1)
-              PY
-                            then
-                              :
-                            else
-                              if [ -n "${lib.optionalString (pool.pgNum != null) (toString pool.pgNum)}" ]; then
-                                ceph_cmd osd pool create "${pool.name}" ${
-                                  lib.optionalString (pool.pgNum != null) (toString pool.pgNum)
-                                }
+            for _ in $(seq 1 30); do
+              if ceph_cmd status >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+            done
+
+            ${lib.optionalString allowPoolSizeOne ''
+              ceph_cmd config set mon mon_allow_pool_size_one true || true
+              ceph_cmd config set global mon_allow_pool_size_one true || true
+            ''}
+
+            pools_json="$(ceph_cmd osd pool ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
+            ${lib.concatStringsSep "\n" (
+              map (pool: ''
+                              if printf '%s' "$pools_json" | ${python} - "${pool.name}" <<'PY'
+                import json, sys
+                name = sys.argv[1]
+                try:
+                    data = json.load(sys.stdin)
+                except json.JSONDecodeError:
+                    sys.exit(1)
+                sys.exit(0 if name in data else 1)
+                PY
+                              then
+                                :
                               else
-                                ceph_cmd osd pool create "${pool.name}"
+                                if [ -n "${lib.optionalString (pool.pgNum != null) (toString pool.pgNum)}" ]; then
+                                  ceph_cmd osd pool create "${pool.name}" ${
+                                    lib.optionalString (pool.pgNum != null) (toString pool.pgNum)
+                                  }
+                                else
+                                  ceph_cmd osd pool create "${pool.name}"
+                                fi
                               fi
-                            fi
 
-                            ceph_cmd osd pool application enable "${pool.name}" "${pool.application}" >/dev/null 2>&1 || true
-                            ceph_cmd osd pool set "${pool.name}" size ${toString pool.size}
-                            ${lib.optionalString (pool.minSize != null) ''
-                              ceph_cmd osd pool set "${pool.name}" min_size ${toString pool.minSize}
-                            ''}
-            '') cfg.pools
-          )}
-        '';
+                              ceph_cmd osd pool application enable "${pool.name}" "${pool.application}" >/dev/null 2>&1 || true
+                              ceph_cmd osd pool set "${pool.name}" size ${toString pool.size}
+                              ${lib.optionalString (pool.minSize != null) ''
+                                ceph_cmd osd pool set "${pool.name}" min_size ${toString pool.minSize}
+                              ''}
+              '') cfg.pools
+            )}
+          '';
       };
     };
   };
