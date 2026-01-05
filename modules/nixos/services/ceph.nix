@@ -39,6 +39,7 @@ let
     iputils
     jq
     lvm2
+    parted
     podman
     util-linux
   ];
@@ -468,6 +469,17 @@ in
               dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
               zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
               deviceList = lib.concatStringsSep " " cfg.osd.devices;
+              monCandidates =
+                let
+                  rawCandidates = [
+                    cfg.monUpdate.address
+                    cfg.bootstrap.monIp
+                  ]
+                  ++ cfg.monHosts;
+                in
+                lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
+              v1Port = cfg.monUpdate.v1Port;
+              v2Port = cfg.monUpdate.v2Port;
             in
             pkgs.writeShellScript "cephadm-osd-provision" ''
                           set -euo pipefail
@@ -476,14 +488,25 @@ in
                             exit 0
                           fi
 
-                          fsid=""
-                          if [ -f /etc/ceph/ceph.conf ]; then
-                            fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+                          keyring="/etc/ceph/ceph.client.admin.keyring"
+                          ceph_bin="${cfg.package}/bin/ceph"
+                          connect_addrs=""
+                          if [ -s "$keyring" ]; then
+                            for addr in ${monCandidates}; do
+                              if [ -z "$addr" ]; then
+                                continue
+                              fi
+                              candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                              if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                                connect_addrs="$candidate_addrs"
+                                break
+                              fi
+                            done
                           fi
 
                           ceph_cmd() {
-                            if [ -n "$fsid" ]; then
-                              ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+                            if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                              "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
                             else
                               ${cephadm} shell -- ceph "$@"
                             fi
@@ -508,6 +531,23 @@ in
                           done
 
                           ceph_cmd config set mgr cephadm_path "${cephadmOrchPath}" >/dev/null 2>&1 || true
+
+                          resolved_devices=""
+                          for dev in ${deviceList}; do
+                            resolved="$(realpath -e "$dev" 2>/dev/null || true)"
+                            if [ -z "$resolved" ]; then
+                              echo "Device path '$dev' not found on host, skipping." >&2
+                              continue
+                            fi
+                            resolved_devices="$resolved_devices $resolved"
+                          done
+
+                          if [ -z "$resolved_devices" ]; then
+                            echo "No valid OSD devices found, skipping." >&2
+                            exit 0
+                          fi
+
+                          deviceList="$resolved_devices"
 
                           if [ "${zapDevicesFlag}" = "true" ]; then
                             for dev in ${deviceList}; do
@@ -593,18 +633,39 @@ in
           ExecStart =
             let
               allowPoolSizeOne = lib.any (pool: pool.size == 1) cfg.pools;
+              monCandidates =
+                let
+                  rawCandidates = [
+                    cfg.monUpdate.address
+                    cfg.bootstrap.monIp
+                  ]
+                  ++ cfg.monHosts;
+                in
+                lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
+              v1Port = cfg.monUpdate.v1Port;
+              v2Port = cfg.monUpdate.v2Port;
             in
             pkgs.writeShellScript "cephadm-pools" ''
               set -euo pipefail
-              fsid=""
-              if [ -f /etc/ceph/ceph.conf ]; then
-                fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+              keyring="/etc/ceph/ceph.client.admin.keyring"
+              ceph_bin="${cfg.package}/bin/ceph"
+              connect_addrs=""
+              if [ -s "$keyring" ]; then
+                for addr in ${monCandidates}; do
+                  if [ -z "$addr" ]; then
+                    continue
+                  fi
+                  candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                  if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                    connect_addrs="$candidate_addrs"
+                    break
+                  fi
+                done
               fi
-              mon_unit=""
 
               ceph_cmd() {
-                if [ -n "$fsid" ]; then
-                  ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+                if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                  "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
                 else
                   ${cephadm} shell -- ceph "$@"
                 fi
@@ -795,28 +856,53 @@ in
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
-          ExecStart = pkgs.writeShellScript "cephadm-cephadm-path" ''
-            set -euo pipefail
-            fsid=""
-            if [ -f /etc/ceph/ceph.conf ]; then
-              fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
-            fi
-
-            ceph_cmd() {
-              if [ -n "$fsid" ]; then
-                ${cephadm} shell --fsid "$fsid" -- ceph "$@"
-              else
-                ${cephadm} shell -- ceph "$@"
+          ExecStart =
+            let
+              monCandidates =
+                let
+                  rawCandidates = [
+                    cfg.monUpdate.address
+                    cfg.bootstrap.monIp
+                  ]
+                  ++ cfg.monHosts;
+                in
+                lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
+              v1Port = cfg.monUpdate.v1Port;
+              v2Port = cfg.monUpdate.v2Port;
+            in
+            pkgs.writeShellScript "cephadm-cephadm-path" ''
+              set -euo pipefail
+              keyring="/etc/ceph/ceph.client.admin.keyring"
+              ceph_bin="${cfg.package}/bin/ceph"
+              connect_addrs=""
+              if [ -s "$keyring" ]; then
+                for addr in ${monCandidates}; do
+                  if [ -z "$addr" ]; then
+                    continue
+                  fi
+                  candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                  if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                    connect_addrs="$candidate_addrs"
+                    break
+                  fi
+                done
               fi
-            }
 
-            current="$(
-              ceph_cmd config get mgr cephadm_path 2>/dev/null || true
-            )"
-            if [ "$current" != "${cephadmOrchPath}" ]; then
-              ceph_cmd config set mgr cephadm_path "${cephadmOrchPath}"
-            fi
-          '';
+              ceph_cmd() {
+                if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                  "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+                else
+                  ${cephadm} shell -- ceph "$@"
+                fi
+              }
+
+              current="$(
+                ceph_cmd config get mgr cephadm_path 2>/dev/null || true
+              )"
+              if [ "$current" != "${cephadmOrchPath}" ]; then
+                ceph_cmd config set mgr cephadm_path "${cephadmOrchPath}"
+              fi
+            '';
         };
       };
     })
