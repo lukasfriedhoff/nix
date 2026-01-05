@@ -567,15 +567,13 @@ in
                 fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
               fi
               mon_unit=""
-              keyring="/etc/ceph/ceph.client.admin.keyring"
-              if [ ! -s "$keyring" ]; then
-                echo "ceph mon update: missing admin keyring at $keyring" >&2
-                exit 1
-              fi
-              ceph_bin="${cfg.package}/bin/ceph"
 
               ceph_cmd() {
-                "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+                if [ -n "$fsid" ]; then
+                  ${cephadm} shell --fsid "$fsid" -- ceph "$@"
+                else
+                  ${cephadm} shell -- ceph "$@"
+                fi
               }
 
               for _ in $(seq 1 30); do
@@ -667,12 +665,15 @@ in
                 fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
               fi
 
+              keyring="/etc/ceph/ceph.client.admin.keyring"
+              if [ ! -s "$keyring" ]; then
+                echo "ceph mon update: missing admin keyring at $keyring" >&2
+                exit 1
+              fi
+              ceph_bin="${cfg.package}/bin/ceph"
+
               ceph_cmd() {
-                if [ -n "$fsid" ]; then
-                  ${cephadm} shell --fsid "$fsid" -- ceph "$@"
-                else
-                  ${cephadm} shell -- ceph "$@"
-                fi
+                "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
               }
 
               if [ -z "${targetAddr}" ]; then
