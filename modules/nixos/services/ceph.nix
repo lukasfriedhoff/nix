@@ -704,7 +704,7 @@ in
                   if [ -z "$addr" ]; then
                     continue
                   fi
-                  candidate_addrs="v2:${addr}:${toString v2Port},v1:${addr}:${toString v1Port}"
+                  candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
                   mon_dump="$(timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" mon dump -f json 2>/dev/null || true)"
                   if [ -n "$mon_dump" ]; then
                     connect_addrs="$candidate_addrs"
