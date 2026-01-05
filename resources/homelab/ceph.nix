@@ -2,7 +2,7 @@
   clusters = {
     homelab = {
       monIp = "10.1.30.5";
-      monHosts = [ "ceph.lab.h4xx.io" ];
+      monHosts = [ "srv1.lab.h4xx.io" ];
       monPort = 3300;
       publicNetwork = "10.1.30.0/24";
       bootstrap = {
@@ -35,7 +35,7 @@
           secretUuid = "ff27139e-00e7-4e00-9708-5f22e9b94a31";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "ceph.lab.h4xx.io";
+          monHost = "srv1.lab.h4xx.io";
           monPort = 3300;
         }
         {
@@ -45,7 +45,7 @@
           secretUuid = "ff27139e-00e7-4e00-9708-5f22e9b94a31";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "ceph.lab.h4xx.io";
+          monHost = "srv1.lab.h4xx.io";
           monPort = 3300;
         }
       ];
