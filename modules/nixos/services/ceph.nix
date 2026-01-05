@@ -566,13 +566,16 @@ in
               if [ -f /etc/ceph/ceph.conf ]; then
                 fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
               fi
+              mon_unit=""
+              keyring="/etc/ceph/ceph.client.admin.keyring"
+              if [ ! -s "$keyring" ]; then
+                echo "ceph mon update: missing admin keyring at $keyring" >&2
+                exit 1
+              fi
+              ceph_bin="${cfg.package}/bin/ceph"
 
               ceph_cmd() {
-                if [ -n "$fsid" ]; then
-                  ${cephadm} shell --fsid "$fsid" -- ceph "$@"
-                else
-                  ${cephadm} shell -- ceph "$@"
-                fi
+                "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
               }
 
               for _ in $(seq 1 30); do
@@ -695,11 +698,19 @@ in
               fi
 
               mon_dump=""
+              connect_addrs=""
               for _ in $(seq 1 15); do
-                mon_dump="$(timeout 10 ceph_cmd mon dump -f json 2>/dev/null || true)"
-                if [ -n "$mon_dump" ]; then
-                  break
-                fi
+                for addr in ${legacyAddr} ${targetAddr}; do
+                  if [ -z "$addr" ]; then
+                    continue
+                  fi
+                  candidate_addrs="v2:${addr}:${toString v2Port},v1:${addr}:${toString v1Port}"
+                  mon_dump="$(timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" mon dump -f json 2>/dev/null || true)"
+                  if [ -n "$mon_dump" ]; then
+                    connect_addrs="$candidate_addrs"
+                    break 2
+                  fi
+                done
                 sleep 2
               done
 
