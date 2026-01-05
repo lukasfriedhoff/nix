@@ -680,8 +680,8 @@ in
               mon=""
               if [ -n "${monName}" ]; then
                 mon="${monName}"
-                if [ -n "$fsid" ] && [ -f "/run/systemd/system/ceph-${fsid}@.service" ]; then
-                  mon_unit="ceph-${fsid}@mon.${mon}.service"
+                if [ -n "$fsid" ] && [ -f "/run/systemd/system/ceph-''${fsid}@.service" ]; then
+                  mon_unit="ceph-''${fsid}@mon.''${mon}.service"
                   if ! systemctl is-active --quiet "$mon_unit"; then
                     systemctl start "$mon_unit" || true
                     for _ in $(seq 1 15); do
@@ -715,8 +715,8 @@ in
                   exit 1
                 fi
                 mon="$(printf '%s' "$mon_dump" | ${pkgs.jq}/bin/jq -r '.mons[0].name')"
-                if [ -n "$fsid" ] && [ -f "/run/systemd/system/ceph-${fsid}@.service" ]; then
-                  mon_unit="ceph-${fsid}@mon.${mon}.service"
+                if [ -n "$fsid" ] && [ -f "/run/systemd/system/ceph-''${fsid}@.service" ]; then
+                  mon_unit="ceph-''${fsid}@mon.''${mon}.service"
                 fi
               fi
 
