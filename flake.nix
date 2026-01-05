@@ -198,6 +198,7 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
+            ./modules/nixos/services/kvm.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
             ./modules/nixos/profiles/dacoso/server.nix
@@ -211,6 +212,7 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
+            ./modules/nixos/services/kvm.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
             ./modules/nixos/profiles/homelab/kubernetes.nix
@@ -225,6 +227,7 @@
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
+            ./modules/nixos/services/kvm.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
             ./modules/nixos/profiles/homelab/personal-server.nix
