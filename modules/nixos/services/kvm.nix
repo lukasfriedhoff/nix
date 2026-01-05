@@ -224,22 +224,26 @@ in
                             mon_port="${toString pool.monPort}"
                             host_xml=""
                             if [ -n "$mon_host" ] && [ "$mon_host" != "null" ]; then
-                              host_xml="    <host name='${pool.monHost}' port='${toString pool.monPort}'/>"
+                              host_xml="<host name='${pool.monHost}' port='${toString pool.monPort}'/>"
                             fi
 
                                           pool_xml="/run/libvirt-ceph-pool-${pool.name}.xml"
-                                          cat >"$pool_xml" <<XML
-                            <pool type='rbd'>
-                              <name>${pool.name}</name>
-                              <source>
-                                <name>${pool.pool}</name>
-                                $host_xml
-                                <auth type='ceph' username='client.${pool.user}'>
-                                  <secret uuid='${pool.secretUuid}'/>
-                                </auth>
-                              </source>
-                            </pool>
-                            XML
+                                          printf '%s\n' \
+                                            "<pool type='rbd'>" \
+                                            "  <name>${pool.name}</name>" \
+                                            "  <source>" \
+                                            "    <name>${pool.pool}</name>" \
+                                            > "$pool_xml"
+                                          if [ -n "$host_xml" ]; then
+                                            printf '    %s\n' "$host_xml" >> "$pool_xml"
+                                          fi
+                                          printf '%s\n' \
+                                            "    <auth type='ceph' username='client.${pool.user}'>" \
+                                            "      <secret uuid='${pool.secretUuid}'/>" \
+                                            "    </auth>" \
+                                            "  </source>" \
+                                            "</pool>" \
+                                            >> "$pool_xml"
 
                                           if virsh pool-info "${pool.name}" >/dev/null 2>&1; then
                                             current_sum="$(virsh pool-dumpxml "${pool.name}" | sha256sum | awk '{print $1}')"
