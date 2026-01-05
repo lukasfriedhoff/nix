@@ -511,8 +511,17 @@ in
                                 fi
                               fi
 
-                              ceph_cmd osd pool application enable "${pool.name}" "${pool.application}" >/dev/null 2>&1 || true
-                              ceph_cmd osd pool set "${pool.name}" size ${toString pool.size}
+                            ceph_cmd osd pool application enable "${pool.name}" "${pool.application}" >/dev/null 2>&1 || true
+                            ${
+                              if pool.size == 1 then
+                                ''
+                                  ceph_cmd osd pool set "${pool.name}" size 1 --yes-i-really-mean-it
+                                ''
+                              else
+                                ''
+                                  ceph_cmd osd pool set "${pool.name}" size ${toString pool.size}
+                                ''
+                            }
                               ${lib.optionalString (pool.minSize != null) ''
                                 ceph_cmd osd pool set "${pool.name}" min_size ${toString pool.minSize}
                               ''}
