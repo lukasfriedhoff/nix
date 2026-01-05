@@ -400,6 +400,10 @@ in
           ExecStart =
             let
               publicNetwork = cfg.bootstrap.publicNetwork;
+              targetAddr = if cfg.monUpdate.address != null then cfg.monUpdate.address else cfg.bootstrap.monIp;
+              legacyAddr = cfg.monUpdate.legacyAddress;
+              v1Port = cfg.monUpdate.v1Port;
+              v2Port = cfg.monUpdate.v2Port;
             in
             pkgs.writeShellScript "cephadm-public-network" ''
               set -euo pipefail
@@ -407,13 +411,33 @@ in
               if [ -f /etc/ceph/ceph.conf ]; then
                 fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
               fi
-              mon_unit=""
 
-              if [ -n "$fsid" ]; then
-                exec ${cephadm} shell --fsid "$fsid" -- ceph config set mon public_network ${publicNetwork}
+              keyring="/etc/ceph/ceph.client.admin.keyring"
+              if [ ! -s "$keyring" ]; then
+                echo "ceph public network: missing admin keyring at $keyring" >&2
+                exit 1
+              fi
+              ceph_bin="${cfg.package}/bin/ceph"
+
+              connect_addrs=""
+              for addr in ${legacyAddr} ${targetAddr}; do
+                if [ -z "$addr" ]; then
+                  continue
+                fi
+                candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                if "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                  connect_addrs="$candidate_addrs"
+                  break
+                fi
+              done
+
+              if [ -z "$connect_addrs" ]; then
+                echo "ceph public network: unable to connect to mon for config update" >&2
+                exit 1
               fi
 
-              exec ${cephadm} shell -- ceph config set mon public_network ${publicNetwork}
+              "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" \
+                config set mon public_network ${publicNetwork}
             '';
         };
       };
