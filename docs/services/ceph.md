@@ -128,7 +128,7 @@ Example topology file:
 {
   clusters = {
     homelab = {
-      monIp = "10.1.30.5";
+      monIp = "10.1.30.12";
       monHosts = [ "srv1.lab.h4xx.io" ];
       monPort = 3300;
       publicNetwork = "10.1.30.0/24";

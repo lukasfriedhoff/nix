@@ -30,13 +30,13 @@ in
     useDHCP = true;
     ipv4.addresses = [
       {
-        address = "10.1.30.5";
+        address = "10.1.30.12";
         prefixLength = 24;
       }
     ];
   };
   networking.hosts = {
-    "10.1.30.5" = [
+    "10.1.30.12" = [
       "srv1.lab.h4xx.io"
       "srv1"
     ];
