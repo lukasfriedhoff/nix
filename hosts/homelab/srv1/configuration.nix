@@ -35,6 +35,13 @@ in
       }
     ];
   };
+  networking.hosts = {
+    "10.1.30.5" = [
+      "srv1.lab.h4xx.io"
+      "srv1"
+    ];
+    "127.0.0.2" = lib.mkForce [ ];
+  };
 
   homelab.personalServer = {
     enable = true;
