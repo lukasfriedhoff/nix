@@ -980,7 +980,9 @@ in
               fi
 
               if [ -n "$fsid" ]; then
-                install -D -m 0755 ${cephadmMgrWrapper} "/var/log/ceph/$fsid/cephadm-orch"
+                cephadm_path="/var/log/ceph/$fsid/cephadm-orch"
+                install -D -m 0755 ${cephadmMgrWrapper} "$cephadm_path"
+                ln -sf "$cephadm_path" "${cephadmMgrPath}"
               fi
 
               current="$(
