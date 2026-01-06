@@ -77,6 +77,7 @@ let
       import sys
 
       args = sys.argv[1:]
+      os.environ["PATH"] = "${systemctlShim}/bin:" + os.environ.get("PATH", "")
       if "--unit-dir" not in args:
           args = ["--unit-dir", "${cfg.cephadm.unitDir}"] + args
       os.execv("${cephadm}", ["${cephadm}"] + args)
