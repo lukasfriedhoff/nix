@@ -833,7 +833,7 @@ in
                     fi
                     "$ceph_bin" -n client.admin -k "$admin_keyring" \
                       auth caps "client.osd-lockbox.$fsid" \
-                      mon 'allow profile osd-lockbox, allow command config-key get' \
+                      mon 'allow profile osd-lockbox, allow command "config-key get"' \
                       >/dev/null 2>&1 || true
               done
             fi
