@@ -355,6 +355,7 @@ in
       environment.systemPackages = [
         cfg.package
         pkgs.python3
+        pkgs.lvm2
         cephadmOrch
       ];
 
