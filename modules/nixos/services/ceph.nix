@@ -759,9 +759,12 @@ in
                     fi
                     if [ "${zapDevicesFlag}" = "true" ]; then
                       ${cephVolume} lvm zap --destroy "$resolved" || true
+                      ${cephVolume} raw zap --destroy "$resolved" || true
                       wipefs --all --force "$resolved" || true
                       sgdisk --zap-all "$resolved" || true
                       partprobe "$resolved" || true
+                      blockdev --flushbufs "$resolved" || true
+                      udevadm settle --timeout=10 || true
                     fi
                     ${cephVolume} lvm create --data "$resolved" --no-systemd ${dmcryptFlag}
                   done
