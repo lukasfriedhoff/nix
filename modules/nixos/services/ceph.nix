@@ -55,6 +55,7 @@ let
     gnused
     jq
     lvm2
+    parted
     util-linux
   ];
   pythonWithCephadmDeps = pkgs.python3.withPackages (ps: [
