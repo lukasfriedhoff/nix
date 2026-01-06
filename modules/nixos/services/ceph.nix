@@ -822,15 +822,19 @@ in
                   continue
                 fi
                 lockbox_keyring="$osd_dir/lockbox.keyring"
-                if ! timeout 5 "$ceph_bin" -n client.admin -k "$admin_keyring" \
-                  auth get "client.osd-lockbox.$fsid" >/dev/null 2>&1; then
-                  "$ceph_bin" -n client.admin -k "$admin_keyring" \
-                    auth get-or-create "client.osd-lockbox.$fsid" \
-                    mon 'allow profile osd-lockbox' \
-                    -o "$lockbox_keyring"
-                  chown ceph:ceph "$lockbox_keyring"
-                  chmod 0600 "$lockbox_keyring"
-                fi
+                    if ! timeout 5 "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                      auth get "client.osd-lockbox.$fsid" >/dev/null 2>&1; then
+                      "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                        auth get-or-create "client.osd-lockbox.$fsid" \
+                        mon 'allow profile osd-lockbox' \
+                        -o "$lockbox_keyring"
+                      chown ceph:ceph "$lockbox_keyring"
+                      chmod 0600 "$lockbox_keyring"
+                    fi
+                    "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                      auth caps "client.osd-lockbox.$fsid" \
+                      mon 'allow profile osd-lockbox, allow command config-key get' \
+                      >/dev/null 2>&1 || true
               done
             fi
             ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd
