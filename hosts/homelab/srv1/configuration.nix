@@ -79,7 +79,7 @@ in
       provisioner = "ceph-volume";
       encrypted = true;
       autoProvision = hasRole "osd";
-      zapDevices = true;
+      zapDevices = false;
     };
     monUpdate = {
       enable = hasRole "bootstrap";
