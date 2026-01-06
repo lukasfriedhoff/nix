@@ -2,11 +2,26 @@
   config,
   lib,
   pkgs,
+  secrets ? { },
   ...
 }:
 
 let
   cfg = config.lukasf.ceph;
+  primaryRoot = secrets.primary or secrets.root or null;
+  cephSecretsRoot = secrets.ceph or null;
+  resolveSecret =
+    path:
+    if path == null then
+      null
+    else if lib.hasPrefix "/" path then
+      path
+    else if cephSecretsRoot != null then
+      "${cephSecretsRoot}/${path}"
+    else if primaryRoot != null then
+      "${primaryRoot}/${path}"
+    else
+      throw "lukasf.ceph: relative secret '${path}' requires secrets.ceph or secrets.primary/root";
   systemctlShim = pkgs.writeShellScriptBin "systemctl" ''
     set -euo pipefail
     runtime=0
@@ -56,6 +71,7 @@ let
     jq
     lvm2
     parted
+    systemd
     util-linux
   ];
   pythonWithCephadmDeps = pkgs.python3.withPackages (ps: [
@@ -280,6 +296,38 @@ in
       };
     };
 
+    backup = {
+      enable = lib.mkEnableOption "Ceph key backups";
+
+      secretKeyFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = ''
+          Path to the SOPS-encrypted backup key (absolute or relative to
+          <option>secrets.ceph</option> when set, otherwise
+          <option>secrets.primary</option>/<option>secrets.root</option>).
+        '';
+      };
+
+      destination = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/lib/ceph/backup";
+        description = "Directory where encrypted key backups are written.";
+      };
+
+      retentionDays = lib.mkOption {
+        type = lib.types.int;
+        default = 30;
+        description = "Delete backups older than this many days.";
+      };
+
+      schedule = lib.mkOption {
+        type = lib.types.str;
+        default = "daily";
+        description = "systemd OnCalendar value for the backup timer.";
+      };
+    };
+
     monUpdate = {
       enable = lib.mkEnableOption "Update monitor addresses in the monmap";
 
@@ -374,6 +422,10 @@ in
           assertion = (!cfg.bootstrap.enable) || (cfg.bootstrap.monIp != null && cfg.bootstrap.monIp != "");
           message = "lukasf.ceph.bootstrap.monIp must be set when bootstrap is enabled.";
         }
+        {
+          assertion = (!cfg.backup.enable) || (cfg.backup.secretKeyFile != null);
+          message = "lukasf.ceph.backup.secretKeyFile must be set when backups are enabled.";
+        }
       ];
 
       environment.systemPackages = [
@@ -403,6 +455,8 @@ in
         "d /var/lib/ceph 0755 root root -"
         "d /var/log/ceph 0755 root root -"
       ];
+
+      systemd.packages = lib.mkIf (cfg.osd.provisioner == "ceph-volume") [ cfg.package ];
 
       networking.firewall = lib.mkIf cfg.openFirewall {
         allowedTCPPorts = [
@@ -837,11 +891,88 @@ in
                       >/dev/null 2>&1 || true
               done
             fi
-                if ! ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd; then
+                if ! ${cfg.package}/bin/ceph-volume lvm activate --all; then
                   echo "ceph-volume activation failed; keeping system activation healthy" >&2
                   exit 0
                 fi
           '';
+        };
+      };
+
+      sops.secrets."ceph-backup-key" = lib.mkIf (cfg.backup.enable && cfg.backup.secretKeyFile != null) {
+        sopsFile = resolveSecret cfg.backup.secretKeyFile;
+        format = "binary";
+        mode = "0400";
+        owner = "root";
+      };
+
+      systemd.services.ceph-key-backup = lib.mkIf cfg.backup.enable {
+        description = "Ceph key backup (encrypted)";
+        after = [
+          "network-online.target"
+          "cephadm-bootstrap.service"
+        ];
+        wants = [ "network-online.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+        };
+        path = [
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.gnutar
+          pkgs.openssl
+        ];
+        script =
+          let
+            clusterId =
+              if cfg.client.fsid != null && cfg.client.fsid != "" then
+                cfg.client.fsid
+              else if cfg.bootstrap.fsid != null && cfg.bootstrap.fsid != "" then
+                cfg.bootstrap.fsid
+              else
+                config.networking.hostName;
+            retention = toString cfg.backup.retentionDays;
+          in
+          ''
+            set -euo pipefail
+            umask 077
+            backup_dir="${cfg.backup.destination}"
+            secret_file="${config.sops.secrets."ceph-backup-key".path}"
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            tmp_dir="$(mktemp -d)"
+            tar_path="$tmp_dir/ceph-keys-${clusterId}-${stamp}.tar.gz"
+            enc_path="$backup_dir/ceph-keys-${clusterId}-${stamp}.tar.gz.enc"
+
+            install -d -m 0700 "$backup_dir"
+
+            key_list="$tmp_dir/keylist.txt"
+            {
+              find /etc/ceph -type f \( -name '*.keyring' -o -name '*.conf' \) 2>/dev/null || true
+              find /var/lib/ceph -type f -name '*.keyring' 2>/dev/null || true
+            } | sort -u > "$key_list"
+
+            if [ ! -s "$key_list" ]; then
+              echo "No Ceph key material found; skipping backup." >&2
+              rm -rf "$tmp_dir"
+              exit 0
+            fi
+
+            tar -czf "$tar_path" -T "$key_list"
+            openssl enc -aes-256-gcm -pbkdf2 -salt \
+              -pass "file:$secret_file" \
+              -in "$tar_path" \
+              -out "$enc_path"
+            rm -rf "$tmp_dir"
+
+            find "$backup_dir" -type f -name "ceph-keys-${clusterId}-*.tar.gz.enc" -mtime +${retention} -delete || true
+          '';
+      };
+
+      systemd.timers.ceph-key-backup = lib.mkIf cfg.backup.enable {
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnCalendar = cfg.backup.schedule;
+          Persistent = true;
         };
       };
 

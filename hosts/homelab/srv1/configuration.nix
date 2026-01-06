@@ -74,6 +74,12 @@ in
       extraArgs = cephCluster.bootstrap.extraArgs;
     };
     pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
+    backup = lib.mkIf (hasRole "bootstrap") {
+      enable = cephCluster.backup.enable or false;
+      secretKeyFile = cephCluster.backup.secretKeyFile or null;
+      retentionDays = cephCluster.backup.retentionDays or 30;
+      schedule = cephCluster.backup.schedule or "daily";
+    };
     osd = {
       devices = cephDisks;
       provisioner = "ceph-volume";

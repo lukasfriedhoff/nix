@@ -99,6 +99,7 @@
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
               profileCommon = personalCommonDesktopRoot;
+              ceph = "${personalProfileRoot}/servers/ceph";
               root = personalServerRoot "srv4-vm-01";
               personal = personalServerRoot "srv4-vm-01";
             };
@@ -107,6 +108,7 @@
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
               profileCommon = personalCommonDesktopRoot;
+              ceph = "${personalProfileRoot}/servers/ceph";
               root = personalDesktopRoot "tux-h4xx-01";
               personal = personalDesktopRoot "tux-h4xx-01";
             };
@@ -115,6 +117,7 @@
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
               profileCommon = personalCommonDesktopRoot;
+              ceph = "${personalProfileRoot}/servers/ceph";
               root = personalDesktopRoot "tab-h4xx-02";
               personal = personalDesktopRoot "tab-h4xx-02";
             };
@@ -145,6 +148,7 @@
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
               profileCommon = personalCommonDesktopRoot;
+              ceph = "${personalProfileRoot}/servers/ceph";
               root = personalServerRoot "srv1";
               personal = personalServerRoot "srv1";
             };

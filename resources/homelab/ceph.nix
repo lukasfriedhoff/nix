@@ -6,6 +6,12 @@
       monHosts = [ "srv1.lab.h4xx.io" ];
       monPort = 3300;
       publicNetwork = "10.1.30.0/24";
+      backup = {
+        enable = true;
+        secretKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/backup.key";
+        retentionDays = 30;
+        schedule = "daily";
+      };
       bootstrap = {
         singleHostDefaults = true;
         skipDashboard = true;
