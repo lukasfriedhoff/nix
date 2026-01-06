@@ -386,6 +386,14 @@ in
 
       virtualisation.podman.enable = true;
 
+      users.groups.ceph = { };
+      users.users.ceph = {
+        isSystemUser = true;
+        group = "ceph";
+        home = "/var/lib/ceph";
+        shell = "${pkgs.shadow}/bin/nologin";
+      };
+
       systemd.tmpfiles.rules = [
         "d /bin 0755 root root -"
         "L+ /bin/bash - - - - ${pkgs.bashInteractive}/bin/bash"
