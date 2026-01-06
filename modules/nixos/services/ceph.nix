@@ -67,6 +67,8 @@ let
     exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
+  cephadmMgrPath = "/var/lib/ceph/cephadm-orch";
+  cephadmArgsString = lib.escapeShellArgs cephadmArgs;
   python = "${pkgs.python3}/bin/python3";
   hostName = config.networking.hostName;
   osdHost = cfg.osd.host;
@@ -530,7 +532,7 @@ in
                             sleep 2
                           done
 
-                          ceph_cmd config set mgr cephadm_path "${cephadmOrchPath}" >/dev/null 2>&1 || true
+                          ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}" >/dev/null 2>&1 || true
 
                           resolved_devices=""
                           for dev in ${deviceList}; do
@@ -896,11 +898,18 @@ in
                 fi
               }
 
+              install -d -m 0755 /var/lib/ceph
+              printf '%s\n' \
+                '#!/bin/sh' \
+                'exec /usr/sbin/cephadm ${cephadmArgsString} "$@"' \
+                > "${cephadmMgrPath}"
+              chmod 0755 "${cephadmMgrPath}"
+
               current="$(
                 ceph_cmd config get mgr cephadm_path 2>/dev/null || true
               )"
-              if [ "$current" != "${cephadmOrchPath}" ]; then
-                ceph_cmd config set mgr cephadm_path "${cephadmOrchPath}"
+              if [ "$current" != "${cephadmMgrPath}" ]; then
+                ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}"
               fi
             '';
         };
