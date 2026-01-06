@@ -895,6 +895,16 @@ in
                   echo "ceph-volume activation failed; keeping system activation healthy" >&2
                   exit 0
                 fi
+
+                for osd_dir in /var/lib/ceph/osd/ceph-*; do
+                  if [ ! -d "$osd_dir" ]; then
+                    continue
+                  fi
+                  osd_id="''${osd_dir##*/ceph-}"
+                  if [ -n "$osd_id" ]; then
+                    ${pkgs.systemd}/bin/systemctl enable --now "ceph-osd@''${osd_id}.service" || true
+                  fi
+                done
           '';
         };
       };
