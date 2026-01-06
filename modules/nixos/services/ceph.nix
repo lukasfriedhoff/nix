@@ -810,6 +810,29 @@ in
           TimeoutSec = 0;
           ExecStart = pkgs.writeShellScript "ceph-volume-osd-activate" ''
             set -euo pipefail
+            admin_keyring="/etc/ceph/ceph.client.admin.keyring"
+            ceph_bin="${cfg.package}/bin/ceph"
+            if [ -s "$admin_keyring" ]; then
+              for osd_dir in /var/lib/ceph/osd/ceph-*; do
+                if [ ! -d "$osd_dir" ]; then
+                  continue
+                fi
+                fsid="$(cat "$osd_dir/fsid" 2>/dev/null || true)"
+                if [ -z "$fsid" ]; then
+                  continue
+                fi
+                lockbox_keyring="$osd_dir/lockbox.keyring"
+                if ! timeout 5 "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                  auth get "client.osd-lockbox.$fsid" >/dev/null 2>&1; then
+                  "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                    auth get-or-create "client.osd-lockbox.$fsid" \
+                    mon 'allow profile osd-lockbox' \
+                    -o "$lockbox_keyring"
+                  chown ceph:ceph "$lockbox_keyring"
+                  chmod 0600 "$lockbox_keyring"
+                fi
+              done
+            fi
             ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd
           '';
         };
