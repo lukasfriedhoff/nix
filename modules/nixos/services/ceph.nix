@@ -560,7 +560,7 @@ in
                             done
                           fi
 
-                          devices_json="$(ceph_cmd orch device ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
+                          devices_json="$(ceph_cmd orch device ls --format json 2>/dev/null || true)"
                           if [ -z "$devices_json" ]; then
                             echo "Device list unavailable, attempting direct OSD adds." >&2
                             for dev in $deviceList; do
