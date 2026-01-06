@@ -940,8 +940,8 @@ in
             secret_file="${config.sops.secrets."ceph-backup-key".path}"
             stamp="$(date -u +%Y%m%dT%H%M%SZ)"
             tmp_dir="$(mktemp -d)"
-            tar_path="$tmp_dir/ceph-keys-${clusterId}-${stamp}.tar.gz"
-            enc_path="$backup_dir/ceph-keys-${clusterId}-${stamp}.tar.gz.enc"
+            tar_path="$tmp_dir/ceph-keys-${clusterId}-''${stamp}.tar.gz"
+            enc_path="$backup_dir/ceph-keys-${clusterId}-''${stamp}.tar.gz.enc"
 
             install -d -m 0700 "$backup_dir"
 
