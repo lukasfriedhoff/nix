@@ -73,14 +73,13 @@ let
     executable = true;
     text = ''
       #!/usr/bin/env python3
-      import runpy
+      import os
       import sys
 
       args = sys.argv[1:]
       if "--unit-dir" not in args:
           args = ["--unit-dir", "${cfg.cephadm.unitDir}"] + args
-      sys.argv = [sys.argv[0]] + args
-      runpy.run_path("${cfg.package}/bin/cephadm", run_name="__main__")
+      os.execv("${cephadm}", ["${cephadm}"] + args)
     '';
   };
   python = "${pkgs.python3}/bin/python3";
@@ -972,6 +971,12 @@ in
                   ${cephadm} shell -- ceph "$@"
                 fi
               }
+
+              fsid="$(ceph_cmd fsid 2>/dev/null || true)"
+              if [ -z "$fsid" ]; then
+                echo "Failed to determine Ceph FSID" >&2
+                exit 1
+              fi
 
               if [ -n "$fsid" ]; then
                 install -D -m 0755 ${cephadmMgrWrapper} "/var/log/ceph/$fsid/cephadm-orch"
