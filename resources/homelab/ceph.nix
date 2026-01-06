@@ -1,6 +1,7 @@
 {
   clusters = {
     homelab = {
+      fsid = "83897024-e964-11f0-9d5c-0cc47a6c3802";
       monIp = "10.1.30.12";
       monHosts = [ "srv1.lab.h4xx.io" ];
       monPort = 3300;
