@@ -86,6 +86,11 @@ let
   python = "${pkgs.python3}/bin/python3";
   hostName = config.networking.hostName;
   osdHost = cfg.osd.host;
+  isNumericHost = host: builtins.match "^[0-9.:]+$" host != null;
+  formatMonHost =
+    host: port:
+    if isNumericHost host then "v2:${host}:${toString port}" else "${host}:${toString port}";
+  formatMonHosts = hosts: port: lib.concatMapStringsSep "," (host: formatMonHost host port) hosts;
 in
 {
   options.lukasf.ceph = {
@@ -442,13 +447,24 @@ in
                 exit 1
               fi
               ceph_bin="${cfg.package}/bin/ceph"
+              format_addrs() {
+                local host="$1"
+                case "$host" in
+                  (*[!0-9.:]*)
+                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                  (*)
+                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                esac
+              }
 
               connect_addrs=""
               for addr in ${targetAddr} ${legacyAddr}; do
                 if [ -z "$addr" ]; then
                   continue
                 fi
-                candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                candidate_addrs="$(format_addrs "$addr")"
                 if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
                   connect_addrs="$candidate_addrs"
                   break
@@ -508,12 +524,23 @@ in
                           keyring="/etc/ceph/ceph.client.admin.keyring"
                           ceph_bin="${cfg.package}/bin/ceph"
                           connect_addrs=""
+                          format_addrs() {
+                            local host="$1"
+                            case "$host" in
+                              (*[!0-9.:]*)
+                                printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                                ;;
+                              (*)
+                                printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                                ;;
+                            esac
+                          }
                           if [ -s "$keyring" ]; then
                             for addr in ${monCandidates}; do
                               if [ -z "$addr" ]; then
                                 continue
                               fi
-                              candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                              candidate_addrs="$(format_addrs "$addr")"
                               if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
                                 connect_addrs="$candidate_addrs"
                                 break
@@ -667,12 +694,23 @@ in
               keyring="/etc/ceph/ceph.client.admin.keyring"
               ceph_bin="${cfg.package}/bin/ceph"
               connect_addrs=""
+              format_addrs() {
+                local host="$1"
+                case "$host" in
+                  (*[!0-9.:]*)
+                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                  (*)
+                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                esac
+              }
               if [ -s "$keyring" ]; then
                 for addr in ${monCandidates}; do
                   if [ -z "$addr" ]; then
                     continue
                   fi
-                  candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                  candidate_addrs="$(format_addrs "$addr")"
                   if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
                     connect_addrs="$candidate_addrs"
                     break
@@ -784,6 +822,17 @@ in
                 exit 1
               fi
               ceph_bin="${cfg.package}/bin/ceph"
+              format_addrs() {
+                local host="$1"
+                case "$host" in
+                  (*[!0-9.:]*)
+                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                  (*)
+                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                esac
+              }
 
               ceph_cmd() {
                 "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
@@ -818,7 +867,7 @@ in
                   if [ -z "$addr" ]; then
                     continue
                   fi
-                  candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                  candidate_addrs="$(format_addrs "$addr")"
                   mon_dump="$(timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" mon dump -f json 2>/dev/null || true)"
                   if [ -n "$mon_dump" ]; then
                     connect_addrs="$candidate_addrs"
@@ -845,7 +894,7 @@ in
                 fi
               fi
 
-              desired_addrs="v2:${targetAddr}:${toString v2Port},v1:${targetAddr}:${toString v1Port}"
+              desired_addrs="$(format_addrs "${targetAddr}")"
               current_addrs="$(printf '%s' "$mon_dump" | ${pkgs.jq}/bin/jq -r --arg mon "$mon" '.mons[] | select(.name == $mon) | .public_addrs.addrvec | map(.addr) | join(",")')"
               if [ "$current_addrs" = "$desired_addrs" ]; then
                 exit 0
@@ -892,12 +941,23 @@ in
               keyring="/etc/ceph/ceph.client.admin.keyring"
               ceph_bin="${cfg.package}/bin/ceph"
               connect_addrs=""
+              format_addrs() {
+                local host="$1"
+                case "$host" in
+                  (*[!0-9.:]*)
+                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                  (*)
+                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    ;;
+                esac
+              }
               if [ -s "$keyring" ]; then
                 for addr in ${monCandidates}; do
                   if [ -z "$addr" ]; then
                     continue
                   fi
-                  candidate_addrs="v2:''${addr}:${toString v2Port},v1:''${addr}:${toString v1Port}"
+                  candidate_addrs="$(format_addrs "$addr")"
                   if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
                     connect_addrs="$candidate_addrs"
                     break
@@ -928,9 +988,7 @@ in
     (lib.mkIf cfg.client.enable (
       let
         confRel = lib.removePrefix "/etc/" cfg.client.confFile;
-        monHosts = lib.concatMapStringsSep "," (
-          host: "v2:${host}:${toString cfg.client.monPort}"
-        ) cfg.client.monHosts;
+        monHosts = formatMonHosts cfg.client.monHosts cfg.client.monPort;
         confLines = lib.filter (line: line != "") [
           "[global]"
           (lib.optionalString (cfg.client.clusterName != "ceph") "cluster = ${cfg.client.clusterName}")
