@@ -67,7 +67,7 @@ let
     exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
-  cephadmMgrPath = "/var/lib/ceph/cephadm-orch";
+  cephadmMgrPath = "/var/log/ceph/cephadm-orch";
   cephadmMgrWrapper = pkgs.writeTextFile {
     name = "cephadm-orch-wrapper.py";
     executable = true;
@@ -367,7 +367,7 @@ in
         "d /etc/ceph 0755 root root -"
         "d /etc/logrotate.d 0755 root root -"
         "d /var/lib/ceph 0755 root root -"
-        "C! ${cephadmMgrPath} 0755 root root - ${cephadmMgrWrapper}"
+        "d /var/log/ceph 0755 root root -"
       ];
 
       networking.firewall = lib.mkIf cfg.openFirewall {
@@ -973,7 +973,9 @@ in
                 fi
               }
 
-              install -D -m 0755 ${cephadmMgrWrapper} "${cephadmMgrPath}"
+              if [ -n "$fsid" ]; then
+                install -D -m 0755 ${cephadmMgrWrapper} "/var/log/ceph/$fsid/cephadm-orch"
+              fi
 
               current="$(
                 ceph_cmd config get mgr cephadm_path 2>/dev/null || true
