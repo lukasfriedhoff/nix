@@ -30,6 +30,7 @@ let
     systemctlShim
     bash
     coreutils
+    cryptsetup
     findutils
     gawk
     gptfdisk
@@ -41,6 +42,19 @@ let
     lvm2
     parted
     podman
+    util-linux
+  ];
+  cephVolumePath = with pkgs; [
+    bash
+    coreutils
+    cryptsetup
+    findutils
+    gawk
+    gptfdisk
+    gnugrep
+    gnused
+    jq
+    lvm2
     util-linux
   ];
   pythonWithCephadmDeps = pkgs.python3.withPackages (ps: [
@@ -94,7 +108,7 @@ let
 in
 {
   options.lukasf.ceph = {
-    enable = lib.mkEnableOption "Ceph (cephadm-managed)";
+    enable = lib.mkEnableOption "Ceph (cephadm/ceph-volume)";
 
     package = lib.mkPackageOption pkgs "ceph" { };
 
@@ -217,6 +231,15 @@ in
     };
 
     osd = {
+      provisioner = lib.mkOption {
+        type = lib.types.enum [
+          "cephadm"
+          "ceph-volume"
+        ];
+        default = "cephadm";
+        description = "Provision OSDs via cephadm or with ceph-volume + custom systemd units.";
+      };
+
       host = lib.mkOption {
         type = lib.types.str;
         default = hostName;
@@ -355,6 +378,7 @@ in
       environment.systemPackages = [
         cfg.package
         pkgs.python3
+        pkgs.cryptsetup
         pkgs.lvm2
         cephadmOrch
       ];
@@ -483,181 +507,271 @@ in
         };
       };
 
-      systemd.services.cephadm-osd = lib.mkIf cfg.osd.autoProvision {
-        description = "Cephadm OSD provisioning";
+      systemd.services.cephadm-osd =
+        lib.mkIf (cfg.osd.autoProvision && cfg.osd.provisioner == "cephadm")
+          {
+            description = "Cephadm OSD provisioning";
+            after = [
+              "network-online.target"
+              "cephadm-cephadm-path.service"
+              "cephadm-bootstrap.service"
+            ];
+            wants = [ "network-online.target" ];
+            wantedBy = [ "multi-user.target" ];
+            path = cephadmPath;
+            unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart =
+                let
+                  methodFlag = cfg.osd.method;
+                  dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
+                  zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
+                  deviceList = lib.concatStringsSep " " cfg.osd.devices;
+                  monCandidates =
+                    let
+                      rawCandidates = [
+                        cfg.monUpdate.address
+                        cfg.bootstrap.monIp
+                      ]
+                      ++ cfg.monHosts;
+                    in
+                    lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
+                  v1Port = cfg.monUpdate.v1Port;
+                  v2Port = cfg.monUpdate.v2Port;
+                in
+                pkgs.writeShellScript "cephadm-osd-provision" ''
+                              set -euo pipefail
+                              if [ -z "${deviceList}" ]; then
+                                echo "No OSD devices configured, skipping." >&2
+                                exit 0
+                              fi
+
+                              keyring="/etc/ceph/ceph.client.admin.keyring"
+                              ceph_bin="${cfg.package}/bin/ceph"
+                              connect_addrs=""
+                              format_addrs() {
+                                local host="$1"
+                                case "$host" in
+                                  (*[!0-9.:]*)
+                                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                                    ;;
+                                  (*)
+                                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                                    ;;
+                                esac
+                              }
+                              if [ -s "$keyring" ]; then
+                                for addr in ${monCandidates}; do
+                                  if [ -z "$addr" ]; then
+                                    continue
+                                  fi
+                                  candidate_addrs="$(format_addrs "$addr")"
+                                  if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                                    connect_addrs="$candidate_addrs"
+                                    break
+                                  fi
+                                done
+                              fi
+
+                              ceph_cmd() {
+                                if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                                  "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+                                else
+                                  ${cephadm} shell -- ceph "$@"
+                                fi
+                              }
+
+                              add_osd() {
+                                local dev="$1"
+                                if [ -n "${dmcryptFlag}" ]; then
+                                  if ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} ${dmcryptFlag}; then
+                                    return 0
+                                  fi
+                                  echo "OSD add with dmcrypt failed, retrying without." >&2
+                                fi
+                                ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} || true
+                              }
+
+                              for _ in $(seq 1 30); do
+                                if ceph_cmd status >/dev/null 2>&1; then
+                                  break
+                                fi
+                                sleep 2
+                              done
+
+                              ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}" >/dev/null 2>&1 || true
+
+                              resolved_devices=""
+                              for dev in ${deviceList}; do
+                                resolved="$(realpath -e "$dev" 2>/dev/null || true)"
+                                if [ -z "$resolved" ]; then
+                                  echo "Device path '$dev' not found on host, skipping." >&2
+                                  continue
+                                fi
+                                resolved_devices="$resolved_devices $resolved"
+                              done
+
+                              if [ -z "$resolved_devices" ]; then
+                                echo "No valid OSD devices found, skipping." >&2
+                                exit 0
+                              fi
+
+                              deviceList="$resolved_devices"
+
+                              if [ "${zapDevicesFlag}" = "true" ]; then
+                                for dev in $deviceList; do
+                                  wipefs --all --force "$dev" || true
+                                  sgdisk --zap-all "$dev" || true
+                                  partprobe "$dev" || true
+                                  ceph_cmd orch device zap "${osdHost}" "$dev" --force || true
+                                done
+                              fi
+
+                              devices_json="$(ceph_cmd orch device ls --format json 2>/dev/null || true)"
+                              if [ -z "$devices_json" ]; then
+                                echo "Device list unavailable, attempting direct OSD adds." >&2
+                                for dev in $deviceList; do
+                                  add_osd "$dev"
+                                done
+                                exit 0
+                              fi
+
+                              host_devices="$(
+                                printf '%s' "$devices_json" | ${python} - "${osdHost}" <<'PY' || true
+                  import json, sys
+                  host = sys.argv[1]
+                  try:
+                      data = json.load(sys.stdin)
+                  except json.JSONDecodeError:
+                      sys.exit(2)
+                  devices = []
+                  for entry in data:
+                      if entry.get("name") == host or entry.get("addr") == host:
+                          devices.extend(entry.get("devices", []))
+                  print(len(devices))
+                  PY
+                              )"
+
+                              if [ -z "$host_devices" ]; then
+                                host_devices=0
+                              fi
+
+                              if [ "$host_devices" -eq 0 ]; then
+                                echo "No devices reported by cephadm, attempting direct OSD adds." >&2
+                                for dev in $deviceList; do
+                                  add_osd "$dev"
+                                done
+                                exit 0
+                              fi
+
+                              for dev in $deviceList; do
+                                if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
+                  import json, sys
+                  dev = sys.argv[1]
+                  data = json.load(sys.stdin)
+                  for host in data:
+                      for d in host.get("devices", []):
+                          if d.get("path") == dev:
+                              sys.exit(0 if d.get("available") else 1)
+                  sys.exit(2)
+                  PY
+                                then
+                                  add_osd "$dev"
+                                else
+                                  echo "Skipping $dev (not available for OSD provisioning)" >&2
+                                fi
+                              done
+                '';
+            };
+          };
+      systemd.services.ceph-volume-osd-create =
+        lib.mkIf (cfg.osd.autoProvision && cfg.osd.provisioner == "ceph-volume")
+          {
+            description = "Ceph OSD provisioning (ceph-volume)";
+            after = [
+              "network-online.target"
+              "cephadm-bootstrap.service"
+            ];
+            wants = [ "network-online.target" ];
+            wantedBy = [ "multi-user.target" ];
+            path = cephVolumePath;
+            unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart =
+                let
+                  dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
+                  zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
+                  deviceList = lib.concatStringsSep " " cfg.osd.devices;
+                  cephVolume = "${cfg.package}/bin/ceph-volume";
+                in
+                pkgs.writeShellScript "ceph-volume-osd-create" ''
+                  set -euo pipefail
+                  if [ -z "${deviceList}" ]; then
+                    echo "No OSD devices configured, skipping." >&2
+                    exit 0
+                  fi
+
+                  existing_json="$(${cephVolume} lvm list --format json 2>/dev/null || true)"
+                  existing_devices="$(
+                    printf '%s' "$existing_json" | ${python} - <<'PY' || true
+                  import json, sys
+                  try:
+                      data = json.load(sys.stdin)
+                  except json.JSONDecodeError:
+                      sys.exit(1)
+                  devices = set()
+                  for osd in data.values():
+                      for entry in osd:
+                          for dev in entry.get("devices", []):
+                              devices.add(dev)
+                  print(" ".join(sorted(devices)))
+                  PY
+                  )"
+
+                  for dev in ${deviceList}; do
+                    resolved="$(realpath -e "$dev" 2>/dev/null || true)"
+                    if [ -z "$resolved" ]; then
+                      echo "Device path '$dev' not found on host, skipping." >&2
+                      continue
+                    fi
+                    if printf '%s' "$existing_devices" | ${pkgs.gnugrep}/bin/grep -Fqx "$resolved"; then
+                      echo "OSD already present on $resolved, skipping."
+                      continue
+                    fi
+                    if [ "${zapDevicesFlag}" = "true" ]; then
+                      ${cephVolume} lvm zap --destroy "$resolved" || true
+                      wipefs --all --force "$resolved" || true
+                      sgdisk --zap-all "$resolved" || true
+                      partprobe "$resolved" || true
+                    fi
+                    ${cephVolume} lvm create --data "$resolved" --no-systemd ${dmcryptFlag}
+                  done
+                '';
+            };
+          };
+
+      systemd.services.ceph-volume-osd-activate = lib.mkIf (cfg.osd.provisioner == "ceph-volume") {
+        description = "Ceph OSD activation (ceph-volume)";
         after = [
           "network-online.target"
-          "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
         ];
         wants = [ "network-online.target" ];
         wantedBy = [ "multi-user.target" ];
-        path = cephadmPath;
+        path = cephVolumePath;
         unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
         serviceConfig = {
           Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart =
-            let
-              methodFlag = cfg.osd.method;
-              dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
-              zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
-              deviceList = lib.concatStringsSep " " cfg.osd.devices;
-              monCandidates =
-                let
-                  rawCandidates = [
-                    cfg.monUpdate.address
-                    cfg.bootstrap.monIp
-                  ]
-                  ++ cfg.monHosts;
-                in
-                lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-              v1Port = cfg.monUpdate.v1Port;
-              v2Port = cfg.monUpdate.v2Port;
-            in
-            pkgs.writeShellScript "cephadm-osd-provision" ''
-                          set -euo pipefail
-                          if [ -z "${deviceList}" ]; then
-                            echo "No OSD devices configured, skipping." >&2
-                            exit 0
-                          fi
-
-                          keyring="/etc/ceph/ceph.client.admin.keyring"
-                          ceph_bin="${cfg.package}/bin/ceph"
-                          connect_addrs=""
-                          format_addrs() {
-                            local host="$1"
-                            case "$host" in
-                              (*[!0-9.:]*)
-                                printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
-                                ;;
-                              (*)
-                                printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
-                                ;;
-                            esac
-                          }
-                          if [ -s "$keyring" ]; then
-                            for addr in ${monCandidates}; do
-                              if [ -z "$addr" ]; then
-                                continue
-                              fi
-                              candidate_addrs="$(format_addrs "$addr")"
-                              if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
-                                connect_addrs="$candidate_addrs"
-                                break
-                              fi
-                            done
-                          fi
-
-                          ceph_cmd() {
-                            if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
-                              "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
-                            else
-                              ${cephadm} shell -- ceph "$@"
-                            fi
-                          }
-
-                          add_osd() {
-                            local dev="$1"
-                            if [ -n "${dmcryptFlag}" ]; then
-                              if ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} ${dmcryptFlag}; then
-                                return 0
-                              fi
-                              echo "OSD add with dmcrypt failed, retrying without." >&2
-                            fi
-                            ceph_cmd orch daemon add osd "${osdHost}:$dev" ${methodFlag} || true
-                          }
-
-                          for _ in $(seq 1 30); do
-                            if ceph_cmd status >/dev/null 2>&1; then
-                              break
-                            fi
-                            sleep 2
-                          done
-
-                          ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}" >/dev/null 2>&1 || true
-
-                          resolved_devices=""
-                          for dev in ${deviceList}; do
-                            resolved="$(realpath -e "$dev" 2>/dev/null || true)"
-                            if [ -z "$resolved" ]; then
-                              echo "Device path '$dev' not found on host, skipping." >&2
-                              continue
-                            fi
-                            resolved_devices="$resolved_devices $resolved"
-                          done
-
-                          if [ -z "$resolved_devices" ]; then
-                            echo "No valid OSD devices found, skipping." >&2
-                            exit 0
-                          fi
-
-                          deviceList="$resolved_devices"
-
-                          if [ "${zapDevicesFlag}" = "true" ]; then
-                            for dev in $deviceList; do
-                              wipefs --all --force "$dev" || true
-                              sgdisk --zap-all "$dev" || true
-                              partprobe "$dev" || true
-                              ceph_cmd orch device zap "${osdHost}" "$dev" --force || true
-                            done
-                          fi
-
-                          devices_json="$(ceph_cmd orch device ls --format json 2>/dev/null || true)"
-                          if [ -z "$devices_json" ]; then
-                            echo "Device list unavailable, attempting direct OSD adds." >&2
-                            for dev in $deviceList; do
-                              add_osd "$dev"
-                            done
-                            exit 0
-                          fi
-
-                          host_devices="$(
-                            printf '%s' "$devices_json" | ${python} - "${osdHost}" <<'PY' || true
-              import json, sys
-              host = sys.argv[1]
-              try:
-                  data = json.load(sys.stdin)
-              except json.JSONDecodeError:
-                  sys.exit(2)
-              devices = []
-              for entry in data:
-                  if entry.get("name") == host or entry.get("addr") == host:
-                      devices.extend(entry.get("devices", []))
-              print(len(devices))
-              PY
-                          )"
-
-                          if [ -z "$host_devices" ]; then
-                            host_devices=0
-                          fi
-
-                          if [ "$host_devices" -eq 0 ]; then
-                            echo "No devices reported by cephadm, attempting direct OSD adds." >&2
-                            for dev in $deviceList; do
-                              add_osd "$dev"
-                            done
-                            exit 0
-                          fi
-
-                          for dev in $deviceList; do
-                            if printf '%s' "$devices_json" | ${python} - "$dev" <<'PY'
-              import json, sys
-              dev = sys.argv[1]
-              data = json.load(sys.stdin)
-              for host in data:
-                  for d in host.get("devices", []):
-                      if d.get("path") == dev:
-                          sys.exit(0 if d.get("available") else 1)
-              sys.exit(2)
-              PY
-                            then
-                              add_osd "$dev"
-                            else
-                              echo "Skipping $dev (not available for OSD provisioning)" >&2
-                            fi
-                          done
-            '';
+          KillMode = "none";
+          TimeoutSec = 0;
+          ExecStart = pkgs.writeShellScript "ceph-volume-osd-activate" ''
+            set -euo pipefail
+            ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd
+          '';
         };
       };
 

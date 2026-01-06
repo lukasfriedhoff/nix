@@ -1,8 +1,8 @@
-# Ceph (cephadm) module
+# Ceph module (cephadm + ceph-volume)
 
-This repo ships a minimal cephadm-based module at `modules/nixos/services/ceph.nix`.
+This repo ships a minimal Ceph module at `modules/nixos/services/ceph.nix`.
 It bootstraps a cluster (if none exists), optionally sets the public network, and can
-auto-provision OSDs from a device list.
+auto-provision OSDs from a device list (via cephadm or ceph-volume).
 
 ## Quick start (single-node)
 
@@ -17,12 +17,12 @@ auto-provision OSDs from a device list.
       skipDashboard = true;
     };
     osd = {
+      provisioner = "ceph-volume";
       devices = [
         "/dev/disk/by-id/ata-..."
         "/dev/disk/by-id/ata-..."
       ];
       autoProvision = true;
-      method = "raw";
       encrypted = true;
     };
   };
@@ -39,6 +39,8 @@ Notes:
 - `cephadm-bootstrap` runs once if `/etc/ceph/ceph.conf` does not exist.
 - `cephadm-public-network` sets `mon public_network` after bootstrap when configured.
 - `cephadm-osd` adds OSDs for configured devices using `ceph orch`.
+- `ceph-volume-osd-create` provisions OSDs with `ceph-volume lvm create --no-systemd`.
+- `ceph-volume-osd-activate` activates all OSDs with `ceph-volume lvm activate --all --no-systemd`.
 - `cephadm` is wrapped to inject python deps and a systemctl shim.
 
 ## Options summary
@@ -61,9 +63,10 @@ Notes:
 - `extraArgs` (list of strings): extra args to `cephadm bootstrap`.
 
 `lukasf.ceph.osd`:
+- `provisioner` ("cephadm"|"ceph-volume", default "cephadm"): how OSDs are provisioned.
 - `host` (string): ceph orch host name used when adding OSDs.
 - `devices` (list of strings): device paths to provision.
-- `method` ("raw"|"lvm", default "raw").
+- `method` ("raw"|"lvm", default "raw"): cephadm-only.
 - `encrypted` (bool, default true): attempt dm-crypt with `--dmcrypt`.
 - `zapDevices` (bool, default false): wipe disks before provisioning.
 - `autoProvision` (bool, default false): run OSD provisioning unit.
@@ -115,7 +118,8 @@ lukasf.ceph.pools = [
 
 ## Adding storage (OSDs)
 
-Update your device list and re-deploy.
+Update your device list and re-deploy. When using `provisioner = "ceph-volume"`,
+OSDs are created via `ceph-volume lvm create --no-systemd`, then activated on boot.
 Example (srv1):
 
 ```nix

@@ -76,6 +76,7 @@ in
     pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
     osd = {
       devices = cephDisks;
+      provisioner = "ceph-volume";
       encrypted = true;
       autoProvision = hasRole "osd";
       zapDevices = true;
