@@ -68,6 +68,21 @@ let
   '';
   cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
   cephadmMgrPath = "/var/lib/ceph/cephadm-orch";
+  cephadmMgrWrapper = pkgs.writeTextFile {
+    name = "cephadm-orch-wrapper.py";
+    executable = true;
+    text = ''
+      #!/usr/bin/env python3
+      import runpy
+      import sys
+
+      args = sys.argv[1:]
+      if "--unit-dir" not in args:
+          args = ["--unit-dir", "${cfg.cephadm.unitDir}"] + args
+      sys.argv = [sys.argv[0]] + args
+      runpy.run_path("${cfg.package}/bin/cephadm", run_name="__main__")
+    '';
+  };
   python = "${pkgs.python3}/bin/python3";
   hostName = config.networking.hostName;
   osdHost = cfg.osd.host;
@@ -347,6 +362,7 @@ in
         "d /etc/ceph 0755 root root -"
         "d /etc/logrotate.d 0755 root root -"
         "d /var/lib/ceph 0755 root root -"
+        "C! ${cephadmMgrPath} 0755 root root - ${cephadmMgrWrapper}"
       ];
 
       networking.firewall = lib.mkIf cfg.openFirewall {
@@ -897,17 +913,7 @@ in
                 fi
               }
 
-              install -d -m 0755 /var/lib/ceph
-              printf '%s\n' \
-                '#!/usr/bin/env python3' \
-                'import runpy, sys' \
-                'args = sys.argv[1:]' \
-                'if "--unit-dir" not in args:' \
-                '    args = ["--unit-dir", "${cfg.cephadm.unitDir}"] + args' \
-                'sys.argv = [sys.argv[0]] + args' \
-                'runpy.run_path("${cfg.package}/bin/cephadm", run_name="__main__")' \
-                > "${cephadmMgrPath}"
-              chmod 0755 "${cephadmMgrPath}"
+              install -D -m 0755 ${cephadmMgrWrapper} "${cephadmMgrPath}"
 
               current="$(
                 ceph_cmd config get mgr cephadm_path 2>/dev/null || true
