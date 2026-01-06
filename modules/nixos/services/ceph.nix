@@ -837,7 +837,10 @@ in
                       >/dev/null 2>&1 || true
               done
             fi
-            ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd
+                if ! ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd; then
+                  echo "ceph-volume activation failed; keeping system activation healthy" >&2
+                  exit 0
+                fi
           '';
         };
       };
