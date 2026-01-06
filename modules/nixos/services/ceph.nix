@@ -731,6 +731,19 @@ in
                     chmod 0600 "${bootstrapKeyring}"
                   fi
 
+                  if [ "${zapDevicesFlag}" = "true" ] && [ -s "${adminKeyring}" ]; then
+                    fsid="$("${cephBin}" -n client.admin -k "${adminKeyring}" fsid 2>/dev/null || true)"
+                    if [ -n "$fsid" ]; then
+                      ${pkgs.systemd}/bin/systemctl list-units --type=service --no-legend "ceph-$fsid@osd.*" \
+                        | ${pkgs.gawk}/bin/awk '{print $1}' \
+                        | while read -r unit; do
+                          if [ -n "$unit" ]; then
+                            ${pkgs.systemd}/bin/systemctl stop "$unit" || true
+                          fi
+                        done
+                    fi
+                  fi
+
                   existing_json="$(${cephVolume} lvm list --format json 2>/dev/null || true)"
                   existing_devices="$(
                     printf '%s' "$existing_json" | ${python} - <<'PY' || true
