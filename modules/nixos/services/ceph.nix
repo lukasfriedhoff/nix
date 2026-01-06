@@ -68,7 +68,6 @@ let
   '';
   cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
   cephadmMgrPath = "/var/lib/ceph/cephadm-orch";
-  cephadmArgsString = lib.escapeShellArgs cephadmArgs;
   python = "${pkgs.python3}/bin/python3";
   hostName = config.networking.hostName;
   osdHost = cfg.osd.host;
@@ -900,8 +899,13 @@ in
 
               install -d -m 0755 /var/lib/ceph
               printf '%s\n' \
-                '#!/bin/sh' \
-                'exec /usr/sbin/cephadm ${cephadmArgsString} "$@"' \
+                '#!/usr/bin/env python3' \
+                'import runpy, sys' \
+                'args = sys.argv[1:]' \
+                'if "--unit-dir" not in args:' \
+                '    args = ["--unit-dir", "${cfg.cephadm.unitDir}"] + args' \
+                'sys.argv = [sys.argv[0]] + args' \
+                'runpy.run_path("${cfg.package}/bin/cephadm", run_name="__main__")' \
                 > "${cephadmMgrPath}"
               chmod 0755 "${cephadmMgrPath}"
 
