@@ -707,12 +707,27 @@ in
                   zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
                   deviceList = lib.concatStringsSep " " cfg.osd.devices;
                   cephVolume = "${cfg.package}/bin/ceph-volume";
+                  cephBin = "${cfg.package}/bin/ceph";
+                  adminKeyring = "/etc/ceph/ceph.client.admin.keyring";
+                  bootstrapKeyring = "/var/lib/ceph/bootstrap-osd/ceph.keyring";
                 in
                 pkgs.writeShellScript "ceph-volume-osd-create" ''
                   set -euo pipefail
                   if [ -z "${deviceList}" ]; then
                     echo "No OSD devices configured, skipping." >&2
                     exit 0
+                  fi
+
+                  if [ ! -s "${bootstrapKeyring}" ]; then
+                    if [ ! -s "${adminKeyring}" ]; then
+                      echo "Missing admin keyring at ${adminKeyring}, cannot create bootstrap OSD keyring." >&2
+                      exit 1
+                    fi
+                    install -d -m 0755 /var/lib/ceph/bootstrap-osd
+                    "${cephBin}" -n client.admin -k "${adminKeyring}" \
+                      auth get-or-create client.bootstrap-osd mon 'allow profile bootstrap-osd' \
+                      -o "${bootstrapKeyring}"
+                    chmod 0600 "${bootstrapKeyring}"
                   fi
 
                   existing_json="$(${cephVolume} lvm list --format json 2>/dev/null || true)"
