@@ -891,7 +891,7 @@ in
                       >/dev/null 2>&1 || true
               done
             fi
-                if ! ${cfg.package}/bin/ceph-volume lvm activate --all; then
+                if ! ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd; then
                   echo "ceph-volume activation failed; keeping system activation healthy" >&2
                   exit 0
                 fi
@@ -902,7 +902,7 @@ in
                   fi
                   osd_id="''${osd_dir##*/ceph-}"
                   if [ -n "$osd_id" ]; then
-                    ${pkgs.systemd}/bin/systemctl enable --now "ceph-osd@''${osd_id}.service" || true
+                    ${pkgs.systemd}/bin/systemctl start "ceph-osd@''${osd_id}.service" || true
                   fi
                 done
           '';
