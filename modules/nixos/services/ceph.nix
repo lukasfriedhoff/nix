@@ -457,6 +457,16 @@ in
       ];
 
       systemd.packages = lib.mkIf (cfg.osd.provisioner == "ceph-volume") [ cfg.package ];
+      systemd.services."ceph-osd@" = {
+        path = [
+          pkgs.coreutils
+          pkgs.iproute2
+          pkgs.util-linux
+        ];
+      };
+      systemd.tmpfiles.rules = lib.mkIf cfg.enable [
+        "d /run/ceph 0755 ceph ceph -"
+      ];
 
       networking.firewall = lib.mkIf cfg.openFirewall {
         allowedTCPPorts = [
