@@ -454,6 +454,9 @@ in
         "d /etc/logrotate.d 0755 root root -"
         "d /var/lib/ceph 0755 root root -"
         "d /var/log/ceph 0755 root root -"
+      ]
+      ++ lib.optionals cfg.enable [
+        "d /run/ceph 0755 ceph ceph -"
       ];
 
       systemd.packages = lib.mkIf (cfg.osd.provisioner == "ceph-volume") [ cfg.package ];
@@ -464,9 +467,6 @@ in
           pkgs.util-linux
         ];
       };
-      systemd.tmpfiles.rules = lib.mkIf cfg.enable [
-        "d /run/ceph 0755 ceph ceph -"
-      ];
 
       networking.firewall = lib.mkIf cfg.openFirewall {
         allowedTCPPorts = [
