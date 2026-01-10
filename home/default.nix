@@ -29,28 +29,24 @@ in
   nixpkgs.config.allowUnfree = lib.mkDefault true;
 
   imports = [
+    # Shell configuration
     ./shell/bash/default.nix
-    ./programs/alacritty/default.nix
-    ./programs/starship/default.nix
-    ./programs/git/default.nix
-    ./programs/lazygit/default.nix
-    ./programs/neovim/default.nix
-    ./programs/gpg/default.nix
-    ./programs/ssh/default.nix
-    ./programs/sops-age/default.nix
-    ./programs/k9s/default.nix
-    ./programs/kubectl/default.nix
-    ./programs/velero/default.nix
-    ./programs/s3/default.nix
-    ./programs/maven-config/default.nix
-    ./programs/cassandra-tools/default.nix
-    ./programs/mariadb-tools/default.nix
-    ./programs/icarus-mod-manager/default.nix
-    ./programs/vscode/default.nix
+
+    # Program categories (organized by purpose)
+    ./programs/dev # Development: git, neovim, vscode, lazygit, codex, claude
+    ./programs/devops # DevOps: kubectl, k9s, velero, s3, sops-age
+    ./programs/utils # Utilities: alacritty, starship, gpg, ssh
+    ./programs/work # Work tools: cassandra-tools, mariadb-tools, maven-config
+    ./programs/gaming # Gaming: icarus, icarus-mod-manager
+
+    # Standalone programs
     ./programs/evolution/default.nix
-    # Theme customisations applied via stylix' home module.
+    ./programs/chromium/default.nix
+
+    # Theme customizations applied via stylix home module
     ./programs/stylix/default.nix
-    ./programs/codex/default.nix
+
+    # Platform-specific configuration
     ./platforms/linux/default.nix
     ./platforms/macos/default.nix
   ];
