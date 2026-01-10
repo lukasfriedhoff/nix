@@ -25,6 +25,19 @@
     "flakes"
   ];
 
+  # Automatic store optimization - deduplicates identical files via hard links.
+  nix.optimise = {
+    automatic = true;
+    dates = [ "03:45" ];
+  };
+
+  # Automatic garbage collection - removes old generations and unreferenced store paths.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
+
   # Default state version
   system.stateVersion = lib.mkDefault "25.05";
 }
