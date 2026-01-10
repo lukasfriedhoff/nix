@@ -79,12 +79,34 @@ in
       default = [ ];
       description = "Features required for jobs to be scheduled on the builder.";
     };
+
+    connectTimeout = mkOption {
+      type = types.int;
+      default = 5;
+      description = "SSH connection timeout in seconds. Lower values provide faster fallback to local builds when builder is unavailable.";
+    };
+
+    fallbackToLocal = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Allow local builds when remote builder is unavailable (sets max-jobs > 0).";
+    };
+
+    localMaxJobs = mkOption {
+      type = types.ints.unsigned;
+      default = 4;
+      description = "Max parallel jobs for local builds when fallback is enabled.";
+    };
   };
 
   config = mkIf cfg.enable {
     nix = {
       distributedBuilds = true;
-      settings.builders-use-substitutes = true;
+      settings = {
+        builders-use-substitutes = true;
+        # Allow local builds as fallback when remote builder is unavailable
+        max-jobs = lib.mkIf cfg.fallbackToLocal cfg.localMaxJobs;
+      };
       buildMachines = [
         (
           {
@@ -105,5 +127,13 @@ in
         )
       ];
     };
+
+    # Configure SSH with connection timeout for the builder
+    programs.ssh.extraConfig = ''
+      Host ${cfg.hostName}
+        ConnectTimeout ${toString cfg.connectTimeout}
+        ServerAliveInterval 10
+        ServerAliveCountMax 3
+    '';
   };
 }
