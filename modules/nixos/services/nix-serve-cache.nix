@@ -107,6 +107,18 @@ in
       default = false;
       description = "Add this cache to the local Nix substituters/trusted keys.";
     };
+
+    connectTimeout = mkOption {
+      type = types.int;
+      default = 5;
+      description = "Connection timeout in seconds for the cache. Lower values provide faster fallback when cache is unavailable.";
+    };
+
+    fallbackToOfficial = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Keep cache.nixos.org as fallback substituter (it's always available as default, this option ensures it stays).";
+    };
   };
 
   config = mkIf cfg.enable (
@@ -144,6 +156,8 @@ in
       nix.settings = mkIf cfg.configureClient (
         {
           substituters = lib.mkBefore [ cacheUrl ];
+          # Fast timeout for private cache so we quickly fall back to official
+          connect-timeout = cfg.connectTimeout;
         }
         // optionalAttrs (cfg.publicKey != null) {
           trusted-public-keys = lib.mkAfter [ cfg.publicKey ];
