@@ -16,6 +16,15 @@ let
   hasRole = role: lib.elem role cephRoles;
   cephDiskEntries = lib.filterAttrs (_: v: v.host == hostName && v.purpose == "ceph") homelabDisks;
   cephDisks = map (diskId: "/dev/disk/by-id/${diskId}") (lib.attrNames cephDiskEntries);
+  cephLockboxKeys =
+    lib.mapAttrsToList
+      (diskId: disk: {
+        device = "/dev/disk/by-id/${diskId}";
+        secretKeyFile = disk.lockboxKeyFile;
+      })
+      (
+        lib.filterAttrs (_: v: v.host == hostName && v.purpose == "ceph" && v ? lockboxKeyFile) homelabDisks
+      );
 in
 {
   imports = [
@@ -82,6 +91,7 @@ in
     };
     osd = {
       devices = cephDisks;
+      lockboxKeys = cephLockboxKeys;
       provisioner = "ceph-volume";
       encrypted = true;
       autoProvision = hasRole "osd";
