@@ -49,7 +49,7 @@ in
       repoURL = mkOption {
         type = types.nullOr types.str;
         default = null;
-        example = "ssh://git@github.com/your-org/gitops.git";
+        example = "ssh://git@github.com/lukasfriedhoff/gitops.git";
         description = "Git repository URL containing Flux manifests.";
       };
       branch = mkOption {
