@@ -218,6 +218,7 @@ in
               XML
                               virsh secret-define --file "/run/libvirt-ceph-secret-${pool.name}.xml"
                             fi
+                            # Ceph keyring stores base64; libvirt wants raw bytes.
                             virsh secret-set-value --secret "${pool.secretUuid}" --base64 "$key"
 
                             mon_host="${toString pool.monHost}"
@@ -238,7 +239,7 @@ in
                                             printf '    %s\n' "$host_xml" >> "$pool_xml"
                                           fi
                                           printf '%s\n' \
-                                            "    <auth type='ceph' username='client.${pool.user}'>" \
+                                            "    <auth type='ceph' username='${pool.user}'>" \
                                             "      <secret uuid='${pool.secretUuid}'/>" \
                                             "    </auth>" \
                                             "  </source>" \
