@@ -2,13 +2,13 @@
   description = "Lukas Friedhoff's Nix monorepo";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
-    home-manager.url = "github:nix-community/home-manager/release-25.11";
+    home-manager.url = "github:nix-community/home-manager/master";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    stylix.url = "github:nix-community/stylix/release-25.11";
+    stylix.url = "github:nix-community/stylix/master";
     stylix.inputs.nixpkgs.follows = "nixpkgs";
 
     darwin.url = "github:lnl7/nix-darwin";
@@ -195,7 +195,10 @@
 
           plasmaDesktopModules = baseDesktopModules ++ [ ./modules/nixos/profiles/desktop/plasma.nix ];
 
-          gnomeDesktopModules = baseDesktopModules ++ [ ./modules/nixos/profiles/desktop/gnome.nix ];
+          gnomeDesktopModules = baseDesktopModules ++ [
+            ./modules/nixos/profiles/desktop/gnome.nix
+            ./modules/nixos/profiles/desktop/laptop.nix
+          ];
 
           baseServerModules = [
             ./modules/nixos/profiles/base.nix
