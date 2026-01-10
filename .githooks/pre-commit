@@ -53,4 +53,17 @@ if (( ${#nix_files[@]} > 0 )); then
   fi
 fi
 
+# Quick flake syntax check (only if flake.nix is staged or Nix files changed).
+if git diff --cached --name-only | grep -qE '(flake\.nix|\.nix$)'; then
+  echo "pre-commit: checking flake syntax..."
+  if command -v nix >/dev/null 2>&1; then
+    # Use --no-write-lock-file to avoid modifying flake.lock during commit
+    if ! nix flake check --no-build --no-write-lock-file "$repo_root" 2>/dev/null; then
+      # If quick check fails, show the actual error
+      nix flake check --no-build --no-write-lock-file "$repo_root" || \
+        fail "flake check failed; fix evaluation errors before committing"
+    fi
+  fi
+fi
+
 exit 0
