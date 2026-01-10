@@ -22,6 +22,20 @@ let
       "${primaryRoot}/${path}"
     else
       throw "lukasf.ceph: relative secret '${path}' requires secrets.ceph or secrets.primary/root";
+  sanitizeName = value: lib.replaceStrings [ "/" "." ":" " " ] [ "-" "-" "-" "-" ] value;
+  lockboxEntries = map (
+    entry:
+    let
+      baseName =
+        if entry.name != null && entry.name != "" then entry.name else builtins.baseNameOf entry.device;
+      name = sanitizeName baseName;
+    in
+    entry
+    // {
+      name = name;
+      secretName = "ceph-osd-lockbox-${name}";
+    }
+  ) cfg.osd.lockboxKeys;
   systemctlShim = pkgs.writeShellScriptBin "systemctl" ''
     set -euo pipefail
     runtime=0
@@ -293,6 +307,46 @@ in
         type = lib.types.bool;
         default = false;
         description = "Automatically provision OSDs on the specified devices.";
+      };
+
+      lockboxKeys = lib.mkOption {
+        type = lib.types.listOf (
+          lib.types.submodule {
+            options = {
+              device = lib.mkOption {
+                type = lib.types.str;
+                description = "Device path (prefer /dev/disk/by-id/*) this lockbox key is for.";
+              };
+              secretKeyFile = lib.mkOption {
+                type = lib.types.str;
+                description = ''
+                  Path to the SOPS-encrypted lockbox key file (relative to secrets.ceph
+                  or secrets.primary/root, or absolute).
+                '';
+              };
+              name = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                description = "Optional name for this key entry (defaults to device basename).";
+              };
+            };
+          }
+        );
+        default = [ ];
+        description = ''
+          Mapping of OSD devices to their SOPS-encrypted lockbox keys.
+          When a key is provided, it will be imported into the OSD's lockbox
+          keyring directory during activation, enabling encrypted OSDs to be
+          activated without re-creating keys.
+        '';
+        example = lib.literalExpression ''
+          [
+            {
+              device = "/dev/disk/by-id/ata-SAMSUNG_...";
+              secretKeyFile = "ceph/<fsid>/osd-lockbox/ata-SAMSUNG_....key";
+            }
+          ]
+        '';
       };
     };
 
@@ -919,11 +973,85 @@ in
         };
       };
 
-      sops.secrets."ceph-backup-key" = lib.mkIf (cfg.backup.enable && cfg.backup.secretKeyFile != null) {
-        sopsFile = resolveSecret cfg.backup.secretKeyFile;
-        format = "binary";
-        mode = "0400";
-        owner = "root";
+      # SOPS secrets for Ceph (backup key + lockbox keys)
+      sops.secrets = lib.mkMerge (
+        # Backup encryption key
+        lib.optional (cfg.backup.enable && cfg.backup.secretKeyFile != null) {
+          "ceph-backup-key" = {
+            sopsFile = resolveSecret cfg.backup.secretKeyFile;
+            format = "binary";
+            mode = "0400";
+            owner = "root";
+          };
+        }
+        ++
+          # OSD lockbox keys
+          map (entry: {
+            "${entry.secretName}" = {
+              sopsFile = resolveSecret entry.secretKeyFile;
+              format = "binary";
+              mode = "0400";
+              owner = "ceph";
+              group = "ceph";
+            };
+          }) lockboxEntries
+      );
+
+      # Service to import lockbox keys before OSD activation
+      systemd.services.ceph-lockbox-import = lib.mkIf (lockboxEntries != [ ]) {
+        description = "Import Ceph OSD lockbox keys from SOPS secrets";
+        before = [ "ceph-volume-osd-activate.service" ];
+        after = [ "cephadm-bootstrap.service" ];
+        wantedBy = [ "multi-user.target" ];
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        path = [
+          pkgs.coreutils
+          cfg.package
+        ];
+        script =
+          let
+            importCommands = lib.concatMapStringsSep "\n" (entry: ''
+              # Import lockbox key for ${entry.name}
+              device="${entry.device}"
+              secret_path="${config.sops.secrets."${entry.secretName}".path}"
+              if [ -e "$device" ] && [ -f "$secret_path" ]; then
+                # Find the OSD directory for this device
+                for osd_dir in /var/lib/ceph/osd/ceph-*; do
+                  if [ ! -d "$osd_dir" ]; then
+                    continue
+                  fi
+                  # Check if this OSD uses the device (via block symlink or lvm)
+                  block_link="$osd_dir/block"
+                  if [ -L "$block_link" ]; then
+                    block_target="$(readlink -f "$block_link" 2>/dev/null || true)"
+                    device_resolved="$(readlink -f "$device" 2>/dev/null || true)"
+                    if [ "$block_target" = "$device_resolved" ] || [[ "$block_target" == *"$(basename "$device")"* ]]; then
+                      lockbox_dir="$osd_dir"
+                      lockbox_keyring="$lockbox_dir/lockbox.keyring"
+                      echo "Importing lockbox key for $device -> $lockbox_keyring"
+                      if [ ! -f "$lockbox_keyring" ] || [ ! -s "$lockbox_keyring" ]; then
+                        cp "$secret_path" "$lockbox_keyring"
+                        chown ceph:ceph "$lockbox_keyring"
+                        chmod 0600 "$lockbox_keyring"
+                        echo "Imported lockbox key to $lockbox_keyring"
+                      else
+                        echo "Lockbox keyring already exists at $lockbox_keyring"
+                      fi
+                      break
+                    fi
+                  fi
+                done
+              fi
+            '') lockboxEntries;
+          in
+          ''
+            set -euo pipefail
+            ${importCommands}
+          '';
       };
 
       systemd.services.ceph-key-backup = lib.mkIf cfg.backup.enable {
@@ -940,6 +1068,7 @@ in
           pkgs.coreutils
           pkgs.findutils
           pkgs.gnutar
+          pkgs.gzip
           pkgs.openssl
         ];
         script =
@@ -978,7 +1107,8 @@ in
             fi
 
             tar -czf "$tar_path" -T "$key_list"
-            openssl enc -aes-256-gcm -pbkdf2 -salt \
+            openssl_bin="${pkgs.openssl}/bin/openssl"
+            "$openssl_bin" enc -aes-256-ctr -pbkdf2 -salt -md sha256 \
               -pass "file:$secret_file" \
               -in "$tar_path" \
               -out "$enc_path"
