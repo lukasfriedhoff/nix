@@ -276,6 +276,38 @@ Install `ceph` client tools and copy:
 
 Then you can use `ceph`, `rbd`, or mount CephFS.
 
+## Key backups and restore
+
+OSD lockbox keys and other Ceph key material live on the host at:
+- `/var/lib/ceph/osd/ceph-*/lockbox.keyring`
+- `/etc/ceph/*.keyring`
+- `/var/lib/ceph/*/*.keyring`
+
+When `backup.enable = true`, the module creates encrypted backups at:
+- `/var/lib/ceph/backup/ceph-keys-<fsid>-<timestamp>.tar.gz.enc`
+
+The encryption passphrase is the SOPS secret at:
+- `secrets/profiles/personal/servers/ceph/<fsid>/backup.key`
+
+Restore flow (example):
+
+```bash
+tmp_dir="$(mktemp -d)"
+sops -d secrets/profiles/personal/servers/ceph/<fsid>/backup.key > "$tmp_dir/backup.key"
+openssl enc -d -aes-256-ctr -pbkdf2 -salt -md sha256 \
+  -pass "file:$tmp_dir/backup.key" \
+  -in /var/lib/ceph/backup/ceph-keys-<fsid>-<timestamp>.tar.gz.enc \
+  -out "$tmp_dir/ceph-keys.tar.gz"
+
+# Inspect first
+tar -tzf "$tmp_dir/ceph-keys.tar.gz"
+
+# Then restore as needed (copy keyrings/configs into place)
+tar -xzf "$tmp_dir/ceph-keys.tar.gz" -C /
+
+rm -rf "$tmp_dir"
+```
+
 ## Encryption
 
 `osd.encrypted = true` attempts `--dmcrypt` during `ceph orch daemon add osd`.
