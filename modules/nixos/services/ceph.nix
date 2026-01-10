@@ -467,6 +467,56 @@ in
         description = "Extra config lines appended to the client ceph.conf.";
       };
     };
+
+    healthCheck = {
+      enable = lib.mkEnableOption "Ceph health check service";
+
+      schedule = lib.mkOption {
+        type = lib.types.str;
+        default = "*:0/5";
+        description = "systemd OnCalendar value for health check timer (default: every 5 minutes).";
+      };
+
+      warnIsFailure = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Treat HEALTH_WARN as service failure (useful for alerting).";
+      };
+
+      checkPools = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Include pool status in health check output.";
+      };
+
+      checkOsds = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Include OSD status in health check output.";
+      };
+
+      checkLibvirt = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Check libvirt storage pool status (requires libvirtd).";
+      };
+
+      libvirtPools = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [
+          "ceph-images"
+          "ceph-vmdisks"
+        ];
+        description = "Libvirt storage pools to check (empty = all pools).";
+      };
+
+      outputFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = "/run/ceph/health-status.json";
+        description = "Write health status to this JSON file (null to disable).";
+      };
+    };
   };
 
   config = lib.mkMerge [
@@ -1122,6 +1172,166 @@ in
         wantedBy = [ "timers.target" ];
         timerConfig = {
           OnCalendar = cfg.backup.schedule;
+          Persistent = true;
+        };
+      };
+
+      # Health check service
+      systemd.services.ceph-health-check = lib.mkIf cfg.healthCheck.enable {
+        description = "Ceph cluster health check";
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RuntimeDirectory = "ceph";
+          RuntimeDirectoryPreserve = "yes";
+        };
+        path = [
+          pkgs.ceph
+          pkgs.jq
+          pkgs.coreutils
+        ]
+        ++ lib.optionals cfg.healthCheck.checkLibvirt [ pkgs.libvirt ];
+        script =
+          let
+            warnExit = if cfg.healthCheck.warnIsFailure then "1" else "0";
+            outputFile = cfg.healthCheck.outputFile;
+            poolFilter =
+              if cfg.healthCheck.libvirtPools == [ ] then
+                ""
+              else
+                lib.concatMapStringsSep " " (p: "--pool ${p}") cfg.healthCheck.libvirtPools;
+          in
+          ''
+            set -euo pipefail
+
+            echo "=== Ceph Health Check $(date -Iseconds) ==="
+
+            # Initialize status
+            overall_status="OK"
+            ceph_health=""
+            ceph_status_json=""
+            pool_status=""
+            osd_status=""
+            libvirt_status=""
+
+            # Get Ceph health
+            if ceph_health=$(ceph health 2>&1); then
+              echo "Ceph Health: $ceph_health"
+              case "$ceph_health" in
+                HEALTH_OK*)
+                  ;;
+                HEALTH_WARN*)
+                  ${lib.optionalString cfg.healthCheck.warnIsFailure ''overall_status="WARN"''}
+                  ;;
+                HEALTH_ERR*)
+                  overall_status="ERROR"
+                  ;;
+              esac
+            else
+              echo "ERROR: Failed to get Ceph health: $ceph_health"
+              overall_status="ERROR"
+            fi
+
+            # Get detailed status as JSON
+            ceph_status_json=$(ceph status -f json 2>/dev/null || echo '{}')
+
+            ${lib.optionalString cfg.healthCheck.checkPools ''
+              # Check pools
+              echo ""
+              echo "=== Pool Status ==="
+              if pool_status=$(ceph df -f json 2>&1); then
+                echo "$pool_status" | jq -r '.pools[] | "Pool \(.name): \(.stats.stored // 0 | . / 1024 / 1024 | floor)MB stored, \(.stats.percent_used // 0 * 100 | . * 100 | floor / 100)% used"'
+              else
+                echo "ERROR: Failed to get pool status"
+                overall_status="ERROR"
+              fi
+            ''}
+
+            ${lib.optionalString cfg.healthCheck.checkOsds ''
+              # Check OSDs
+              echo ""
+              echo "=== OSD Status ==="
+              if osd_status=$(ceph osd stat 2>&1); then
+                echo "$osd_status"
+                # Check for down OSDs
+                osd_tree=$(ceph osd tree -f json 2>/dev/null || echo '{}')
+                down_osds=$(echo "$osd_tree" | jq -r '[.nodes[] | select(.type == "osd" and .status == "down")] | length')
+                if [ "$down_osds" -gt 0 ]; then
+                  echo "WARNING: $down_osds OSD(s) are down"
+                  ${lib.optionalString cfg.healthCheck.warnIsFailure ''overall_status="WARN"''}
+                fi
+              else
+                echo "ERROR: Failed to get OSD status"
+                overall_status="ERROR"
+              fi
+            ''}
+
+            ${lib.optionalString cfg.healthCheck.checkLibvirt ''
+              # Check libvirt storage pools
+              echo ""
+              echo "=== Libvirt Storage Pools ==="
+              if command -v virsh >/dev/null 2>&1; then
+                pools_to_check="${
+                  if cfg.healthCheck.libvirtPools == [ ] then
+                    "$(virsh pool-list --name 2>/dev/null | grep -v '^$')"
+                  else
+                    lib.concatStringsSep " " cfg.healthCheck.libvirtPools
+                }"
+                for pool in $pools_to_check; do
+                  if pool_info=$(virsh pool-info "$pool" 2>&1); then
+                    state=$(echo "$pool_info" | grep "^State:" | awk '{print $2}')
+                    capacity=$(echo "$pool_info" | grep "^Capacity:" | awk '{print $2, $3}')
+                    available=$(echo "$pool_info" | grep "^Available:" | awk '{print $2, $3}')
+                    echo "Pool $pool: $state (Capacity: $capacity, Available: $available)"
+                    if [ "$state" != "running" ]; then
+                      echo "  WARNING: Pool $pool is not running"
+                      ${lib.optionalString cfg.healthCheck.warnIsFailure ''overall_status="WARN"''}
+                    fi
+                  else
+                    echo "Pool $pool: ERROR - $pool_info"
+                  fi
+                done
+              else
+                echo "virsh not available"
+              fi
+            ''}
+
+            echo ""
+            echo "=== Overall Status: $overall_status ==="
+
+            ${lib.optionalString (outputFile != null) ''
+                # Write JSON output
+                cat > "${outputFile}" <<JSONEOF
+              {
+                "timestamp": "$(date -Iseconds)",
+                "overall_status": "$overall_status",
+                "ceph_health": "$ceph_health",
+                "ceph_status": $ceph_status_json
+              }
+              JSONEOF
+                chmod 644 "${outputFile}"
+            ''}
+
+            # Exit with appropriate code
+            case "$overall_status" in
+              OK)
+                exit 0
+                ;;
+              WARN)
+                exit ${warnExit}
+                ;;
+              ERROR)
+                exit 1
+                ;;
+            esac
+          '';
+      };
+
+      systemd.timers.ceph-health-check = lib.mkIf cfg.healthCheck.enable {
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnCalendar = cfg.healthCheck.schedule;
           Persistent = true;
         };
       };

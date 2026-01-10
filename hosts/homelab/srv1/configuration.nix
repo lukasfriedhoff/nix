@@ -103,6 +103,14 @@ in
       address = cephCluster.monIp;
       legacyAddress = "10.1.30.5";
     };
+    healthCheck = {
+      enable = true;
+      checkLibvirt = hasRole "kvm";
+      libvirtPools = [
+        "ceph-images"
+        "ceph-vmdisks"
+      ];
+    };
   };
 
   lukasf.ceph.client = lib.mkIf (hasRole "kvm") {
