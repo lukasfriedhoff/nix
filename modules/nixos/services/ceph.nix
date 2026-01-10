@@ -1290,11 +1290,13 @@ in
                   }
                   for pool in $pools_to_check; do
                     if pool_info=$(virsh pool-info "$pool" 2>&1); then
-                      state=$(echo "$pool_info" | grep "^State:" | awk '{print $2}')
-                      capacity=$(echo "$pool_info" | grep "^Capacity:" | awk '{print $2, $3}')
-                      available=$(echo "$pool_info" | grep "^Available:" | awk '{print $2, $3}')
-                      echo "Pool $pool: $state (Capacity: $capacity, Available: $available)"
-                      if [ "$state" != "running" ]; then
+                      state=$(echo "$pool_info" | grep "^State:" | awk '{print $2}' || echo "unknown")
+                      capacity=$(echo "$pool_info" | grep "^Capacity:" | awk '{print $2, $3}' || echo "N/A")
+                      available=$(echo "$pool_info" | grep "^Available:" | awk '{print $2, $3}' || echo "N/A")
+                      if [ "$state" = "running" ]; then
+                        echo "Pool $pool: $state (Capacity: $capacity, Available: $available)"
+                      else
+                        echo "Pool $pool: $state (inactive pools have no capacity info)"
                         echo "  WARNING: Pool $pool is not running"
                         ${lib.optionalString cfg.healthCheck.warnIsFailure ''overall_status="WARN"''}
                       fi
