@@ -1269,35 +1269,44 @@ in
               fi
             ''}
 
-            ${lib.optionalString cfg.healthCheck.checkLibvirt ''
-              # Check libvirt storage pools
-              echo ""
-              echo "=== Libvirt Storage Pools ==="
-              if command -v virsh >/dev/null 2>&1; then
-                pools_to_check="${
+            ${lib.optionalString cfg.healthCheck.checkLibvirt (
+              let
+                poolsArg =
                   if cfg.healthCheck.libvirtPools == [ ] then
-                    "$(virsh pool-list --name 2>/dev/null | grep -v '^$')"
+                    ""
                   else
-                    lib.concatStringsSep " " cfg.healthCheck.libvirtPools
-                }"
-                for pool in $pools_to_check; do
-                  if pool_info=$(virsh pool-info "$pool" 2>&1); then
-                    state=$(echo "$pool_info" | grep "^State:" | awk '{print $2}')
-                    capacity=$(echo "$pool_info" | grep "^Capacity:" | awk '{print $2, $3}')
-                    available=$(echo "$pool_info" | grep "^Available:" | awk '{print $2, $3}')
-                    echo "Pool $pool: $state (Capacity: $capacity, Available: $available)"
-                    if [ "$state" != "running" ]; then
-                      echo "  WARNING: Pool $pool is not running"
-                      ${lib.optionalString cfg.healthCheck.warnIsFailure ''overall_status="WARN"''}
+                    lib.concatStringsSep " " cfg.healthCheck.libvirtPools;
+              in
+              ''
+                # Check libvirt storage pools
+                echo ""
+                echo "=== Libvirt Storage Pools ==="
+                if command -v virsh >/dev/null 2>&1; then
+                  ${
+                    if cfg.healthCheck.libvirtPools == [ ] then
+                      ''pools_to_check=$(virsh pool-list --name 2>/dev/null | grep -v '^$' || true)''
+                    else
+                      ''pools_to_check="${poolsArg}"''
+                  }
+                  for pool in $pools_to_check; do
+                    if pool_info=$(virsh pool-info "$pool" 2>&1); then
+                      state=$(echo "$pool_info" | grep "^State:" | awk '{print $2}')
+                      capacity=$(echo "$pool_info" | grep "^Capacity:" | awk '{print $2, $3}')
+                      available=$(echo "$pool_info" | grep "^Available:" | awk '{print $2, $3}')
+                      echo "Pool $pool: $state (Capacity: $capacity, Available: $available)"
+                      if [ "$state" != "running" ]; then
+                        echo "  WARNING: Pool $pool is not running"
+                        ${lib.optionalString cfg.healthCheck.warnIsFailure ''overall_status="WARN"''}
+                      fi
+                    else
+                      echo "Pool $pool: ERROR - $pool_info"
                     fi
-                  else
-                    echo "Pool $pool: ERROR - $pool_info"
-                  fi
-                done
-              else
-                echo "virsh not available"
-              fi
-            ''}
+                  done
+                else
+                  echo "virsh not available"
+                fi
+              ''
+            )}
 
             echo ""
             echo "=== Overall Status: $overall_status ==="
