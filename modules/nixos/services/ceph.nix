@@ -1190,6 +1190,8 @@ in
           pkgs.ceph
           pkgs.jq
           pkgs.coreutils
+          pkgs.gawk
+          pkgs.gnugrep
         ]
         ++ lib.optionals cfg.healthCheck.checkLibvirt [ pkgs.libvirt ];
         script =
