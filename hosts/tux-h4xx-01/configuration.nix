@@ -18,6 +18,9 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.supportedFilesystems = [ "ntfs" ];
+  boot.loader.systemd-boot.configurationLimit = lib.mkDefault 10;
+  boot.loader.generic-extlinux-compatible.configurationLimit = lib.mkDefault 10;
+  boot.loader.grub.configurationLimit = lib.mkDefault 10;
 
   desktop.gaming = {
     enable = true;
