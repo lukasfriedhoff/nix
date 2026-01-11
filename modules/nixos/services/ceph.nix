@@ -1298,7 +1298,10 @@ in
                       else
                         echo "Pool $pool: $state (inactive pools have no capacity info)"
                         echo "  WARNING: Pool $pool is not running"
-                        ${lib.optionalString cfg.healthCheck.warnIsFailure ''overall_status="WARN"''}
+                        # Always report WARN for inactive pools; exit code depends on warnIsFailure
+                        if [ "$overall_status" = "OK" ]; then
+                          overall_status="WARN"
+                        fi
                       fi
                     else
                       echo "Pool $pool: ERROR - $pool_info"
