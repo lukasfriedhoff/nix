@@ -473,8 +473,14 @@ in
 
       schedule = lib.mkOption {
         type = lib.types.str;
-        default = "*:0/5";
-        description = "systemd OnCalendar value for health check timer (default: every 5 minutes).";
+        default = "daily";
+        description = "systemd OnCalendar value for health check timer (default: daily).";
+      };
+
+      runOnActivation = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Run health check after NixOS activation (config changes).";
       };
 
       warnIsFailure = lib.mkOption {
@@ -1351,6 +1357,21 @@ in
           Persistent = true;
         };
       };
+
+      # Run health check after NixOS activation (config changes)
+      system.activationScripts.ceph-health-check =
+        lib.mkIf (cfg.healthCheck.enable && cfg.healthCheck.runOnActivation)
+          {
+            text = ''
+              # Schedule health check to run shortly after activation completes
+              # Using systemd-run to avoid blocking activation
+              if [ -f /etc/ceph/ceph.conf ]; then
+                ${pkgs.systemd}/bin/systemd-run --no-block --unit=ceph-health-check-activation \
+                  ${pkgs.systemd}/bin/systemctl start ceph-health-check.service || true
+              fi
+            '';
+            deps = [ ];
+          };
 
       systemd.services.cephadm-pools = lib.mkIf (cfg.pools != [ ]) {
         description = "Ceph pool setup";
