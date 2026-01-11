@@ -127,6 +127,28 @@ in
     };
   };
 
+  # Flux deploy key for GitOps
+  sops.secrets."flux-cluster-bootstrap" = {
+    sopsFile = "${secrets.profileShared}/homelab/flux-cluster-dev/flux-cluster-bootstrap-token.txt";
+    owner = "root";
+    format = "binary";
+    mode = "0400";
+  };
+
+  # Enable k3s with Flux GitOps
+  homelab.kubernetes = {
+    enable = true;
+    gitops = {
+      enable = true;
+      repoURL = "ssh://git@github.com/lukasfriedhoff/flux-cluster.git";
+      branch = "develop";
+      path = "./overlays/homelab";
+      sshKeyFile = config.sops.secrets."flux-cluster-bootstrap".path;
+      sourceName = "flux-cluster";
+      kustomizationName = "homelab";
+    };
+  };
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 

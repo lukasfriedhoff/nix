@@ -238,6 +238,7 @@
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
             ./modules/nixos/profiles/homelab/personal-server.nix
+            ./modules/nixos/profiles/homelab/kubernetes.nix
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
             ./modules/nixos/profiles/server/comin.nix
