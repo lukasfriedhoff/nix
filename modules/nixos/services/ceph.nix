@@ -40,7 +40,7 @@ let
     set -euo pipefail
     runtime=0
     for arg in "$@"; do
-      if [ "$arg" = "enable" ] || [ "$arg" = "reenable" ]; then
+      if [ "$arg" = "enable" ] || [ "$arg" = "reenable" ] || [ "$arg" = "disable" ]; then
         runtime=1
         break
       fi
