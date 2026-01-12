@@ -28,11 +28,9 @@ let
       throw "homelab.kubernetes.gitops: relative secret path '${file}' requires secrets.primary/root";
 
   kubeconfig = "/etc/rancher/k3s/k3s.yaml";
-  gitSshDir = "/etc/gitops/flux";
 
   fluxBin = lib.getExe pkgs.fluxcd;
   kubectlBin = lib.getExe pkgs.kubectl;
-  gitBin = lib.getExe pkgs.git;
 in
 {
   options.homelab.kubernetes = {
@@ -70,7 +68,17 @@ in
       sshKeyFile = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = "Path (absolute or relative to secrets.primary) to the Flux deploy key.";
+        description = "Path (absolute or relative to secrets.primary) to the Flux SSH deploy key.";
+      };
+      tokenFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Path to a file containing GitHub PAT for HTTPS authentication.";
+      };
+      username = mkOption {
+        type = types.str;
+        default = "git";
+        description = "Username for HTTPS authentication (typically GitHub username or 'git').";
       };
       sourceName = mkOption {
         type = types.str;
@@ -135,26 +143,12 @@ in
     };
 
     # GitOps bootstrap
-    systemd.tmpfiles.rules = mkIf (cfg.gitops.enable && cfg.gitops.sshKeyFile != null) [
-      "d ${gitSshDir} 0700 root root -"
-    ];
-
-    environment.etc = mkIf (cfg.gitops.enable && cfg.gitops.sshKeyFile != null) {
-      "gitops/flux/id_ed25519" = {
-        source = resolveSecret cfg.gitops.sshKeyFile;
-        mode = "0600";
-      };
-    };
-
     systemd.services.flux-gitops = mkIf cfg.gitops.enable {
       description = "FluxCD GitOps bootstrap";
       after = [ "k3s.service" ];
       requires = [ "k3s.service" ];
       environment = {
         KUBECONFIG = kubeconfig;
-      }
-      // lib.optionalAttrs (cfg.gitops.sshKeyFile != null) {
-        GIT_SSH_COMMAND = "ssh -i ${gitSshDir}/id_ed25519 -o StrictHostKeyChecking=no";
       };
       serviceConfig = {
         Type = "oneshot";
@@ -169,7 +163,15 @@ in
             ${fluxBin} create source git ${cfg.gitops.sourceName} \
               --url=${cfg.gitops.repoURL} \
               --branch=${cfg.gitops.branch} \
-              --interval=${cfg.gitops.interval}
+              --interval=${cfg.gitops.interval} \
+              ${
+                lib.optionalString (
+                  cfg.gitops.sshKeyFile != null
+                ) "--private-key-file=${resolveSecret cfg.gitops.sshKeyFile}"
+              } \
+              ${lib.optionalString (
+                cfg.gitops.tokenFile != null
+              ) "--username=${cfg.gitops.username} --password=$(cat ${resolveSecret cfg.gitops.tokenFile})"}
           else
             ${fluxBin} reconcile source git ${cfg.gitops.sourceName} --with-source
           fi
