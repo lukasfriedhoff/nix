@@ -101,7 +101,10 @@ in
       }
     ];
 
-    boot.kernelModules = [ "br_netfilter" ];
+    boot.kernelModules = [
+      "br_netfilter"
+      "rbd"
+    ];
     boot.kernel.sysctl = {
       "net.ipv4.ip_forward" = 1;
       "net.bridge.bridge-nf-call-iptables" = 1;
