@@ -127,8 +127,8 @@ in
     };
   };
 
-  # Flux deploy key for GitOps
-  sops.secrets."flux-cluster-bootstrap" = {
+  # GitHub PAT for Flux GitOps
+  sops.secrets."flux-cluster-token" = {
     sopsFile = "${secrets.profileShared}/homelab/flux-cluster-dev/flux-cluster-bootstrap-token.txt";
     owner = "root";
     format = "binary";
@@ -140,10 +140,11 @@ in
     enable = true;
     gitops = {
       enable = true;
-      repoURL = "ssh://git@github.com/lukasfriedhoff/flux-cluster.git";
+      repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
       branch = "develop";
       path = "./overlays/homelab";
-      sshKeyFile = config.sops.secrets."flux-cluster-bootstrap".path;
+      tokenFile = config.sops.secrets."flux-cluster-token".path;
+      username = "lukasfriedhoff";
       sourceName = "flux-cluster";
       kustomizationName = "homelab";
     };
