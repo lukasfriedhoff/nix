@@ -1128,6 +1128,7 @@ in
           pkgs.gnutar
           pkgs.gzip
           pkgs.openssl
+          cfg.package
         ];
         script =
           let
@@ -1152,19 +1153,41 @@ in
 
             install -d -m 0700 "$backup_dir"
 
-            key_list="$tmp_dir/keylist.txt"
-            {
-              find /etc/ceph -type f \( -name '*.keyring' -o -name '*.conf' \) 2>/dev/null || true
-              find /var/lib/ceph -type f -name '*.keyring' 2>/dev/null || true
-            } | sort -u > "$key_list"
+            # Create a directory structure for the backup
+            backup_staging="$tmp_dir/backup"
+            mkdir -p "$backup_staging/etc/ceph"
+            mkdir -p "$backup_staging/var/lib/ceph"
+            mkdir -p "$backup_staging/config-key"
 
-            if [ ! -s "$key_list" ]; then
+            # Copy keyring and config files
+            find /etc/ceph -type f \( -name '*.keyring' -o -name '*.conf' \) -exec cp {} "$backup_staging/etc/ceph/" \; 2>/dev/null || true
+            find /var/lib/ceph -type f -name '*.keyring' -exec sh -c 'dir=$(dirname "$1" | sed "s|^/var/lib/ceph|$2/var/lib/ceph|"); mkdir -p "$dir"; cp "$1" "$dir/"' _ {} "$backup_staging" \; 2>/dev/null || true
+
+            # Export config-key data (includes dm-crypt secrets for encrypted OSDs)
+            # This is critical for OSD recovery
+            if ceph config-key dump > "$backup_staging/config-key/dump.json" 2>/dev/null; then
+              echo "Exported config-key data"
+            else
+              echo "Warning: Could not export config-key data (cluster may not be available)" >&2
+            fi
+
+            # Export auth data for all clients
+            if ceph auth export > "$backup_staging/config-key/auth-export.txt" 2>/dev/null; then
+              echo "Exported auth data"
+            else
+              echo "Warning: Could not export auth data" >&2
+            fi
+
+            # Check if we have anything to backup
+            file_count=$(find "$backup_staging" -type f | wc -l)
+            if [ "$file_count" -eq 0 ]; then
               echo "No Ceph key material found; skipping backup." >&2
               rm -rf "$tmp_dir"
               exit 0
             fi
 
-            tar -czf "$tar_path" -T "$key_list"
+            # Create the tarball
+            tar -czf "$tar_path" -C "$backup_staging" .
             openssl_bin="${pkgs.openssl}/bin/openssl"
             "$openssl_bin" enc -aes-256-ctr -pbkdf2 -salt -md sha256 \
               -pass "file:$secret_file" \
@@ -1172,6 +1195,7 @@ in
               -out "$enc_path"
             rm -rf "$tmp_dir"
 
+            echo "Backup created: $enc_path"
             find "$backup_dir" -type f -name "ceph-keys-${clusterId}-*.tar.gz.enc" -mtime +${retention} -delete || true
           '';
       };
