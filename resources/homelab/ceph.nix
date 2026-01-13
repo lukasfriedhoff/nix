@@ -33,6 +33,25 @@
           size = 3;
           minSize = 2;
         }
+        # Kubernetes RBD pools
+        {
+          name = "k8s-ssd-1r";
+          application = "rbd";
+          size = 1;
+          minSize = 1;
+        }
+        {
+          name = "k8s-ssd-2r";
+          application = "rbd";
+          size = 2;
+          minSize = 1;
+        }
+        {
+          name = "k8s-ssd-3r";
+          application = "rbd";
+          size = 3;
+          minSize = 2;
+        }
       ];
       kvmPools = [
         {
