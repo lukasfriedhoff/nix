@@ -598,7 +598,8 @@ in
         wantedBy = [ "multi-user.target" ];
         path = cephadmPath;
         unitConfig = {
-          ConditionPathExists = "!/etc/ceph/ceph.conf";
+          # Check for admin keyring instead of ceph.conf to allow client config to coexist
+          ConditionPathExists = "!/etc/ceph/ceph.client.admin.keyring";
         };
         serviceConfig = {
           Type = "oneshot";
@@ -611,6 +612,7 @@ in
               "--mon-ip"
               cfg.bootstrap.monIp
               "--allow-fqdn-hostname"
+              "--allow-overwrite"
             ]
             ++ lib.optional (cfg.bootstrap.publicNetwork != null) "--skip-mon-network"
             ++ lib.optional cfg.bootstrap.singleHostDefaults "--single-host-defaults"
