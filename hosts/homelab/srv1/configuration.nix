@@ -76,6 +76,7 @@ in
     monPort = cephCluster.monPort or 3300;
     bootstrap = {
       enable = hasRole "bootstrap";
+      fsid = cephCluster.fsid;
       monIp = cephCluster.monIp;
       publicNetwork = cephCluster.publicNetwork;
       singleHostDefaults = cephCluster.bootstrap.singleHostDefaults;

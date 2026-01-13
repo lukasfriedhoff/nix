@@ -1710,7 +1710,9 @@ in
         };
       };
     })
-    (lib.mkIf cfg.client.enable (
+    # Only create client ceph.conf when client is enabled AND bootstrap is NOT enabled
+    # When bootstrap is enabled, cephadm manages /etc/ceph/ceph.conf
+    (lib.mkIf (cfg.client.enable && !cfg.bootstrap.enable) (
       let
         confRel = lib.removePrefix "/etc/" cfg.client.confFile;
         monHosts = formatMonHosts cfg.client.monHosts cfg.client.monPort;
