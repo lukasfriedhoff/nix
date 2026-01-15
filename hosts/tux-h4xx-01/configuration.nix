@@ -92,8 +92,6 @@
       "windows_names"
       "nofail"
       "noauto"
-      "x-systemd.automount"
-      "x-systemd.idle-timeout=10min"
       "x-systemd.device-timeout=1s"
       "x-gvfs-show"
     ];
