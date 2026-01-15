@@ -579,6 +579,15 @@ in
           pkgs.util-linux
         ];
       };
+      # Ensure /run/ceph exists and is writable by the ceph user before mon starts.
+      systemd.services."ceph-mon@" = {
+        serviceConfig = {
+          ExecStartPre = [
+            "${pkgs.coreutils}/bin/mkdir -p /run/ceph"
+            "${pkgs.coreutils}/bin/chown ceph:ceph /run/ceph"
+          ];
+        };
+      };
 
       networking.firewall = lib.mkIf cfg.openFirewall {
         allowedTCPPorts = [
