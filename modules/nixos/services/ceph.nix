@@ -543,6 +543,7 @@ in
         pkgs.python3
         pkgs.cryptsetup
         pkgs.lvm2
+        cephadm
         cephadmOrch
       ];
 
