@@ -55,12 +55,12 @@
             config.allowUnfree = false;
           };
 
-          formatter = pkgs.nixfmt-rfc-style or pkgs.nixfmt-classic;
+          formatter = pkgs.nixfmt or pkgs.nixfmt-classic;
 
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
               git
-              nixfmt-rfc-style
+              nixfmt
               sops
             ];
           };
