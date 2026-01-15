@@ -89,6 +89,7 @@ let
     util-linux
   ];
   pythonWithCephadmDeps = pkgs.python3.withPackages (ps: [
+    ps.asyncssh
     ps.bcrypt
     ps.certifi
     ps.cherrypy
@@ -564,11 +565,16 @@ in
         "L+ /bin/rm - - - - ${pkgs.coreutils}/bin/rm"
         "d /etc/ceph 0755 root root -"
         "d /etc/logrotate.d 0755 root root -"
-        "d /var/lib/ceph 0755 root root -"
-        "d /var/log/ceph 0755 root root -"
+        "d /var/lib/ceph 0755 ceph ceph -"
+        "d /var/lib/ceph/mon 0755 ceph ceph -"
+        "d /var/lib/ceph/mgr 0755 ceph ceph -"
+        "d /var/log/ceph 0755 ceph ceph -"
       ]
       ++ lib.optionals cfg.enable [
         "d /run/ceph 0755 ceph ceph -"
+      ]
+      ++ lib.optionals (cfg.bootstrap.fsid != null) [
+        "d /var/lib/ceph/${cfg.bootstrap.fsid} 0755 ceph ceph -"
       ];
 
       systemd.packages = lib.mkIf (cfg.osd.provisioner == "ceph-volume") [ cfg.package ];
@@ -581,13 +587,45 @@ in
       };
       # Ensure /run/ceph exists and is writable by the ceph user before mon starts.
       systemd.services."ceph-mon@" = {
+        wantedBy = [ "multi-user.target" ];
         serviceConfig = {
           ExecStartPre = [
             "${pkgs.coreutils}/bin/mkdir -p /run/ceph"
             "${pkgs.coreutils}/bin/chown ceph:ceph /run/ceph"
+          ]
+          ++ lib.optionals (cfg.bootstrap.fsid != null) [
+            (pkgs.writeShellScript "ceph-mon-prepare-paths" ''
+              set -euo pipefail
+              fsid=${lib.escapeShellArg cfg.bootstrap.fsid}
+              host=${lib.escapeShellArg hostName}
+              install -d -m0755 -o ceph -g ceph /var/lib/ceph/mon "/var/lib/ceph/''${fsid}"
+              mon_src="/var/lib/ceph/''${fsid}/mon.''${host}"
+              mon_link="/var/lib/ceph/mon/ceph-''${host}"
+              if [ -d "''${mon_src}" ] && [ ! -e "''${mon_link}" ]; then
+                ln -s "''${mon_src}" "''${mon_link}"
+              fi
+              chown -h ceph:ceph "''${mon_link}" "''${mon_src}" 2>/dev/null || true
+            '')
           ];
         };
       };
+      # Ensure manager state directory exists and is writable.
+      systemd.services."ceph-mgr@" = {
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig = {
+          ExecStartPre = [
+            (pkgs.writeShellScript "ceph-mgr-prepare-paths" ''
+              set -euo pipefail
+              host=${lib.escapeShellArg hostName}
+              install -d -m0755 -o ceph -g ceph /var/lib/ceph/mgr "/var/lib/ceph/mgr/ceph-''${host}"
+            '')
+          ];
+        };
+      };
+      # Explicitly enable the mon/mgr instances on the current host so they
+      # start after reboot without cephadm managing them.
+      systemd.services."ceph-mon@${hostName}".enable = lib.mkDefault true;
+      systemd.services."ceph-mgr@${hostName}".enable = lib.mkDefault true;
 
       networking.firewall = lib.mkIf cfg.openFirewall {
         allowedTCPPorts = [
