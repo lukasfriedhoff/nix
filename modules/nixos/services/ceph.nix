@@ -103,10 +103,11 @@ let
     ps.urllib3
   ]);
   pythonSite = pkgs.python3.sitePackages;
-  cephadm = pkgs.writeShellScript "cephadm-with-deps" ''
+  cephadmBin = pkgs.writeShellScriptBin "cephadm-with-deps" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
     exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
+  cephadm = "${cephadmBin}/bin/cephadm-with-deps";
   cephadmOrch = pkgs.writeShellScriptBin "cephadm-orch" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
     exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
