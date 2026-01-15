@@ -620,6 +620,25 @@ in
           ];
         };
       };
+
+      # Ensure libvirt RBD pools are present and active when kvm role is enabled.
+      systemd.services.libvirt-ceph-pools =
+        lib.mkIf (config.virtualisation.libvirtd.enable && cfg.kvm.enable or false)
+          {
+            description = "Ensure Ceph RBD pools are active";
+            after = [ "libvirtd.service" ];
+            wants = [ "libvirtd.service" ];
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = pkgs.writeShellScript "libvirt-ceph-pools-start" ''
+                set -euo pipefail
+                ${pkgs.libvirt}/bin/virsh pool-start ceph-images || true
+                ${pkgs.libvirt}/bin/virsh pool-start ceph-vmdisks || true
+              '';
+              RemainAfterExit = true;
+            };
+            wantedBy = [ "multi-user.target" ];
+          };
       # Explicitly enable the mon/mgr instances on the current host so they
       # start after reboot without cephadm managing them.
       systemd.services."ceph-mon@${hostName}".enable = lib.mkDefault true;
