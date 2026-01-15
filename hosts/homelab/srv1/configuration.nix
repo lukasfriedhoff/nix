@@ -139,6 +139,11 @@ in
   # Enable k3s with Flux GitOps
   homelab.kubernetes = {
     enable = true;
+    extraK3sFlags = [
+      "--tls-san srv1.lab.h4xx.io"
+      "--tls-san srv1"
+      "--tls-san 10.1.30.12"
+    ];
     gitops = {
       enable = true;
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
