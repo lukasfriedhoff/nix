@@ -587,7 +587,6 @@ in
       };
       # Ensure /run/ceph exists and is writable by the ceph user before mon starts.
       systemd.services."ceph-mon@" = {
-        wantedBy = [ "multi-user.target" ];
         serviceConfig = {
           ExecStartPre = [
             "${pkgs.coreutils}/bin/mkdir -p /run/ceph"
@@ -611,7 +610,6 @@ in
       };
       # Ensure manager state directory exists and is writable.
       systemd.services."ceph-mgr@" = {
-        wantedBy = [ "multi-user.target" ];
         serviceConfig = {
           ExecStartPre = [
             (pkgs.writeShellScript "ceph-mgr-prepare-paths" ''
