@@ -96,9 +96,6 @@ in
     LC_ALL = "en_US.UTF-8";
     EDITOR = "vi";
     VISUAL = "vi";
-    MOZ_ENABLE_WAYLAND = "1";
-    MOZ_DRM_DEVICE = "/dev/dri/card1";
-    DRI_PRIME = "0";
   };
 
   programs.evolution = lib.mkIf installEvolutionOnProfile {
