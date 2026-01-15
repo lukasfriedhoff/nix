@@ -70,7 +70,7 @@ in
         gnupg
         gnused
         gnutar
-        nixfmt-rfc-style
+        nixfmt
         nixfmt-tree
         btop
         lsof
