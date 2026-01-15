@@ -176,7 +176,7 @@ in
                 cfg.gitops.tokenFile != null
               ) "--username=${cfg.gitops.username} --password=$(cat ${resolveSecret cfg.gitops.tokenFile})"}
           else
-            ${fluxBin} reconcile source git ${cfg.gitops.sourceName} --with-source
+            ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
           fi
 
           if ! ${fluxBin} --namespace flux-system get kustomization ${cfg.gitops.kustomizationName} >/dev/null 2>&1; then
@@ -187,7 +187,7 @@ in
               --prune=true \
               --interval=${cfg.gitops.interval}
           else
-            ${fluxBin} reconcile kustomization ${cfg.gitops.kustomizationName} --with-source
+            ${fluxBin} reconcile kustomization ${cfg.gitops.kustomizationName}
           fi
         '';
       };
