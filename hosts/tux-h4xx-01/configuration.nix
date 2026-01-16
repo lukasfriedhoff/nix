@@ -68,6 +68,21 @@
   lukasf.remoteBuilds.sshKeyFile = config.sops.secrets."srv1-builder-key".path;
   lukasf.remoteBuilds.publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURZeXEvNm9XNS9vTkhMazZOM1FLaWFjSVBnaEkrdW9VTlY1T0MyRXI0YUEgcm9vdEBuaXhvcwo=";
 
+  # Ceph client credentials for RBD access from tux.
+  sops.secrets."ceph/client-tux-keyring" = {
+    sopsFile = "../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt";
+    owner = "root";
+    mode = "0400";
+    path = "/etc/ceph/ceph.client.tux.keyring";
+  };
+
+  lukasf.ceph.client = {
+    enable = true;
+    monHosts = [ "srv1.lab.h4xx.io" ];
+    monPort = 3300;
+    publicNetwork = "10.1.30.0/24";
+  };
+
   programs.ssh.knownHosts.srv1 = {
     hostNames = [
       "srv1"
