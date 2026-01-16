@@ -68,6 +68,11 @@ in
   };
   networking.interfaces."eno1.20".useDHCP = true;
   networking.interfaces."eno1.40".useDHCP = true;
+  # Bring VLAN subinterfaces up even without an IP so bridges attach cleanly.
+  networking.interfaces."eno1.10".useDHCP = false;
+  networking.interfaces."eno1.12".useDHCP = false;
+  networking.interfaces."eno1.13".useDHCP = false;
+  networking.interfaces."eno1.50".useDHCP = false;
 
   # Libvirt-friendly bridges for each VLAN (mgmt on brvlan30).
   networking.bridges = {
