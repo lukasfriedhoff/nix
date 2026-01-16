@@ -40,8 +40,9 @@ in
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
-  networking.nameservers = lib.mkForce [ ];
-  networking.interfaces.eno1.useDHCP = true;
+  networking.nameservers = [ "10.1.30.1" ];
+  # DHCP should run on the bridge (brvlan30), not on the slave.
+  networking.interfaces.eno1.useDHCP = lib.mkForce false;
   networking.vlans = {
     "eno1.20" = {
       id = nets.vlans.server.id;
