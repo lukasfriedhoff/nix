@@ -70,7 +70,7 @@
 
   # Ceph client credentials for RBD access from tux.
   sops.secrets."ceph/client-tux-keyring" = {
-    sopsFile = "../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt";
+    sopsFile = ../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
     owner = "root";
     mode = "0400";
     path = "/etc/ceph/ceph.client.tux.keyring";
