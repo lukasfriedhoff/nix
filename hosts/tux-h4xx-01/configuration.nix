@@ -137,6 +137,8 @@
     ];
   };
   environment.systemPackages = with pkgs; [
+    libvirt
+    ceph
     smartmontools
   ];
 
