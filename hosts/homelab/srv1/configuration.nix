@@ -2,6 +2,7 @@
   config,
   inputs,
   lib,
+  pkgs,
   secrets,
   ...
 }:
@@ -169,6 +170,11 @@ in
       ceph.pools = cephCluster.kvmPools;
     };
   };
+
+  # Ensure QEMU has Ceph/RBD support for libvirt pools when KVM role is enabled.
+  virtualisation.libvirtd.qemu.package = lib.mkIf (hasRole "kvm") (
+    lib.mkForce (pkgs.qemu_kvm.override { cephSupport = true; })
+  );
 
   # GitHub PAT for Flux GitOps
   sops.secrets."flux-cluster-token" = {
