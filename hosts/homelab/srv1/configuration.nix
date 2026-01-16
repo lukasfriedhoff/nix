@@ -100,6 +100,7 @@ in
   # Use MAC-based DHCP client ID on the management bridge so the reservation matches eno1.
   systemd.network.networks."30-brvlan30" = {
     matchConfig.Name = "brvlan30";
+    networkConfig.DHCP = "yes";
     dhcpV4Config.ClientIdentifier = "mac";
   };
 
