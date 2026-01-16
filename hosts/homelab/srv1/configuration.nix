@@ -88,11 +88,19 @@ in
     brvlan40.interfaces = [ "eno1.40" ];
     brvlan50.interfaces = [ "eno1.50" ];
   };
-  networking.interfaces.brvlan30.useDHCP = true;
+  networking.interfaces.brvlan30 = {
+    useDHCP = true;
+  };
   networking.interfaces.brvlan20.useDHCP = true;
   networking.interfaces.brvlan40.useDHCP = true;
   networking.hosts = {
     "127.0.0.2" = lib.mkForce [ ];
+  };
+
+  # Use MAC-based DHCP client ID on the management bridge so the reservation matches eno1.
+  systemd.network.networks."30-brvlan30" = {
+    matchConfig.Name = "brvlan30";
+    dhcpV4Config.ClientIdentifier = "mac";
   };
 
   homelab.personalServer = {
