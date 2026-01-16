@@ -37,13 +37,9 @@ in
 
   networking.hostName = hostName;
   networking.domain = "lab.h4xx.io";
-  networking.defaultGateway = "10.1.30.1";
-  networking.nameservers = [
-    "10.1.30.1"
-    "1.1.1.1"
-    "9.9.9.9"
-  ];
-  networking.interfaces.eno1.useDHCP = false;
+  networking.defaultGateway = lib.mkForce null;
+  networking.nameservers = lib.mkForce [ ];
+  networking.interfaces.eno1.useDHCP = true;
   networking.vlans = {
     "eno1.20" = {
       id = nets.vlans.server.id;
@@ -83,20 +79,8 @@ in
     brvlan40.interfaces = [ "eno1.40" ];
     brvlan50.interfaces = [ "eno1.50" ];
   };
-  networking.interfaces.brvlan30 = {
-    useDHCP = false;
-    ipv4.addresses = [
-      {
-        address = "10.1.30.12";
-        prefixLength = 24;
-      }
-    ];
-  };
+  networking.interfaces.brvlan30.useDHCP = true;
   networking.hosts = {
-    "10.1.30.12" = [
-      "srv1.lab.h4xx.io"
-      "srv1"
-    ];
     "127.0.0.2" = lib.mkForce [ ];
   };
 
