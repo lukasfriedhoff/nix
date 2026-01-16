@@ -9,6 +9,7 @@
 let
   hostName = "srv1";
   homelabDisks = import ../../../resources/homelab/disks.nix;
+  nets = import ../../../resources/homelab/networks.nix;
   cephTopology = import ../../../resources/homelab/ceph.nix;
   cephHost = cephTopology.hosts.${hostName};
   cephCluster = cephTopology.clusters.${cephHost.cluster};
@@ -35,8 +36,49 @@ in
 
   networking.hostName = hostName;
   networking.domain = "lab.h4xx.io";
-  networking.interfaces.eno1 = {
-    useDHCP = true;
+  networking.defaultGateway = "10.1.30.1";
+  networking.interfaces.eno1.useDHCP = false;
+  networking.vlans = {
+    "eno1.20" = {
+      id = nets.vlans.server.id;
+      interface = "eno1";
+    };
+    "eno1.40" = {
+      id = nets.vlans.storage.id;
+      interface = "eno1";
+    };
+    "eno1.10" = {
+      id = nets.vlans.lan.id;
+      interface = "eno1";
+    };
+    "eno1.12" = {
+      id = nets.vlans.iot.id;
+      interface = "eno1";
+    };
+    "eno1.13" = {
+      id = nets.vlans.windows.id;
+      interface = "eno1";
+    };
+    "eno1.50" = {
+      id = nets.vlans.lab.id;
+      interface = "eno1";
+    };
+  };
+  networking.interfaces."eno1.20".useDHCP = true;
+  networking.interfaces."eno1.40".useDHCP = true;
+
+  # Libvirt-friendly bridges for each VLAN (mgmt on brvlan30).
+  networking.bridges = {
+    brvlan10.interfaces = [ "eno1.10" ];
+    brvlan12.interfaces = [ "eno1.12" ];
+    brvlan13.interfaces = [ "eno1.13" ];
+    brvlan20.interfaces = [ "eno1.20" ];
+    brvlan30.interfaces = [ "eno1" ]; # untagged mgmt
+    brvlan40.interfaces = [ "eno1.40" ];
+    brvlan50.interfaces = [ "eno1.50" ];
+  };
+  networking.interfaces.brvlan30 = {
+    useDHCP = false;
     ipv4.addresses = [
       {
         address = "10.1.30.12";

@@ -77,6 +77,26 @@
     format = "binary";
   };
 
+  # User-readable copy for CLI use (rbd/rados) without sudo.
+  sops.secrets."ceph/client-tux-keyring-user" = {
+    sopsFile = ../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
+    owner = "lukasf";
+    mode = "0600";
+    path = "/home/lukasf/.ceph/ceph.client.tux.keyring";
+    format = "binary";
+  };
+
+  # Ensure ~/.ceph exists for the user keyring.
+  systemd.tmpfiles.rules = [
+    "d /home/lukasf/.ceph 0700 lukasf users -"
+  ];
+
+  # Minimal Ceph config for user tools (defaults to srv1 mon on 3300).
+  environment.etc."ceph/ceph.conf".text = ''
+    [global]
+    mon_host = srv1.lab.h4xx.io:3300
+  '';
+
   lukasf.ceph.client = {
     enable = true;
     monHosts = [ "srv1.lab.h4xx.io" ];
@@ -96,22 +116,6 @@
   # Power management
   powerManagement.powertop.enable = true;
   networking.networkmanager.wifi.powersave = true;
-
-  fileSystems."/mnt/windows" = {
-    device = "/dev/disk/by-uuid/5C3801A538017F70";
-    fsType = "ntfs3";
-    options = [
-      "rw"
-      "uid=1000"
-      "gid=100"
-      "umask=0022"
-      "windows_names"
-      "nofail"
-      "noauto"
-      "x-systemd.device-timeout=1s"
-      "x-gvfs-show"
-    ];
-  };
 
   services.pipewire.extraConfig = {
     pipewire = {
@@ -160,4 +164,26 @@
 
   networking.networkmanager.dns = "systemd-resolved";
   networking.resolvconf.enable = lib.mkForce false;
+
+  # Keep the Windows partition declared so the unit exists, but avoid
+  # automounting or blocking boots/switches if the volume is dirty.
+  # Define explicit units for the Windows partition so the unit files exist in
+  # the generation that switch-to-configuration references.
+  systemd.mounts = [
+    {
+      what = "/dev/disk/by-uuid/5C3801A538017F70";
+      where = "/mnt/windows";
+      type = "ntfs3";
+      options = "noauto,nofail,x-systemd.device-timeout=1s";
+      wantedBy = [ ];
+    }
+  ];
+
+  systemd.automounts = [
+    {
+      where = "/mnt/windows";
+      wantedBy = [ "multi-user.target" ];
+      automountConfig.IdleTimeoutSec = "1min";
+    }
+  ];
 }
