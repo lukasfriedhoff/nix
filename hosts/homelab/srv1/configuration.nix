@@ -40,7 +40,10 @@ in
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
-  networking.nameservers = lib.mkForce [ ];
+  networking.nameservers = [
+    "1.1.1.1"
+    "9.9.9.9"
+  ];
   networking.interfaces.eno1.useDHCP = true;
   networking.vlans = {
     "eno1.20" = {
@@ -91,6 +94,10 @@ in
   networking.interfaces.brvlan20.useDHCP = true;
   networking.interfaces.brvlan40.useDHCP = true;
   networking.hosts = {
+    "10.1.30.12" = [
+      "srv1.lab.h4xx.io"
+      "srv1"
+    ];
     "127.0.0.2" = lib.mkForce [ ];
   };
 
