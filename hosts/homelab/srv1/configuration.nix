@@ -66,9 +66,10 @@ in
       interface = "eno1";
     };
   };
-  networking.interfaces."eno1.20".useDHCP = true;
-  networking.interfaces."eno1.40".useDHCP = true;
+
   # Bring VLAN subinterfaces up even without an IP so bridges attach cleanly.
+  networking.interfaces."eno1.20".useDHCP = false;
+  networking.interfaces."eno1.40".useDHCP = false;
   networking.interfaces."eno1.10".useDHCP = false;
   networking.interfaces."eno1.12".useDHCP = false;
   networking.interfaces."eno1.13".useDHCP = false;
@@ -85,6 +86,8 @@ in
     brvlan50.interfaces = [ "eno1.50" ];
   };
   networking.interfaces.brvlan30.useDHCP = true;
+  networking.interfaces.brvlan20.useDHCP = true;
+  networking.interfaces.brvlan40.useDHCP = true;
   networking.hosts = {
     "127.0.0.2" = lib.mkForce [ ];
   };
