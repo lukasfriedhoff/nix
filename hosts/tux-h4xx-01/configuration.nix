@@ -74,6 +74,7 @@
     owner = "root";
     mode = "0400";
     path = "/etc/ceph/ceph.client.tux.keyring";
+    format = "binary";
   };
 
   lukasf.ceph.client = {
