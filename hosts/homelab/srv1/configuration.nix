@@ -38,6 +38,11 @@ in
   networking.hostName = hostName;
   networking.domain = "lab.h4xx.io";
   networking.defaultGateway = "10.1.30.1";
+  networking.nameservers = [
+    "10.1.30.1"
+    "1.1.1.1"
+    "9.9.9.9"
+  ];
   networking.interfaces.eno1.useDHCP = false;
   networking.vlans = {
     "eno1.20" = {
