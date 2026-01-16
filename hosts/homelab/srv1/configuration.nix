@@ -115,6 +115,8 @@ in
     publicKey = builtins.readFile ../../../resources/nix-cache/personal-cache.pub;
     openFirewall = true;
     configureClient = true;
+    # Use loopback locally to avoid depending on the DHCP-assigned mgmt IP during builds.
+    cacheUrl = "http://127.0.0.1:5000";
   };
 
   lukasf.serverDeployment.enableComin = true;
