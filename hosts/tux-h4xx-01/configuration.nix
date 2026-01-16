@@ -160,6 +160,8 @@
     libvirt
     ceph
     smartmontools
+    # slicing software for ultimakers
+    cura
   ];
 
   networking.networkmanager.dns = "systemd-resolved";
