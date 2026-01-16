@@ -37,6 +37,8 @@ in
 
   networking.hostName = hostName;
   networking.domain = "lab.h4xx.io";
+  networking.useNetworkd = true;
+  networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
   networking.nameservers = lib.mkForce [ ];
   networking.interfaces.eno1.useDHCP = true;
