@@ -577,7 +577,8 @@ in
         "d /var/lib/ceph/${cfg.bootstrap.fsid} 0755 ceph ceph -"
       ];
 
-      systemd.packages = lib.mkIf (cfg.osd.provisioner == "ceph-volume") [ cfg.package ];
+      # Ship upstream ceph-* unit templates (mon/mgr/osd) so ExecStart is present.
+      systemd.packages = lib.mkIf cfg.enable [ cfg.package ];
       systemd.services."ceph-osd@" = {
         path = [
           pkgs.coreutils
