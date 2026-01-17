@@ -589,6 +589,7 @@ in
       # Ensure /run/ceph exists and is writable by the ceph user before mon starts.
       systemd.services."ceph-mon@" = {
         serviceConfig = {
+          ExecStart = lib.mkForce "${cfg.package}/bin/ceph-mon -f --id %i --setuser ceph --setgroup ceph";
           ExecStartPre = [
             "${pkgs.coreutils}/bin/mkdir -p /run/ceph"
             "${pkgs.coreutils}/bin/chown ceph:ceph /run/ceph"
@@ -612,6 +613,7 @@ in
       # Ensure manager state directory exists and is writable.
       systemd.services."ceph-mgr@" = {
         serviceConfig = {
+          ExecStart = lib.mkForce "${cfg.package}/bin/ceph-mgr -f --id %i --setuser ceph --setgroup ceph";
           ExecStartPre = [
             (pkgs.writeShellScript "ceph-mgr-prepare-paths" ''
               set -euo pipefail
