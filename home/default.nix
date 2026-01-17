@@ -88,8 +88,19 @@ in
       desktopPackages = with pkgs; [
         python3
       ];
+      personalDesktopPackages =
+        lib.optionals (profile != null && lib.elem profile personalDesktopProfiles)
+          (
+            with pkgs;
+            [
+              gpodder
+            ]
+          );
     in
-    basePackages ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages ++ desktopPackages;
+    basePackages
+    ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages
+    ++ desktopPackages
+    ++ personalDesktopPackages;
 
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
