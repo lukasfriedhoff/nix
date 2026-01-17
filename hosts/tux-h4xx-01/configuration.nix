@@ -63,6 +63,8 @@
     configureClient = true;
     cacheHost = "srv1.lab.h4xx.io";
     publicKey = builtins.readFile ../../resources/nix-cache/personal-cache.pub;
+    connectTimeout = 2; # try srv1 first, but fall back quickly to cache.nixos.org
+    fallbackToOfficial = true;
   };
 
   lukasf.remoteBuilds.sshKeyFile = config.sops.secrets."srv1-builder-key".path;
