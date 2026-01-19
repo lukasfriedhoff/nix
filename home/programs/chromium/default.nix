@@ -1,6 +1,10 @@
-{ pkgs, ... }:
 {
-  programs.chromium = {
+  pkgs,
+  lib,
+  ...
+}:
+{
+  programs.chromium = lib.mkIf (!pkgs.stdenv.isDarwin) {
     enable = true;
     package = pkgs.chromium;
     extensions = [
