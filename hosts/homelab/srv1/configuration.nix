@@ -240,6 +240,9 @@ in
   users.users.root.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
   users.users.nixos.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
 
+  # Needed by cephadm to satisfy asyncssh dependency for health checks.
+  environment.systemPackages = with pkgs; [ python3Packages.asyncssh ];
+
   networking.firewall.allowedTCPPorts = [ 4243 ];
 
   networking.extraHosts = ''
