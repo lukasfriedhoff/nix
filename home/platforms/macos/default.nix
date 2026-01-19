@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 {
   # macOS-specific Home Manager configuration.
   # This module is imported on all platforms but only activates on Darwin.
@@ -14,7 +19,7 @@
       watch # watch command
 
       # Development tools
-      darwin.iproute2mac # ip command for macOS
+      iproute2mac # ip command for macOS (renamed from darwin.iproute2mac)
 
       # System utilities
       pstree # process tree viewer
@@ -53,9 +58,9 @@
   xdg = lib.mkIf pkgs.stdenv.isDarwin {
     enable = true;
     # macOS-appropriate XDG paths
-    cacheHome = "$HOME/Library/Caches";
-    configHome = "$HOME/.config";
-    dataHome = "$HOME/.local/share";
-    stateHome = "$HOME/.local/state";
+    cacheHome = "${config.home.homeDirectory}/Library/Caches";
+    configHome = "${config.home.homeDirectory}/.config";
+    dataHome = "${config.home.homeDirectory}/.local/share";
+    stateHome = "${config.home.homeDirectory}/.local/state";
   };
 }
