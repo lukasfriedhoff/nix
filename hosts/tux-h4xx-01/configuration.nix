@@ -67,6 +67,9 @@
     fallbackToOfficial = true;
   };
 
+  # If the private cache is unreachable, build locally instead of aborting.
+  nix.settings.fallback = true;
+
   lukasf.remoteBuilds.sshKeyFile = config.sops.secrets."srv1-builder-key".path;
   lukasf.remoteBuilds.publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURZeXEvNm9XNS9vTkhMazZOM1FLaWFjSVBnaEkrdW9VTlY1T0MyRXI0YUEgcm9vdEBuaXhvcwo=";
 
