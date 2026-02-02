@@ -112,6 +112,43 @@ Composed:
 
 ---
 
+## Scripts & Secrets Review
+
+### `.sops.yaml`
+- Well-structured with profile-based path regexes (`secrets/profiles/{common,personal,work}/...`)
+- Key assignments are correct per profile; each host's age key is listed in the appropriate creation rules
+- Path regexes were unaffected by host directory restructuring (they reference secret paths, not host paths)
+
+### Secrets Directory (`secrets/`)
+- Organized by profile: `common/shared/`, `personal/{desktops,servers,shared}/`, `work/{desktops,servers,shared}/`
+- Per-host secrets stored under hostname subdirs (ssh keys, wireguard keys, ceph keys)
+- Shared secrets (LUKS passphrases, flux credentials) stored in profile-level `shared/` dirs
+- All encrypted files match `.sops.yaml` creation rules
+
+### Scripts Reviewed
+| Script | Status | Notes |
+|--------|--------|-------|
+| `scripts/homelab/new-host.sh` | **Fixed** | Referenced `hosts/homelab/_template` after rename to `template` |
+| `scripts/homelab/remove-host.sh` | Clean | Properly reverses `new-host.sh` operations |
+| `scripts/homelab/probe-installer.sh` | Clean | NixOS installer network probe |
+| `scripts/homelab/unlock.sh` | Clean | LUKS unlock via SSH |
+| `scripts/servers/create-management-key.sh` | Clean | Per-host SSH key generation with sops encryption |
+| `scripts/servers/deploy-from-iso.sh` | Clean | NixOS remote deployment via nixos-anywhere |
+| `scripts/update-gitignore.sh` | Clean | Uses `set -euo pipefail` + `curl -f` for error handling |
+| `scripts/collect-power-metrics.sh` | Clean | Power consumption data collection |
+| `scripts/hardware-survey.sh` | Clean | Hardware info collection |
+
+### SSH Resources (`resources/ssh/`)
+| File | Status | Notes |
+|------|--------|-------|
+| `keys.nix` | Clean | SOPS-encrypted key install definitions |
+| `hosts.nix` | Clean | Imports host configs from `hosts/` subdir |
+| `hosts/personal.nix` | Clean | Consistent formatting throughout |
+| `defaults.nix` | Clean | SSH client defaults |
+| `config-snippets.nix` | Clean | Reusable SSH config fragments |
+
+---
+
 ## Verification
 
 ```bash
