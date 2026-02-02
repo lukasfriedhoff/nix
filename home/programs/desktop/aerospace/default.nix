@@ -7,8 +7,13 @@
   ...
 }:
 {
+  programs.aerospace.launchd.enable = lib.mkIf pkgs.stdenv.isDarwin (lib.mkDefault true);
+
   programs.aerospace.settings = lib.mkIf pkgs.stdenv.isDarwin (
     lib.mkDefault {
+      # Config schema version required for persistent workspaces, etc.
+      config-version = 2;
+
       # Normalizations
       enable-normalization-flatten-containers = true;
       enable-normalization-opposite-orientation-for-nested-containers = true;
@@ -20,14 +25,51 @@
       default-root-container-layout = "tiles";
       default-root-container-orientation = "auto";
 
+      # Launch + startup (managed by Home Manager launchd)
+      start-at-login = true;
+      after-startup-command = [
+        # Bring up SketchyBar alongside AeroSpace
+        "exec-and-forget /opt/homebrew/bin/sketchybar"
+      ];
+
+      # Keep workspace IDs alive even if empty
+      persistent-workspaces = [
+        "1"
+        "2"
+        "3"
+        "4"
+        "5"
+        "6"
+        "7"
+        "8"
+        "9"
+      ];
+
+      # Pin workspaces to monitors (main = primary display, secondary = the other one)
+      workspace-to-monitor-force-assignment = {
+        "1" = "main";
+        "2" = "main";
+        "3" = "main";
+        "4" = "main";
+        "5" = "secondary";
+        "6" = "secondary";
+        "7" = "secondary";
+        "8" = "secondary";
+        "9" = "secondary";
+      };
+
       # Gaps between windows and screen edges
       gaps = {
         inner.horizontal = 10;
         inner.vertical = 10;
         outer.left = 10;
-        outer.bottom = 10;
-        outer.top = 10;
         outer.right = 10;
+        outer.bottom = 10;
+        outer.top = [
+          { monitor.main = 10; }
+          { monitor.secondary = 24; }
+          10
+        ];
       };
 
       # Main mode keybindings (i3-like)

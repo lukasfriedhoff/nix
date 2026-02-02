@@ -2,6 +2,5 @@
 {
   imports = [
     ./aerospace
-    ./sketchybar
   ];
 }
