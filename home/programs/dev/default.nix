@@ -7,5 +7,6 @@
     ./lazygit
     ./codex
     ./claude
+    ./oh-my-opencode
   ];
 }

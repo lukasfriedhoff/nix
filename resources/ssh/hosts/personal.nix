@@ -82,5 +82,20 @@
     user = "root";
     keyName = "srv1-personal-mgmt";
   }
+  {
+    match = "srv2";
+    alias = "srv2";
+    hostName = "srv2.lab.h4xx.io";
+    user = "root";
+    keyName = "srv2-personal-mgmt";
+  }
+  {
+    match = "unlock-srv2";
+    alias = "unlock-srv2";
+    hostName = "srv2.lab.h4xx.io";
+    port = 2222;
+    user = "root";
+    keyName = "srv2-personal-mgmt";
+  }
 
 ]

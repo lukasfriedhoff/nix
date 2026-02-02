@@ -9,7 +9,7 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ../../modules/nixos/hardware/asus/vivobook-t3300.nix
+    ../../../modules/nixos/hardware/asus/vivobook-t3300.nix
   ];
 
   networking.hostName = "tab-h4xx-02";

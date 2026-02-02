@@ -75,6 +75,8 @@
           };
           darwinSystem = "aarch64-darwin";
 
+          myLib = import ./lib { inherit (nixpkgs) lib; };
+
           linuxUser = "lukasf";
           macUser = "lukasfriedhoff";
 
@@ -152,6 +154,15 @@
               root = personalServerRoot "srv1";
               personal = personalServerRoot "srv1";
             };
+
+            srv2 = {
+              primary = personalServerRoot "srv2";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
+              root = personalServerRoot "srv2";
+              personal = personalServerRoot "srv2";
+            };
           };
 
           workProfiles = [
@@ -180,69 +191,65 @@
             };
           };
 
-          baseDesktopModules = [
+          # Shared by ALL NixOS hosts
+          coreModules = [
             ./modules/nixos/profiles/base.nix
-            ./modules/nixos/profiles/desktop/libreoffice.nix
             ./modules/nixos/services/wireguard-homelab.nix
             ./modules/nixos/services/nix-serve-cache.nix
             ./modules/nixos/services/remote-builders.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
-            stylix.nixosModules.stylix
-            home-manager.nixosModules.home-manager
             sops-nix.nixosModules.sops
           ];
 
-          plasmaDesktopModules = baseDesktopModules ++ [ ./modules/nixos/profiles/desktop/plasma.nix ];
+          # Additional modules for desktop hosts
+          desktopExtras = [
+            ./modules/nixos/profiles/desktop/libreoffice.nix
+            stylix.nixosModules.stylix
+            home-manager.nixosModules.home-manager
+          ];
+
+          # Additional modules for server hosts
+          serverExtras = [
+            ./modules/nixos/services/kvm.nix
+            comin.nixosModules.comin
+            ./modules/nixos/profiles/server/comin.nix
+          ];
+
+          # Composed from layers
+          baseDesktopModules = coreModules ++ desktopExtras;
+
+          plasmaDesktopModules = baseDesktopModules ++ [
+            ./modules/nixos/profiles/desktop/plasma.nix
+          ];
 
           gnomeDesktopModules = baseDesktopModules ++ [
             ./modules/nixos/profiles/desktop/gnome.nix
             ./modules/nixos/profiles/desktop/laptop.nix
           ];
 
-          baseServerModules = [
-            ./modules/nixos/profiles/base.nix
-            ./modules/nixos/services/wireguard-homelab.nix
-            ./modules/nixos/services/nix-serve-cache.nix
-            ./modules/nixos/services/remote-builders.nix
-            ./modules/nixos/services/kvm.nix
-            ./modules/nixos/services/seaweedfs.nix
-            ./modules/nixos/services/ceph.nix
-            ./modules/nixos/profiles/dacoso/server.nix
-            sops-nix.nixosModules.sops
-            comin.nixosModules.comin
-            ./modules/nixos/profiles/server/comin.nix
-          ];
+          baseServerModules =
+            coreModules
+            ++ serverExtras
+            ++ [
+              ./modules/nixos/profiles/dacoso/server.nix
+            ];
 
-          homelabServerModules = [
-            ./modules/nixos/profiles/base.nix
-            ./modules/nixos/services/wireguard-homelab.nix
-            ./modules/nixos/services/nix-serve-cache.nix
-            ./modules/nixos/services/remote-builders.nix
-            ./modules/nixos/services/kvm.nix
-            ./modules/nixos/services/seaweedfs.nix
-            ./modules/nixos/services/ceph.nix
-            ./modules/nixos/profiles/homelab/kubernetes.nix
-            ./modules/nixos/profiles/homelab/gitops.nix
-            sops-nix.nixosModules.sops
-            comin.nixosModules.comin
-            ./modules/nixos/profiles/server/comin.nix
-          ];
+          homelabServerModules =
+            coreModules
+            ++ serverExtras
+            ++ [
+              ./modules/nixos/profiles/homelab/kubernetes.nix
+              ./modules/nixos/profiles/homelab/gitops.nix
+            ];
 
-          personalHomelabServerModules = [
-            ./modules/nixos/profiles/base.nix
-            ./modules/nixos/services/wireguard-homelab.nix
-            ./modules/nixos/services/nix-serve-cache.nix
-            ./modules/nixos/services/remote-builders.nix
-            ./modules/nixos/services/kvm.nix
-            ./modules/nixos/services/seaweedfs.nix
-            ./modules/nixos/services/ceph.nix
-            ./modules/nixos/profiles/homelab/personal-server.nix
-            ./modules/nixos/profiles/homelab/kubernetes.nix
-            sops-nix.nixosModules.sops
-            comin.nixosModules.comin
-            ./modules/nixos/profiles/server/comin.nix
-          ];
+          personalHomelabServerModules =
+            coreModules
+            ++ serverExtras
+            ++ [
+              ./modules/nixos/profiles/homelab/personal-server.nix
+              ./modules/nixos/profiles/homelab/kubernetes.nix
+            ];
 
           mkNixosHost =
             profile: extraModules:
@@ -259,7 +266,7 @@
             srv4-vm-01 = mkNixosHost "srv4" (
               plasmaDesktopModules
               ++ [
-                ./hosts/srv4-vm-01/configuration.nix
+                ./hosts/personal/srv4-vm-01/configuration.nix
                 (mkDesktopHome "srv4" [
                   stylix.homeModules.stylix
                   ./home
@@ -270,7 +277,7 @@
             tux-h4xx-01 = mkNixosHost "tux" (
               gnomeDesktopModules
               ++ [
-                ./hosts/tux-h4xx-01/configuration.nix
+                ./hosts/personal/tux-h4xx-01/configuration.nix
                 (mkDesktopHome "tux" [
                   stylix.homeModules.stylix
                   ./home
@@ -282,7 +289,7 @@
             tab-h4xx-02 = mkNixosHost "tab" (
               gnomeDesktopModules
               ++ [
-                ./hosts/tab-h4xx-02/configuration.nix
+                ./hosts/personal/tab-h4xx-02/configuration.nix
                 (mkDesktopHome "tab" [
                   stylix.homeModules.stylix
                   ./home
@@ -294,7 +301,7 @@
               baseServerModules
               ++ [
                 disko.nixosModules.disko
-                ./hosts/dacoso/docker-host-01/configuration.nix
+                ./hosts/work/docker-host-01/configuration.nix
               ]
             );
 
@@ -302,7 +309,7 @@
               baseServerModules
               ++ [
                 disko.nixosModules.disko
-                ./hosts/dacoso/timebutler-test-vm/configuration.nix
+                ./hosts/work/timebutler-test-vm/configuration.nix
               ]
             );
 
@@ -312,13 +319,20 @@
                 ./hosts/homelab/srv1/configuration.nix
               ]
             );
+
+            srv2 = mkNixosHost "srv2" (
+              personalHomelabServerModules
+              ++ [
+                ./hosts/homelab/srv2/configuration.nix
+              ]
+            );
           };
 
           darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {
             system = darwinSystem;
             modules = [
-              ./hosts/darwin
-              ./hosts/macbook-pro/configuration.nix
+              ./modules/darwin
+              ./hosts/work/macbook-pro/configuration.nix
               home-manager.darwinModules.home-manager
               nix-homebrew.darwinModules.nix-homebrew
               sops-nix.darwinModules.sops
