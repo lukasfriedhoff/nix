@@ -6,7 +6,7 @@ usage() {
 Usage: scripts/homelab/new-host.sh --host <short> --fqdn <fqdn> --root-disk-id <by-id> [--ip <addr>] [--fs ext4|btrfs] [--allow-existing] [--rewrite-config] [--update-flake]
 
 Automates personal homelab host bootstrap:
-  - copies hosts/homelab/_template to hosts/homelab/<host> and fills host/domain/ip/key paths
+  - copies hosts/homelab/template to hosts/homelab/<host> and fills host/domain/ip/key paths
   - writes a disko layout (defaults to ext4) using /dev/disk/by-id/<root-disk-id>
   - generates per-host management SSH key via create-management-key.sh
   - generates per-host Age key and appends it to .sops.yaml (with a hostname comment)
@@ -63,7 +63,7 @@ need_cmd python3
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-template_dir="hosts/homelab/_template"
+template_dir="hosts/homelab/template"
 dest_dir="hosts/homelab/${host}"
 new_dir=false
 [[ -d "$template_dir" ]] || die "template not found at ${template_dir}"
