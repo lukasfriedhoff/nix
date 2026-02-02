@@ -27,6 +27,9 @@
     defaultRenderer = "nvidia";
   };
 
+  lukasf.ollama.enable = true;
+  lukasf.protonvpn.enable = true;
+
   sops.secrets."wireguard-homelab-priv" = {
     sopsFile = "${secrets.primary}/wireguard/homelab.priv";
     owner = "root";
