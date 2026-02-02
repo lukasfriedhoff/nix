@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  linuxUser,
   ...
 }:
 
@@ -58,7 +59,7 @@ in
 
   networking.networkmanager.enable = true;
 
-  users.users.lukasf = {
+  users.users.${linuxUser} = {
     isNormalUser = true;
     description = "Lukas Friedhoff";
     extraGroups = [

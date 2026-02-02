@@ -58,4 +58,9 @@
     secret = "ssh/srv1-personal-mgmt.priv";
     path = ".ssh/personal/srv1-personal-mgmt";
   }
+
+  {
+    secret = "ssh/srv2-personal-mgmt.priv";
+    path = ".ssh/personal/srv2-personal-mgmt";
+  }
 ]

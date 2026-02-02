@@ -9,8 +9,8 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ../../modules/nixos/hardware/tuxedo/infinitybook-pro-16-gen8.nix
-    ../../modules/nixos/profiles/desktop/gaming.nix
+    ../../../modules/nixos/hardware/tuxedo/infinitybook-pro-16-gen8.nix
+    ../../../modules/nixos/profiles/desktop/gaming.nix
   ];
 
   networking.hostName = "tux-h4xx-01";
@@ -62,7 +62,7 @@
     serve = false;
     configureClient = true;
     cacheHost = "srv1.lab.h4xx.io";
-    publicKey = builtins.readFile ../../resources/nix-cache/personal-cache.pub;
+    publicKey = builtins.readFile ../../../resources/nix-cache/personal-cache.pub;
     connectTimeout = 2; # try srv1 first, but fall back quickly to cache.nixos.org
     fallbackToOfficial = true;
   };
@@ -75,7 +75,7 @@
 
   # Ceph client credentials for RBD access from tux.
   sops.secrets."ceph/client-tux-keyring" = {
-    sopsFile = ../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
+    sopsFile = ../../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
     owner = "root";
     mode = "0400";
     path = "/etc/ceph/ceph.client.tux.keyring";
@@ -84,7 +84,7 @@
 
   # User-readable copy for CLI use (rbd/rados) without sudo.
   sops.secrets."ceph/client-tux-keyring-user" = {
-    sopsFile = ../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
+    sopsFile = ../../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
     owner = "lukasf";
     mode = "0600";
     path = "/home/lukasf/.ceph/ceph.client.tux.keyring";
@@ -169,6 +169,17 @@
 
   networking.networkmanager.dns = "systemd-resolved";
   networking.resolvconf.enable = lib.mkForce false;
+
+  # Allow dynamic binaries from third-party installers (e.g., oh-my-opencode CLI).
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      stdenv.cc.cc
+      glibc
+      openssl
+      zlib
+    ];
+  };
 
   # Keep the Windows partition declared so the unit exists, but avoid
   # automounting or blocking boots/switches if the volume is dirty.

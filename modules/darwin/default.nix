@@ -1,16 +1,11 @@
 {
   pkgs,
-  inputs,
-  self,
   macUser,
   ...
 }:
 {
   imports = [
-    #./homebrew.nix
     ./settings.nix
-    inputs.home-manager.darwinModules.home-manager
-    inputs.nix-homebrew.darwinModules.nix-homebrew
   ];
 
   # nix config

@@ -39,12 +39,11 @@ in
     ./programs/work # Work tools: cassandra-tools, mariadb-tools, maven-config
     ./programs/gaming # Gaming: icarus, icarus-mod-manager
 
-    # Standalone programs
-    ./programs/evolution/default.nix
-    ./programs/chromium/default.nix
+    # Desktop environment (window managers, status bars)
+    ./programs/desktop
 
     # Theme customizations applied via stylix home module
-    ./programs/stylix/default.nix
+    ./programs/theming
 
     # Platform-specific configuration
     ./platforms/linux/default.nix
@@ -112,5 +111,9 @@ in
   programs.evolution = lib.mkIf installEvolutionOnProfile {
     enable = true;
     nextcloud.enable = true;
+  };
+
+  programs.moonlight = lib.mkIf installEvolutionOnProfile {
+    enable = true;
   };
 }

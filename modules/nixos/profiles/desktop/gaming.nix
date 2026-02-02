@@ -7,11 +7,17 @@
 
 let
   cfg = config.desktop.gaming;
-  nvidiaBusId = "PCI:1:0:0";
 in
 {
   options.desktop.gaming = {
     enable = lib.mkEnableOption "Steam/Proton gaming stack";
+
+    nvidiaBusId = lib.mkOption {
+      type = lib.types.str;
+      default = "PCI:1:0:0";
+      description = "PCI bus ID of the NVIDIA GPU for gamemode GPU optimizations.";
+      example = "PCI:1:0:0";
+    };
 
     defaultRenderer = lib.mkOption {
       type = lib.types.enum [
@@ -131,7 +137,7 @@ in
         };
         gpu = {
           apply_gpu_optimisations = "accept-responsibility";
-          gpu_device = nvidiaBusId;
+          gpu_device = cfg.nvidiaBusId;
           amd_performance_level = "high";
         };
         custom = {
