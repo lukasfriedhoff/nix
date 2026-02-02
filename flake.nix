@@ -199,6 +199,8 @@
             ./modules/nixos/services/remote-builders.nix
             ./modules/nixos/services/seaweedfs.nix
             ./modules/nixos/services/ceph.nix
+            ./modules/nixos/services/ollama-openwebui.nix
+            ./modules/nixos/services/protonvpn.nix
             sops-nix.nixosModules.sops
           ];
 

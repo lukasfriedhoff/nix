@@ -1,0 +1,131 @@
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+
+let
+  cfg = config.lukasf.ollama;
+in
+{
+  options.lukasf.ollama = {
+    enable = lib.mkEnableOption "Ollama server with Open-WebUI frontend";
+
+    package = lib.mkPackageOption pkgs "ollama" { };
+    host = lib.mkOption {
+      type = lib.types.str;
+      default = "127.0.0.1";
+      description = "Address Ollama binds to.";
+    };
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 11434;
+      description = "Port Ollama listens on.";
+    };
+    rocmOverrideGfx = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Override ROCm GPU detection (sets HSA_OVERRIDE_GFX_VERSION).";
+    };
+    loadModels = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Models to pre-pull via ollama-model-loader.";
+    };
+    syncModels = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Remove undeclared models when loadModels is set.";
+    };
+    environmentVariables = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
+      description = "Extra environment variables for the Ollama systemd unit.";
+    };
+    openFirewall = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Open the Ollama API port in the firewall.";
+    };
+
+    ui = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable Open-WebUI as a frontend for Ollama.";
+      };
+      package = lib.mkPackageOption pkgs "open-webui" { };
+      host = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.1";
+        description = "Address Open-WebUI binds to.";
+      };
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 8080;
+        description = "Port Open-WebUI listens on.";
+      };
+      stateDir = lib.mkOption {
+        type = lib.types.path;
+        default = "/var/lib/open-webui";
+        description = "State directory for Open-WebUI data and uploads.";
+      };
+      ollamaUrl = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        defaultText = lib.literalExpression "http://\${config.lukasf.ollama.host}:\${toString config.lukasf.ollama.port}";
+        description = "Base URL for the Ollama API (default derived from host/port).";
+      };
+      environment = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        description = "Extra environment variables for the Open-WebUI service.";
+      };
+      environmentFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = "Environment file passed to the Open-WebUI service (for secrets).";
+      };
+      openFirewall = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Open the Open-WebUI port in the firewall.";
+      };
+    };
+  };
+
+  config = lib.mkIf cfg.enable (
+    let
+      resolvedOllamaUrl =
+        if cfg.ui.ollamaUrl != null then cfg.ui.ollamaUrl else "http://${cfg.host}:${toString cfg.port}";
+    in
+    {
+      services.ollama = {
+        enable = true;
+        package = cfg.package;
+        host = cfg.host;
+        port = cfg.port;
+        rocmOverrideGfx = cfg.rocmOverrideGfx;
+        loadModels = cfg.loadModels;
+        syncModels = cfg.syncModels;
+        environmentVariables = cfg.environmentVariables;
+        openFirewall = cfg.openFirewall;
+      };
+
+      services.open-webui = lib.mkIf cfg.ui.enable {
+        enable = true;
+        package = cfg.ui.package;
+        host = cfg.ui.host;
+        port = cfg.ui.port;
+        stateDir = cfg.ui.stateDir;
+        environmentFile = cfg.ui.environmentFile;
+        openFirewall = cfg.ui.openFirewall;
+        environment = {
+          OLLAMA_API_BASE_URL = resolvedOllamaUrl;
+        }
+        // cfg.ui.environment;
+      };
+    }
+  );
+}
