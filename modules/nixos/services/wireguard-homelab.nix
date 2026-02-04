@@ -7,6 +7,7 @@
 
 let
   cfg = config.lukasf.wireguard.homelab;
+  shared = config.shared.vpn.homelab;
   iface = "wg-homelab";
 in
 {
@@ -73,57 +74,68 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable (
-    let
-      setDnsScript = pkgs.writeShellScript "wg-homelab-set-dns" ''
-        set -euo pipefail
-        iface="$1"
-        shift
-        ${pkgs.systemd}/bin/resolvectl dns "$iface" "$@"
-      '';
-
-      setDomainScript = pkgs.writeShellScript "wg-homelab-set-domain" ''
-        set -euo pipefail
-        iface="$1"
-        domain_file="$2"
-        domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$domain_file")"
-        if [ -z "$domain" ]; then
-          echo "wg-homelab: domain file $domain_file is empty" >&2
-          exit 1
-        fi
-        ${pkgs.systemd}/bin/resolvectl domain "$iface" "~$domain"
-      '';
-
-      setEndpointScript = pkgs.writeShellScript "wg-homelab-set-endpoint" ''
-        set -euo pipefail
-        iface="$1"
-        endpoint_file="$2"
-        endpoint="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$endpoint_file")"
-        if [ -z "$endpoint" ]; then
-          echo "wg-homelab: endpoint file $endpoint_file is empty" >&2
-          exit 1
-        fi
-        ${pkgs.wireguard-tools}/bin/wg set "$iface" peer ${cfg.peerPublicKey} persistent-keepalive ${toString cfg.persistentKeepalive} endpoint "$endpoint"
-      '';
-    in
+  config = lib.mkMerge [
     {
-      networking.wireguard.interfaces.${iface} = {
-        privateKeyFile = cfg.privateKeyFile;
-        ips = [ cfg.address ];
-        listenPort = 0;
-        mtu = cfg.mtu;
-        postSetup = [
-          "${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns}"
-          "${setDomainScript} ${iface} ${cfg.dnsDomainFile}"
-          "${setEndpointScript} ${iface} ${cfg.endpointFile}"
-        ];
-        peers = [
-          {
-            publicKey = cfg.peerPublicKey;
-            allowedIPs = cfg.allowedIPs;
-          }
-        ];
+      lukasf.wireguard.homelab = {
+        dns = lib.mkDefault shared.dns;
+        peerPublicKey = lib.mkDefault shared.peerPublicKey;
+        allowedIPs = lib.mkDefault shared.allowedIPs;
+        persistentKeepalive = lib.mkDefault shared.persistentKeepalive;
+        mtu = lib.mkDefault shared.mtu;
       };
     }
-  );
+    (lib.mkIf cfg.enable (
+      let
+        setDnsScript = pkgs.writeShellScript "wg-homelab-set-dns" ''
+          set -euo pipefail
+          iface="$1"
+          shift
+          ${pkgs.systemd}/bin/resolvectl dns "$iface" "$@"
+        '';
+
+        setDomainScript = pkgs.writeShellScript "wg-homelab-set-domain" ''
+          set -euo pipefail
+          iface="$1"
+          domain_file="$2"
+          domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$domain_file")"
+          if [ -z "$domain" ]; then
+            echo "wg-homelab: domain file $domain_file is empty" >&2
+            exit 1
+          fi
+          ${pkgs.systemd}/bin/resolvectl domain "$iface" "~$domain"
+        '';
+
+        setEndpointScript = pkgs.writeShellScript "wg-homelab-set-endpoint" ''
+          set -euo pipefail
+          iface="$1"
+          endpoint_file="$2"
+          endpoint="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$endpoint_file")"
+          if [ -z "$endpoint" ]; then
+            echo "wg-homelab: endpoint file $endpoint_file is empty" >&2
+            exit 1
+          fi
+          ${pkgs.wireguard-tools}/bin/wg set "$iface" peer ${cfg.peerPublicKey} persistent-keepalive ${toString cfg.persistentKeepalive} endpoint "$endpoint"
+        '';
+      in
+      {
+        networking.wireguard.interfaces.${iface} = {
+          privateKeyFile = cfg.privateKeyFile;
+          ips = [ cfg.address ];
+          listenPort = 0;
+          mtu = cfg.mtu;
+          postSetup = [
+            "${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns}"
+            "${setDomainScript} ${iface} ${cfg.dnsDomainFile}"
+            "${setEndpointScript} ${iface} ${cfg.endpointFile}"
+          ];
+          peers = [
+            {
+              publicKey = cfg.peerPublicKey;
+              allowedIPs = cfg.allowedIPs;
+            }
+          ];
+        };
+      }
+    ))
+  ];
 }

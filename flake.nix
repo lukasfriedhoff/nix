@@ -194,28 +194,22 @@
           # Shared by ALL NixOS hosts
           coreModules = [
             ./modules/nixos/profiles/base.nix
-            ./modules/nixos/services/wireguard-homelab.nix
-            ./modules/nixos/services/nix-serve-cache.nix
-            ./modules/nixos/services/remote-builders.nix
-            ./modules/nixos/services/seaweedfs.nix
-            ./modules/nixos/services/ceph.nix
-            ./modules/nixos/services/ollama-openwebui.nix
-            ./modules/nixos/services/protonvpn.nix
+            ./modules/nixos/shared
+            ./modules/nixos/profiles
+            ./modules/nixos/services
             sops-nix.nixosModules.sops
           ];
 
           # Additional modules for desktop hosts
           desktopExtras = [
-            ./modules/nixos/profiles/desktop/libreoffice.nix
             stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
           ];
 
           # Additional modules for server hosts
           serverExtras = [
-            ./modules/nixos/services/kvm.nix
             comin.nixosModules.comin
-            ./modules/nixos/profiles/server/comin.nix
+            ./modules/nixos/profiles/server
           ];
 
           # Composed from layers
@@ -234,24 +228,12 @@
             coreModules
             ++ serverExtras
             ++ [
-              ./modules/nixos/profiles/dacoso/server.nix
+              ./modules/nixos/profiles/dacoso
             ];
 
-          homelabServerModules =
-            coreModules
-            ++ serverExtras
-            ++ [
-              ./modules/nixos/profiles/homelab/kubernetes.nix
-              ./modules/nixos/profiles/homelab/gitops.nix
-            ];
+          homelabServerModules = coreModules ++ serverExtras;
 
-          personalHomelabServerModules =
-            coreModules
-            ++ serverExtras
-            ++ [
-              ./modules/nixos/profiles/homelab/personal-server.nix
-              ./modules/nixos/profiles/homelab/kubernetes.nix
-            ];
+          personalHomelabServerModules = coreModules ++ serverExtras;
 
           mkNixosHost =
             profile: extraModules:

@@ -1,13 +1,12 @@
 {
-  config,
   pkgs,
-  secrets,
   lib,
   ...
 }:
 
 {
   imports = [
+    ../../common/default.nix
     ./hardware-configuration.nix
     ../../../modules/nixos/hardware/asus/vivobook-t3300.nix
   ];
@@ -32,34 +31,12 @@
     adwaita-icon-theme
     dmidecode
     lm_sensors
-    smartmontools
   ];
 
-  sops.secrets."wireguard-homelab-priv" = {
-    sopsFile = "${secrets.primary}/wireguard/homelab.priv";
-    owner = "root";
-    format = "binary";
-  };
-  sops.secrets."wireguard-domain" = {
-    sopsFile = "${secrets.shared}/wireguard/domain.txt";
-    owner = "root";
-    format = "binary";
-  };
-  sops.secrets."wireguard-endpoint" = {
-    sopsFile = "${secrets.shared}/wireguard/endpoint.txt";
-    owner = "root";
-    format = "binary";
-  };
-
-  lukasf.wireguard.homelab = {
+  desktop.wireguardHomelab = {
     enable = true;
     address = "10.1.90.3/24";
-    privateKeyFile = config.sops.secrets."wireguard-homelab-priv".path;
-    dnsDomainFile = config.sops.secrets."wireguard-domain".path;
-    endpointFile = config.sops.secrets."wireguard-endpoint".path;
   };
-
-  sops.age.keyFile = "/home/lukasf/.config/sops/age/keys.txt";
 
   # Prefer RAM compression over eMMC swap to cut thrashing
   zramSwap = {
@@ -93,23 +70,4 @@
   # Ensure redistributable firmware + Intel microcode are applied
   hardware.enableRedistributableFirmware = true;
   hardware.cpu.intel.updateMicrocode = lib.mkForce true;
-
-  # Cap journald usage to reduce eMMC writes on low-capacity storage
-  services.journald.extraConfig = ''
-    SystemMaxUse=100M
-    RuntimeMaxUse=50M
-    RuntimeKeepFree=100M
-    SystemMaxFileSize=10M
-  '';
-
-  services.resolved = {
-    enable = true;
-    dnssec = "false";
-    fallbackDns = [
-      "1.1.1.1"
-      "9.9.9.9"
-    ];
-  };
-  networking.networkmanager.dns = "systemd-resolved";
-  networking.resolvconf.enable = lib.mkForce false;
 }

@@ -7,6 +7,7 @@
 }:
 
 let
+  cfg = config.desktop.gnome;
   firefoxIntel = pkgs.firefox-bin.overrideAttrs (old: {
     nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
     postInstall = (old.postInstall or "") + ''
@@ -16,86 +17,94 @@ let
   });
 in
 {
-  services.xserver = {
-    enable = true;
-    xkb = {
-      layout = "us,de";
-      variant = ",nodeadkeys";
-      options = "grp:alt_shift_toggle";
+  options.desktop.gnome = {
+    enable = lib.mkEnableOption "GNOME desktop profile" // {
+      default = true;
     };
   };
 
-  services.displayManager.gdm = {
-    enable = true;
-    wayland = true;
-  };
+  config = lib.mkIf cfg.enable {
+    services.xserver = {
+      enable = true;
+      xkb = {
+        layout = "us,de";
+        variant = ",nodeadkeys";
+        options = "grp:alt_shift_toggle";
+      };
+    };
 
-  services.desktopManager.gnome.enable = true;
-  services.gnome.gnome-keyring.enable = true;
-  services.gnome.gnome-online-accounts.enable = true;
-  services.gnome.evolution-data-server.enable = true;
-  services.printing.enable = true;
+    services.displayManager.gdm = {
+      enable = true;
+      wayland = true;
+    };
 
-  programs.firefox = {
-    enable = true;
-    package = firefoxIntel;
-  };
-  environment.systemPackages = with pkgs; [
-    vim
-    wget
-    gnomeExtensions.appindicator
-    gnomeExtensions.kimpanel
-  ];
+    services.desktopManager.gnome.enable = true;
+    services.gnome.gnome-keyring.enable = true;
+    services.gnome.gnome-online-accounts.enable = true;
+    services.gnome.evolution-data-server.enable = true;
+    services.printing.enable = true;
 
-  # PipeWire stack (GNOME-on-Wayland default)
-  services.pulseaudio.enable = false;
-  security.rtkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
-  };
-
-  networking.networkmanager.enable = true;
-
-  users.users.${linuxUser} = {
-    isNormalUser = true;
-    description = "Lukas Friedhoff";
-    extraGroups = [
-      "networkmanager"
-      "wheel"
+    programs.firefox = {
+      enable = true;
+      package = firefoxIntel;
+    };
+    environment.systemPackages = with pkgs; [
+      vim
+      wget
+      gnomeExtensions.appindicator
+      gnomeExtensions.kimpanel
     ];
-    packages = with pkgs; [ gnome-terminal ];
-    subUidRanges = [
-      {
-        startUid = 100000;
-        count = 65536;
-      }
-    ];
-    subGidRanges = [
-      {
-        startGid = 100000;
-        count = 65536;
-      }
-    ];
+
+    # PipeWire stack (GNOME-on-Wayland default)
+    services.pulseaudio.enable = false;
+    security.rtkit.enable = true;
+    services.pipewire = {
+      enable = true;
+      alsa.enable = true;
+      alsa.support32Bit = true;
+      pulse.enable = true;
+    };
+
+    networking.networkmanager.enable = true;
+
+    users.users.${linuxUser} = {
+      isNormalUser = true;
+      description = "Lukas Friedhoff";
+      extraGroups = [
+        "networkmanager"
+        "wheel"
+      ];
+      packages = with pkgs; [ gnome-terminal ];
+      subUidRanges = [
+        {
+          startUid = 100000;
+          count = 65536;
+        }
+      ];
+      subGidRanges = [
+        {
+          startGid = 100000;
+          count = 65536;
+        }
+      ];
+    };
+
+    environment.variables.EDITOR = lib.mkForce "vim";
+
+    services.openssh.enable = true;
+    programs.gnupg.agent = {
+      enable = true;
+      enableSSHSupport = true;
+    };
+
+    programs.seahorse.enable = true;
+
+    # Keep USB keyboards/mice from entering autosuspend.
+    services.udev.extraRules = ''
+      ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030101:*", TEST=="power/control", ATTR{power/control}="on"
+      ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030102:*", TEST=="power/control", ATTR{power/control}="on"
+    '';
+
+    nixpkgs.config.allowUnfree = true;
   };
-
-  environment.variables.EDITOR = lib.mkForce "vim";
-
-  services.openssh.enable = true;
-  programs.gnupg.agent = {
-    enable = true;
-    enableSSHSupport = true;
-  };
-
-  programs.seahorse.enable = true;
-
-  # Keep USB keyboards/mice from entering autosuspend.
-  services.udev.extraRules = ''
-    ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030101:*", TEST=="power/control", ATTR{power/control}="on"
-    ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030102:*", TEST=="power/control", ATTR{power/control}="on"
-  '';
-
-  nixpkgs.config.allowUnfree = true;
 }

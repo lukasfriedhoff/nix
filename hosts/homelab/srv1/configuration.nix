@@ -31,12 +31,13 @@ in
 {
   imports = [
     inputs.disko.nixosModules.disko
+    ../../common/default.nix
+    ../common.nix
     ./hardware-configuration.nix
     ./disko.nix
   ];
 
   networking.hostName = hostName;
-  networking.domain = "lab.h4xx.io";
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
@@ -227,18 +228,10 @@ in
 
   sops.age.keyFile = "/var/lib/sops-nix/age/keys.txt";
 
-  boot.initrd.network = {
+  homelab.initrdSsh = {
     enable = true;
-    ssh = {
-      enable = true;
-      port = 2222;
-      authorizedKeys = [ (builtins.readFile ./initrd-authorized.pub) ];
-      hostKeys = [ "/etc/ssh/ssh_host_ed25519_key" ];
-    };
+    authorizedKeyFile = ./initrd-authorized.pub;
   };
-
-  users.users.root.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
-  users.users.nixos.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
 
   # Needed by cephadm to satisfy asyncssh dependency for health checks.
   environment.systemPackages = with pkgs; [ python3Packages.asyncssh ];
