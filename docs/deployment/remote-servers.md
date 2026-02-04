@@ -97,13 +97,12 @@ After the machine reboots into the freshly installed system:
 ### 5. Updating SSH configs for operators
 
 All host-specific SSH match blocks live in `resources/ssh/hosts/personal.nix` (personal)
-and `resources/ssh/hosts/dacoso.nix` (work). Each entry
+and `resources/ssh/hosts/dacoso.nix` (work). Each entry defines the alias, user,
+and which identity to use (`personal` or `work`). Once you add/adjust a host:
 
 If this repository is public, keep private IPs out of git by putting the real
 `HostName` mappings into the per-profile SOPS secret `ssh/hostnames-private.conf`
 (decrypted to `~/.ssh/config.d/15-hostnames-private`).
-defines the alias, user, and which identity to use (`personal` or `work`). Once
-you add/adjust a host:
 
 1. Commit the change
 2. Run `home-manager switch` (or rebuild the desktop NixOS configuration)

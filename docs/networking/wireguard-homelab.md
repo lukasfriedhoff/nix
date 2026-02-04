@@ -1,7 +1,7 @@
 ## Homelab WireGuard edge
 
 The MikroTik at Rüttenscheider Straße exposes a WireGuard hub (endpoint
-stored in `secrets/profiles/common/shared/wireguard/endpoint.txt`). Every personal machine now has a
+stored in `secrets/profiles/personal/shared/wireguard/endpoint.txt`). Every personal machine now has a
 `wg-homelab` interface that can be enabled declaratively.
 
 ### Addresses per host
@@ -16,8 +16,8 @@ Shared settings (used by every personal host):
 
 | Purpose   | Secret path (edit with `sops`)      |
 |-----------|-------------------------------------|
-| Domain    | `secrets/profiles/common/shared/wireguard/domain.txt` (contains the search suffix, e.g. `example.lan`) |
-| Endpoint  | `secrets/profiles/common/shared/wireguard/endpoint.txt` (contains `host-or-ip:port`) |
+| Domain    | `secrets/profiles/personal/shared/wireguard/domain.txt` (contains the search suffix, e.g. `example.lan`) |
+| Endpoint  | `secrets/profiles/personal/shared/wireguard/endpoint.txt` (contains `host-or-ip:port`) |
 
 > **Note:** The Supermicro server does not yet have an AGE key configured, so
 > it is excluded until we can encrypt a private key for it.
@@ -29,8 +29,8 @@ Populate the host private key and shared settings as follows:
 
 ```bash
 # edit shared domain/endpoint once
-sops secrets/profiles/common/shared/wireguard/domain.txt
-sops secrets/profiles/common/shared/wireguard/endpoint.txt
+sops secrets/profiles/personal/shared/wireguard/domain.txt
+sops secrets/profiles/personal/shared/wireguard/endpoint.txt
 
 # per host private key
 sops secrets/profiles/personal/desktops/tux-h4xx-01/wireguard/homelab.priv

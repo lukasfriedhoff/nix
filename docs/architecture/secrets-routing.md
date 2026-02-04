@@ -13,7 +13,7 @@ host receiving a tailored set of secret paths via `specialArgs`.
 ```
 secrets/profiles/
 ├── common/
-│   └── shared/              # Cross-profile secrets (wireguard endpoints)
+│   └── shared/              # Cross-profile secrets (currently unused)
 ├── personal/
 │   ├── desktops/
 │   │   ├── common/          # Shared desktop secrets (SSH keys)
@@ -72,6 +72,10 @@ Host configurations receive secrets via `specialArgs`:
     sopsFile = "${secrets.primary}/wireguard/homelab.priv";
     owner = "root";
     format = "binary";
+  };
+
+  sops.secrets."wireguard-domain" = {
+    sopsFile = "${secrets.profileShared}/wireguard/domain.txt";
   };
 
   sops.secrets."shared-secret" = {

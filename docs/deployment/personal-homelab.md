@@ -1,6 +1,6 @@
 ## Personal homelab server template
 
-This flow reuses `hosts/homelab/_template` to spin up a new personal node with
+This flow reuses `hosts/homelab/template` to spin up a new personal node with
 DHCP networking, Europe/Berlin timezone, and console bootstrap passwords (hash
 of `ChangeMeNow!` for both `root` and `nixos`; SSH password auth stays disabled
 unless you flip `usePasswordAuth`).
@@ -13,7 +13,7 @@ unless you flip `usePasswordAuth`).
 2. Create the host from the template and fill in its identity
    ```bash
    host=YOURSHORT
-   cp -r hosts/homelab/_template "hosts/homelab/${host}"
+   cp -r hosts/homelab/template "hosts/homelab/${host}"
    $EDITOR hosts/homelab/${host}/configuration.nix
    # set networking.hostName/domain, managementPubKey ("ssh/${host}-personal-mgmt.pub"), extraHosts hint
    ```
@@ -95,24 +95,22 @@ with that recipient.
     allowDiscards = true;
   };
   ```
-- Enable SSH in initramfs for remote unlock (port 2222, authorized key must be
-  plaintext at build time—use the decrypted management pubkey):
+- Enable initrd SSH for remote unlock (port 2222, authorized key must be
+  plaintext at build time—use a decrypted management pubkey):
   ```nix
-  boot.initrd.network = {
+  homelab.initrdSsh = {
     enable = true;
-    ssh = {
-      enable = true;
-      port = 2222;
-      authorizedKeys = [ "ssh-ed25519 AAAA... ${host}-personal-mgmt" ];
-      generateHostKeys = true;
-    };
+    authorizedKeyFile = ./initrd-authorized.pub;
+    port = 2222;
   };
   ```
+- Create the `initrd-authorized.pub` file next to the host config (public keys
+  are safe to store in git):
+  ```bash
+  sops -d secrets/profiles/personal/servers/${host}/ssh/${host}-personal-mgmt.pub \
+    > hosts/homelab/${host}/initrd-authorized.pub
+  ```
 - Add an unlock entry to `resources/ssh/hosts/personal.nix` so you can target the
-
-If this repo is published, keep private IP addresses out of `resources/ssh/hosts/personal.nix`
-and instead add them to the SOPS secret `ssh/hostnames-private.conf` (decrypted to
-`~/.ssh/config.d/15-hostnames-private`).
   initramfs SSH listener:
   ```nix
   {
@@ -124,6 +122,9 @@ and instead add them to the SOPS secret `ssh/hostnames-private.conf` (decrypted 
     keyName = "${host}-personal-mgmt";
   }
   ```
+- If this repo is published, keep private IP addresses out of
+  `resources/ssh/hosts/personal.nix` and instead add them to the SOPS secret
+  `ssh/hostnames-private.conf` (decrypted to `~/.ssh/config.d/15-hostnames-private`).
 - Store the LUKS passphrase in personal shared secrets, e.g.
   `secrets/profiles/personal/shared/luks/${host}.txt` (encrypted via SOPS).
   To unlock from your desktop:
