@@ -7,6 +7,7 @@
 }:
 
 let
+  cfg = config.programs.ssh;
   sshData = import ../../../../resources/ssh/hosts.nix;
   defaultsCommon = sshData.defaults.common;
   defaultsProfile = if workSystem then sshData.defaults.dacoso else sshData.defaults.personal;
@@ -58,67 +59,73 @@ in
     ./sshpass.nix
   ];
 
-  # Fix key directory permissions on activation so ssh-agent and ssh honor keys
-  home.activation.fixSshPerms = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    chmod 700 "${config.home.homeDirectory}/.ssh"
-    find "${config.home.homeDirectory}/.ssh" -type d -exec chmod 700 {} +
-    find "${config.home.homeDirectory}/.ssh" -type f -exec chmod 600 {} +
-  '';
-
-  programs.ssh = {
-    enable = true;
-    enableDefaultConfig = false;
-
-    extraConfig = ''
-      SetEnv TERM=xterm
-      ServerAliveInterval 30
-      ServerAliveCountMax 3
-      VisualHostKey no
-      HashKnownHosts yes
-      IdentitiesOnly yes
-      Include ~/.ssh/config.d/*
-    '';
-
-    matchBlocks."*" = { };
-  };
-
-  home.file.".ssh/config.d/10-git".text =
-    if workSystem then
-      ''
-        # Work Git identities
-        Host github.com
-          HostName github.com
-          User git
-          IdentitiesOnly yes
-          IdentityFile ~/.ssh/id_ed25519_dacoso
-
-        Host bitbucket.org
-          HostName bitbucket.org
-          User git
-          IdentitiesOnly yes
-          IdentityFile ~/.ssh/bitbucket
-      ''
-    else
-      ''
-        # Personal Git identities
-        Host github.com
-          HostName github.com
-          User git
-          IdentitiesOnly yes
-          IdentityFile ~/.ssh/personal/id_ed25519
-
-        Host github-dacoso
-          HostName github.com
-          User git
-          IdentitiesOnly yes
-          IdentityFile ~/.ssh/id_ed25519_dacoso
+  config = lib.mkMerge [
+    {
+      programs.ssh.enable = lib.mkDefault true;
+    }
+    (lib.mkIf cfg.enable {
+      # Fix key directory permissions on activation so ssh-agent and ssh honor keys
+      home.activation.fixSshPerms = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        chmod 700 "${config.home.homeDirectory}/.ssh"
+        find "${config.home.homeDirectory}/.ssh" -type d -exec chmod 700 {} +
+        find "${config.home.homeDirectory}/.ssh" -type f -exec chmod 600 {} +
       '';
 
-  home.file.".ssh/config.d/20-hosts".text = renderHostsFile (
-    if workSystem then "dacoso" else "personal"
-  ) hostsProfile;
+      programs.ssh = {
+        enableDefaultConfig = false;
 
-  home.file.".ssh/config.d/40-chaospott" = lib.mkIf (!workSystem && !pkgs.stdenv.isDarwin) {
-    source = ../../../../resources/ssh/config.d/chaospott;
-  };
+        extraConfig = ''
+          SetEnv TERM=xterm
+          ServerAliveInterval 30
+          ServerAliveCountMax 3
+          VisualHostKey no
+          HashKnownHosts yes
+          IdentitiesOnly yes
+          Include ~/.ssh/config.d/*
+        '';
+
+        matchBlocks."*" = { };
+      };
+
+      home.file.".ssh/config.d/10-git".text =
+        if workSystem then
+          ''
+            # Work Git identities
+            Host github.com
+              HostName github.com
+              User git
+              IdentitiesOnly yes
+              IdentityFile ~/.ssh/id_ed25519_dacoso
+
+            Host bitbucket.org
+              HostName bitbucket.org
+              User git
+              IdentitiesOnly yes
+              IdentityFile ~/.ssh/bitbucket
+          ''
+        else
+          ''
+            # Personal Git identities
+            Host github.com
+              HostName github.com
+              User git
+              IdentitiesOnly yes
+              IdentityFile ~/.ssh/personal/id_ed25519
+
+            Host github-dacoso
+              HostName github.com
+              User git
+              IdentitiesOnly yes
+              IdentityFile ~/.ssh/id_ed25519_dacoso
+          '';
+
+      home.file.".ssh/config.d/20-hosts".text = renderHostsFile (
+        if workSystem then "dacoso" else "personal"
+      ) hostsProfile;
+
+      home.file.".ssh/config.d/40-chaospott" = lib.mkIf (!workSystem && !pkgs.stdenv.isDarwin) {
+        source = ../../../../resources/ssh/config.d/chaospott;
+      };
+    })
+  ];
 }

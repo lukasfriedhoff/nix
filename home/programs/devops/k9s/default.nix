@@ -6,6 +6,7 @@
 }:
 
 let
+  cfg = config.programs.k9s;
   fluxPlugins = ''
     plugins:
       flux-kustomization-reconcile:
@@ -95,18 +96,22 @@ let
   '';
 in
 {
-  programs.k9s = {
-    enable = true;
-    package = pkgs.k9s;
-  };
+  config = lib.mkMerge [
+    {
+      programs.k9s.enable = lib.mkDefault true;
+    }
+    (lib.mkIf cfg.enable {
+      programs.k9s.package = pkgs.k9s;
 
-  home.packages = lib.mkIf (pkgs ? fluxcd) [ pkgs.fluxcd ];
+      home.packages = lib.mkIf (pkgs ? fluxcd) [ pkgs.fluxcd ];
 
-  home.file.".config/k9s/plugins.yml" = {
-    text = fluxPlugins;
-  };
+      home.file.".config/k9s/plugins.yml" = {
+        text = fluxPlugins;
+      };
 
-  home.file.".config/k9s/hotkeys.yml" = {
-    text = fluxHotkeys;
-  };
+      home.file.".config/k9s/hotkeys.yml" = {
+        text = fluxHotkeys;
+      };
+    })
+  ];
 }

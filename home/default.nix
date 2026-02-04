@@ -8,15 +8,10 @@
   ...
 }:
 let
+  myLib = import ../lib { inherit lib; };
   fallbackUser = if pkgs.stdenv.isDarwin then macUser else linuxUser;
   fallbackHome = if pkgs.stdenv.isDarwin then "/Users/${macUser}" else "/home/${linuxUser}";
-  personalDesktopProfiles = [
-    "srv4"
-    "tux"
-    "tab"
-  ];
-  installEvolutionOnProfile =
-    (!pkgs.stdenv.isDarwin) && profile != null && lib.elem profile personalDesktopProfiles;
+  programImports = myLib.importSubdirs ./programs;
 in
 {
   home = {
@@ -31,20 +26,10 @@ in
   imports = [
     # Shell configuration
     ./shell/bash/default.nix
-
-    # Program categories (organized by purpose)
-    ./programs/dev # Development: git, neovim, vscode, lazygit, codex, claude
-    ./programs/devops # DevOps: kubectl, k9s, velero, s3, sops-age
-    ./programs/utils # Utilities: alacritty, starship, gpg, ssh
-    ./programs/work # Work tools: cassandra-tools, mariadb-tools, maven-config
-    ./programs/gaming # Gaming: icarus, icarus-mod-manager
-
-    # Desktop environment (window managers, status bars)
-    ./programs/desktop
-
-    # Theme customizations applied via stylix home module
-    ./programs/theming
-
+  ]
+  ++ programImports
+  ++ [ ./profiles ]
+  ++ [
     # Platform-specific configuration
     ./platforms/linux/default.nix
     ./platforms/macos/default.nix
@@ -87,19 +72,8 @@ in
       desktopPackages = with pkgs; [
         python3
       ];
-      personalDesktopPackages =
-        lib.optionals (profile != null && lib.elem profile personalDesktopProfiles)
-          (
-            with pkgs;
-            [
-              gpodder
-            ]
-          );
     in
-    basePackages
-    ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages
-    ++ desktopPackages
-    ++ personalDesktopPackages;
+    basePackages ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages ++ desktopPackages;
 
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
@@ -108,12 +82,4 @@ in
     VISUAL = "vi";
   };
 
-  programs.evolution = lib.mkIf installEvolutionOnProfile {
-    enable = true;
-    nextcloud.enable = true;
-  };
-
-  programs.moonlight = lib.mkIf installEvolutionOnProfile {
-    enable = true;
-  };
 }

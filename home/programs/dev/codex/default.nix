@@ -1,6 +1,12 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
+  cfg = config.programs.codex;
   codexCli = pkgs.writeShellApplication {
     name = "codex";
     runtimeInputs = [
@@ -123,7 +129,13 @@ let
   };
 in
 {
-  home.packages = [ codexCli ];
-
-  home.sessionVariables.CODEX_MODEL = lib.mkDefault "gpt-4o-mini";
+  config = lib.mkMerge [
+    {
+      programs.codex.enable = lib.mkDefault true;
+    }
+    (lib.mkIf cfg.enable {
+      programs.codex.package = codexCli;
+      home.sessionVariables.CODEX_MODEL = lib.mkDefault "gpt-4o-mini";
+    })
+  ];
 }
