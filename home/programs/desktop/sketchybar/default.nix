@@ -2,11 +2,13 @@
 # Home Manager module using the upstream default config (FelixKratz/SketchyBar)
 # with workspace clicks mapped to AeroSpace.
 {
+  config,
   lib,
   pkgs,
   ...
 }:
 let
+  cfg = config.programs.sketchybar;
   sketchybarrc = ''
     # Upstream default demo config (with AeroSpace workspace clicks)
     PLUGIN_DIR="$CONFIG_DIR/plugins"
@@ -111,18 +113,21 @@ let
   };
 in
 {
-  programs.sketchybar = lib.mkIf pkgs.stdenv.isDarwin {
-    config = lib.mkDefault sketchybarrc;
-  };
+  config = lib.mkMerge [
+    {
+      programs.sketchybar.enable = lib.mkDefault pkgs.stdenv.isDarwin;
+    }
+    (lib.mkIf (cfg.enable && pkgs.stdenv.isDarwin) {
+      programs.sketchybar.config = lib.mkDefault sketchybarrc;
 
-  # Install plugin scripts referenced by the config
-  xdg.configFile = lib.mkIf pkgs.stdenv.isDarwin (
-    lib.mapAttrs' (
-      name: text:
-      lib.nameValuePair "sketchybar/plugins/${name}" {
-        inherit text;
-        executable = true;
-      }
-    ) plugins
-  );
+      # Install plugin scripts referenced by the config
+      xdg.configFile = lib.mapAttrs' (
+        name: text:
+        lib.nameValuePair "sketchybar/plugins/${name}" {
+          inherit text;
+          executable = true;
+        }
+      ) plugins;
+    })
+  ];
 }

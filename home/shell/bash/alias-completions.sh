@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Provide bash completions for common CLI aliases.
+
 
 if [[ ! -v BASH_COMPLETION_VERSINFO ]]; then
   . "${HOME_MANAGER_BASH_COMPLETION_PATH:-${HOME}/.nix-profile/etc/profile.d/bash_completion.sh}"

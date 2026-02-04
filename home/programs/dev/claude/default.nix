@@ -1,6 +1,11 @@
-{ pkgs, ... }:
 {
-  programs.claude-code = {
-    enable = true;
+  config,
+  lib,
+  ...
+}:
+
+{
+  config = {
+    programs."claude-code".enable = lib.mkDefault true;
   };
 }
