@@ -1,5 +1,6 @@
 excludes = [
   "result/**",
+  "examples/**",
   ".git/**",
 ]
 

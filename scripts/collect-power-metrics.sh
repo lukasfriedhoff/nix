@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Collect power/perf metrics into a timestamped /tmp folder.
+
 set -euo pipefail
 
 out_dir="/tmp/power-metrics-$(date +%Y%m%d-%H%M%S)"

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Generate and encrypt a per-host SSH management keypair.
+
 set -euo pipefail
 
 if [[ $# -lt 2 ]]; then

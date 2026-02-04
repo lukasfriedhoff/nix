@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Query a live installer for homelab bootstrap details.
+
 set -euo pipefail
 
 usage() {
