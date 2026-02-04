@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Decrypt and stream a LUKS passphrase to the initrd unlock target.
+
 set -euo pipefail
 
 usage() {

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Collect a hardware inventory snapshot for troubleshooting.
+
 set -euo pipefail
 
 # Gather a comprehensive hardware snapshot for troubleshooting slow machines.

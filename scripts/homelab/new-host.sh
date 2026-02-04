@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Bootstrap a homelab host (config, secrets, and keys).
+
 set -euo pipefail
 
 usage() {
@@ -287,19 +289,20 @@ domain_eff = domain
 p = pathlib.Path(path)
 cfg = f"""{{
   inputs,
-  secrets,
   ...
 }}:
 
 {{
   imports = [
     inputs.disko.nixosModules.disko
+    ../../common/default.nix
+    ../common.nix
     ./hardware-configuration.nix
     ./disko.nix
   ];
 
   networking.hostName = "{host}";
-  networking.domain = "{domain_eff}";
+  shared.network.domain = "{domain_eff}";
 
   homelab.personalServer = {{
     enable = true;
@@ -310,20 +313,10 @@ cfg = f"""{{
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  sops.age.keyFile = "/home/lukasf/.config/sops/age/keys.txt";
-
-  boot.initrd.network = {{
+  homelab.initrdSsh = {{
     enable = true;
-    ssh = {{
-      enable = true;
-      port = 2222;
-      authorizedKeys = [ (builtins.readFile ./initrd-authorized.pub) ];
-      hostKeys = [ "/etc/ssh/ssh_host_ed25519_key" ];
-    }};
+    authorizedKeyFile = ./initrd-authorized.pub;
   }};
-
-  users.users.root.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
-  users.users.nixos.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
 
   networking.extraHosts = ''
     {ip_comment}

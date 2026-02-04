@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Remove a homelab host and its related entries.
+
 set -euo pipefail
 
 usage() {

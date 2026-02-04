@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Deploy a flake host via nixos-anywhere from a live installer.
+
 set -euo pipefail
 
 usage() {
