@@ -1,12 +1,15 @@
 {
+  lib,
   pkgs,
   macUser,
   ...
 }:
 {
-  imports = [
-    ./settings.nix
-  ];
+  imports =
+    let
+      myLib = import ../../lib { inherit lib; };
+    in
+    myLib.importTree ./.;
 
   # nix config
   nix = {

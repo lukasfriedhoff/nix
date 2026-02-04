@@ -7,23 +7,22 @@
 }:
 
 let
-  cfg = config.services.comin;
+  cfg = config.lukasf.serverDeployment;
   # Public Git remote used by comin-managed machines.
   repoUrl = "https://github.com/lukasfriedhoff/nix";
 in
 {
   options.lukasf.serverDeployment = {
-    enableComin = lib.mkOption {
-      type = lib.types.bool;
+    enable = lib.mkEnableOption "server deployment defaults via comin" // {
       default = true;
-      description = ''
-        Toggle for the opinionated comin setup that keeps servers in sync
-        with the <literal>${repoUrl}</literal> flake.
-      '';
+    };
+
+    enableComin = lib.mkEnableOption "comin-based deployment for ${repoUrl}" // {
+      default = true;
     };
   };
 
-  config = lib.mkIf config.lukasf.serverDeployment.enableComin {
+  config = lib.mkIf (cfg.enable && cfg.enableComin) {
     services.comin = {
       enable = true;
       hostname = lib.mkDefault config.networking.hostName;

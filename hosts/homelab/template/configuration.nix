@@ -1,19 +1,20 @@
 {
   inputs,
-  secrets,
   ...
 }:
 
 {
   imports = [
     inputs.disko.nixosModules.disko
+    ../../common/default.nix
+    ../common.nix
     ./hardware-configuration.nix
     ./disko.nix
   ];
 
   # Replace these with the new server's details.
   networking.hostName = "changeme-short";
-  networking.domain = "changeme.domain";
+  shared.network.domain = "changeme.domain";
 
   # Personal homelab defaults (DHCP, SSH, bootstrap password) live here.
   homelab.personalServer = {
@@ -29,23 +30,10 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # sops-nix needs the Age key on the build machine.
-  sops.age.keyFile = "/home/lukasf/.config/sops/age/keys.txt";
-
-  # Remote-unlock SSH in initrd; expects ./initrd-authorized.pub to contain the management pubkey.
-  boot.initrd.network = {
+  homelab.initrdSsh = {
     enable = true;
-    ssh = {
-      enable = true;
-      port = 2222;
-      authorizedKeys = [ (builtins.readFile ./initrd-authorized.pub) ];
-      hostKeys = [ "/etc/ssh/ssh_host_ed25519_key" ];
-    };
+    authorizedKeyFile = ./initrd-authorized.pub;
   };
-
-  # Authorize the same key post-boot for root/nixos.
-  users.users.root.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
-  users.users.nixos.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
 
   networking.extraHosts = ''
     # changeme-short changeme.domain <ip-optional>

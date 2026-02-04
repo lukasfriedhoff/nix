@@ -58,4 +58,23 @@
     in
     (map (name: dir + "/${name}") (builtins.attrNames nixFiles))
     ++ (map (name: dir + "/${name}") (builtins.attrNames validDirs));
+
+  # Resolve a secret path against a base directory.
+  # If path is absolute, return it. If root is null, throw.
+  #
+  # Usage:
+  #   myLib.resolveSecretPath { root = secrets.primary; path = "wireguard/key.txt"; }
+  resolveSecretPath =
+    {
+      root ? null,
+      path,
+    }:
+    if path == null then
+      null
+    else if lib.hasPrefix "/" path then
+      path
+    else if root != null then
+      "${root}/${path}"
+    else
+      throw "resolveSecretPath: relative path '${path}' requires a root";
 }

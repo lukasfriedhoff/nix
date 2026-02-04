@@ -1,18 +1,18 @@
 {
   inputs,
-  secrets,
   ...
 }:
 
 {
   imports = [
     inputs.disko.nixosModules.disko
+    ../../common/default.nix
+    ../common.nix
     ./hardware-configuration.nix
     ./disko.nix
   ];
 
   networking.hostName = "srv2";
-  networking.domain = "lab.h4xx.io";
 
   homelab.personalServer = {
     enable = true;
@@ -23,20 +23,10 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  sops.age.keyFile = "/home/lukasf/.config/sops/age/keys.txt";
-
-  boot.initrd.network = {
+  homelab.initrdSsh = {
     enable = true;
-    ssh = {
-      enable = true;
-      port = 2222;
-      authorizedKeys = [ (builtins.readFile ./initrd-authorized.pub) ];
-      hostKeys = [ "/etc/ssh/ssh_host_ed25519_key" ];
-    };
+    authorizedKeyFile = ./initrd-authorized.pub;
   };
-
-  users.users.root.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
-  users.users.nixos.openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
 
   networking.extraHosts = ''
     # srv2 srv2.lab.h4xx.io 10.42.1.91

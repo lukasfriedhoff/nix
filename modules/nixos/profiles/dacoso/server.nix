@@ -143,6 +143,10 @@ let
 in
 {
   options.dacoso.server = {
+    enable = lib.mkEnableOption "Dacoso server profile" // {
+      default = true;
+    };
+
     secretsDirectory = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = primaryRoot;
@@ -266,7 +270,7 @@ in
     };
   };
 
-  config = {
+  config = lib.mkIf cfg.enable {
     assertions = lib.optionals (cfg.secretsDirectory == null) [
       {
         assertion =

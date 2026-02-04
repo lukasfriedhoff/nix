@@ -74,12 +74,14 @@ let
   volumeDataDirs =
     if cfg.volume.disks != [ ] then map (entry: entry.mountPoint) diskEntries else cfg.volume.dataDirs;
 
-  weed = "${pkgs.seaweedfs}/bin/weed";
+  weed = lib.getExe cfg.package;
   volumeDirs = concatStringsSep "," volumeDataDirs;
 in
 {
   options.lukasf.seaweedfs = {
     enable = mkEnableOption "SeaweedFS services";
+
+    package = lib.mkPackageOption pkgs "seaweedfs" { };
 
     nodeName = mkOption {
       type = types.str;

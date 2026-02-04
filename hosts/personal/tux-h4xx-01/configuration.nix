@@ -8,6 +8,7 @@
 
 {
   imports = [
+    ../../common/default.nix
     ./hardware-configuration.nix
     ../../../modules/nixos/hardware/tuxedo/infinitybook-pro-16-gen8.nix
     ../../../modules/nixos/profiles/desktop/gaming.nix
@@ -30,34 +31,16 @@
   lukasf.ollama.enable = true;
   lukasf.protonvpn.enable = true;
 
-  sops.secrets."wireguard-homelab-priv" = {
-    sopsFile = "${secrets.primary}/wireguard/homelab.priv";
-    owner = "root";
-    format = "binary";
+  desktop.wireguardHomelab = {
+    enable = true;
+    address = "10.1.90.2/24";
   };
-  sops.secrets."wireguard-domain" = {
-    sopsFile = "${secrets.shared}/wireguard/domain.txt";
-    owner = "root";
-    format = "binary";
-  };
-  sops.secrets."wireguard-endpoint" = {
-    sopsFile = "${secrets.shared}/wireguard/endpoint.txt";
-    owner = "root";
-    format = "binary";
-  };
+
   sops.secrets."srv1-builder-key" = {
     sopsFile = "${secrets.profileCommon}/ssh/srv1-personal-mgmt.priv";
     owner = "root";
     format = "binary";
     mode = "0400";
-  };
-
-  lukasf.wireguard.homelab = {
-    enable = true;
-    address = "10.1.90.2/24";
-    privateKeyFile = config.sops.secrets."wireguard-homelab-priv".path;
-    dnsDomainFile = config.sops.secrets."wireguard-domain".path;
-    endpointFile = config.sops.secrets."wireguard-endpoint".path;
   };
 
   lukasf.nixCache = {
@@ -112,7 +95,7 @@
     publicNetwork = "10.1.30.0/24";
   };
 
-  programs.ssh.knownHosts.srv1 = {
+  shared.ssh.knownHosts.srv1 = {
     hostNames = [
       "srv1"
       "srv1.lab.h4xx.io"
@@ -154,24 +137,10 @@
     };
   };
 
-  sops.age.keyFile = "/home/lukasf/.config/sops/age/keys.txt";
-
-  services.resolved = {
-    enable = true;
-    dnssec = "false";
-    fallbackDns = [
-      "1.1.1.1"
-      "9.9.9.9"
-    ];
-  };
   environment.systemPackages = with pkgs; [
     libvirt
     ceph
-    smartmontools
   ];
-
-  networking.networkmanager.dns = "systemd-resolved";
-  networking.resolvconf.enable = lib.mkForce false;
 
   # Allow dynamic binaries from third-party installers (e.g., oh-my-opencode CLI).
   programs.nix-ld = {

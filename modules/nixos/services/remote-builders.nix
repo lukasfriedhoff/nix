@@ -17,10 +17,8 @@ let
 in
 {
   options.lukasf.remoteBuilds = {
-    enable = mkOption {
-      type = types.bool;
+    enable = mkEnableOption "distributed builds via the srv1 builder" // {
       default = !workSystem;
-      description = "Enable distributed builds via the srv1 builder.";
     };
 
     hostName = mkOption {

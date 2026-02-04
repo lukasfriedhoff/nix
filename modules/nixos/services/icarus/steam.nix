@@ -4,78 +4,87 @@
   lib,
   ...
 }:
+let
+  cfg = config.lukasf.icarus.steam;
+in
 {
-  users.users.steam = {
-    isSystemUser = true;
-    group = "steam";
-    home = "/var/lib/steam";
-    createHome = true;
+  options.lukasf.icarus.steam = {
+    enable = lib.mkEnableOption "SteamCMD helper for game servers";
   };
 
-  users.groups.steam = { };
-
-  systemd.services."steam@" = {
-    unitConfig = {
-      StopWhenUnneeded = true;
+  config = lib.mkIf cfg.enable {
+    users.users.steam = {
+      isSystemUser = true;
+      group = "steam";
+      home = "/var/lib/steam";
+      createHome = true;
     };
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${
-        pkgs.resholve.writeScript "steam"
-          {
-            interpreter = "${pkgs.zsh}/bin/zsh";
-            inputs = with pkgs; [
-              patchelf
-              steamcmd
-            ];
-            execer = with pkgs; [
-              "cannot:${steamcmd}/bin/steamcmd"
-            ];
-          }
-          ''
-            				set -eux
 
-            				instance=''${1:?Instance Missing}
-            				eval 'args=(''${(@s:_:)instance})'
-            				app=''${args[1]:?App ID missing}
-            				beta=''${args[2]:-}
-            				betapass=''${args[3]:-}
+    users.groups.steam = { };
 
-            				dir=/var/lib/steam-app-$instance
+    systemd.services."steam@" = {
+      unitConfig = {
+        StopWhenUnneeded = true;
+      };
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${
+          pkgs.resholve.writeScript "steam"
+            {
+              interpreter = "${pkgs.zsh}/bin/zsh";
+              inputs = with pkgs; [
+                patchelf
+                steamcmd
+              ];
+              execer = with pkgs; [
+                "cannot:${steamcmd}/bin/steamcmd"
+              ];
+            }
+            ''
+              				set -eux
 
-            				cmds=(
-            					+force_install_dir $dir
-            					+login anonymous
-            					+app_update $app validate
-            				)
+              				instance=''${1:?Instance Missing}
+              				eval 'args=(''${(@s:_:)instance})'
+              				app=''${args[1]:?App ID missing}
+              				beta=''${args[2]:-}
+              				betapass=''${args[3]:-}
 
-            				if [[ $beta ]]; then
-            					cmds+=(-beta $beta)
-            					if [[ $betapass ]]; then
-            						cmds+=(-betapassword $betapass)
-            					fi
-            				fi
+              				dir=/var/lib/steam-app-$instance
 
-            				cmds+=(+quit)
+              				cmds=(
+              					+force_install_dir $dir
+              					+login anonymous
+              					+app_update $app validate
+              				)
 
-            				steamcmd $cmds
+              				if [[ $beta ]]; then
+              					cmds+=(-beta $beta)
+              					if [[ $betapass ]]; then
+              						cmds+=(-betapassword $betapass)
+              					fi
+              				fi
 
-            				for f in $dir/*; do
-            					if ! [[ -f $f && -x $f ]]; then
-            						continue
-            					fi
+              				cmds+=(+quit)
 
-            					# Update the interpreter to the path on NixOS.
-            					patchelf --set-interpreter ${pkgs.glibc}/lib/ld-linux-x86-64.so.2 $f || true
-            				done
-            			''
-      } %i";
-      PrivateTmp = true;
-      Restart = "on-failure";
-      StateDirectory = "steam-app-%i";
-      TimeoutStartSec = 3600; # Allow time for updates.
-      User = "steam";
-      WorkingDirectory = "~";
+              				steamcmd $cmds
+
+              				for f in $dir/*; do
+              					if ! [[ -f $f && -x $f ]]; then
+              						continue
+              					fi
+
+              					# Update the interpreter to the path on NixOS.
+              					patchelf --set-interpreter ${pkgs.glibc}/lib/ld-linux-x86-64.so.2 $f || true
+              				done
+              			''
+        } %i";
+        PrivateTmp = true;
+        Restart = "on-failure";
+        StateDirectory = "steam-app-%i";
+        TimeoutStartSec = 3600; # Allow time for updates.
+        User = "steam";
+        WorkingDirectory = "~";
+      };
     };
   };
 }
