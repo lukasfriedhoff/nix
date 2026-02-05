@@ -12,6 +12,9 @@ let
 in
 {
   config = lib.mkMerge [
+    {
+      lukasf.remoteBuilds.publicHostKey = lib.mkDefault "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURZeXEvNm9XNS9vTkhMazZOM1FLaWFjSVBnaEkrdW9VTlY1T0MyRXI0YUEgcm9vdEBuaXhvcwo=";
+    }
     (lib.mkIf needsSopsKey {
       sops.age.keyFile = lib.mkDefault "/home/lukasf/.config/sops/age/keys.txt";
     })

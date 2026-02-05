@@ -528,6 +528,28 @@ in
     usePasswordAuth = false;
   };
 
+  sops.secrets."srv1-comin-builder-key" = {
+    sopsFile = "${secrets.primary}/ssh/srv1-comin-builder.priv";
+    owner = "root";
+    format = "binary";
+    mode = "0400";
+    path = "/root/.ssh/srv1-comin-builder";
+  };
+
+  sops.secrets."srv1-comin-builder-pub" = {
+    sopsFile = "${secrets.primary}/ssh/srv1-comin-builder.pub";
+    owner = "root";
+    format = "binary";
+    mode = "0444";
+    path = "/root/.ssh/srv1-comin-builder.pub";
+  };
+
+  services.openssh.authorizedKeysFiles = lib.mkAfter [
+    config.sops.secrets."srv1-comin-builder-pub".path
+  ];
+
+  lukasf.remoteBuilds.sshKeyFile = config.sops.secrets."srv1-comin-builder-key".path;
+
   lukasf.nixCache = {
     enable = true;
     secretKeyFile = "nix-cache/nix-serve.key";

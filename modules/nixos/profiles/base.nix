@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -51,6 +52,10 @@ in
       dates = "weekly";
       options = "--delete-older-than 30d";
     };
+
+    environment.systemPackages = [
+      pkgs.age
+    ];
 
     # Default state version
     system.stateVersion = lib.mkDefault "25.05";
