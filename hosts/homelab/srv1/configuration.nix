@@ -259,6 +259,10 @@ in
     # srv1 srv1.lab.h4xx.io 10.1.30.12
   '';
 
+  systemd.tmpfiles.rules = [
+    "d /etc/wolf 0755 root root -"
+  ];
+
   # Podman quadlet for Wolf (Games on Whales) container
   environment.etc."containers/systemd/wolf.container".text = ''
     [Unit]
