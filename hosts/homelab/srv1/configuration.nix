@@ -41,6 +41,7 @@ in
   nixpkgs.config.allowUnfreePredicate =
     pkg:
     builtins.elem (lib.getName pkg) [
+      "cuda-merged"
       "open-webui"
     ];
   networking.useNetworkd = true;
