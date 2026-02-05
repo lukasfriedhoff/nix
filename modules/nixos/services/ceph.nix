@@ -1534,19 +1534,38 @@ in
                 fi
               }
 
-              for _ in $(seq 1 30); do
-                if ceph_cmd status >/dev/null 2>&1; then
+              ceph_cmd_timeout() {
+                local timeout_secs="$1"
+                shift
+                if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                  timeout "$timeout_secs" "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+                else
+                  timeout "$timeout_secs" ${cephadm} shell -- ceph "$@"
+                fi
+              }
+
+              status_timeout=10
+              status_attempts=10
+              ready=0
+              for _ in $(seq 1 "$status_attempts"); do
+                if ceph_cmd_timeout "$status_timeout" status >/dev/null 2>&1; then
+                  ready=1
                   break
                 fi
                 sleep 2
               done
+
+              if [ "$ready" -ne 1 ]; then
+                echo "cephadm-pools: cluster not reachable; skipping pool setup" >&2
+                exit 0
+              fi
 
               ${lib.optionalString allowPoolSizeOne ''
                 ceph_cmd config set mon mon_allow_pool_size_one true || true
                 ceph_cmd config set global mon_allow_pool_size_one true || true
               ''}
 
-              pools_json="$(ceph_cmd osd pool ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
+              pools_json="$(ceph_cmd_timeout 20 osd pool ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
               ${lib.concatStringsSep "\n" (
                 map (pool: ''
                                 if printf '%s' "$pools_json" | ${python} - "${pool.name}" <<'PY'
