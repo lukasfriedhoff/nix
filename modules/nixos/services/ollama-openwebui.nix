@@ -7,6 +7,16 @@
 
 let
   cfg = config.lukasf.ollama;
+  # Select ollama package based on acceleration setting
+  ollamaPackage =
+    if cfg.acceleration == "cuda" then
+      pkgs.ollama-cuda
+    else if cfg.acceleration == "rocm" then
+      pkgs.ollama-rocm
+    else if cfg.acceleration == false then
+      pkgs.ollama-cpu
+    else
+      cfg.package;
 in
 {
   options.lukasf.ollama = {
@@ -47,6 +57,18 @@ in
       type = lib.types.bool;
       default = false;
       description = "Open the Ollama API port in the firewall.";
+    };
+
+    acceleration = lib.mkOption {
+      type = lib.types.nullOr (
+        lib.types.enum [
+          "cuda"
+          "rocm"
+          false
+        ]
+      );
+      default = null;
+      description = "GPU acceleration backend: 'cuda' for NVIDIA, 'rocm' for AMD, false to disable.";
     };
 
     ui = {
@@ -103,7 +125,7 @@ in
     {
       services.ollama = {
         enable = true;
-        package = cfg.package;
+        package = ollamaPackage;
         host = cfg.host;
         port = cfg.port;
         rocmOverrideGfx = cfg.rocmOverrideGfx;
