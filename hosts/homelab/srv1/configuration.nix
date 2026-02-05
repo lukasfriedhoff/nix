@@ -43,6 +43,7 @@ in
     builtins.elem (lib.getName pkg) [
       "cuda-merged"
       "open-webui"
+      "cuda_cuobjdump"
     ];
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
