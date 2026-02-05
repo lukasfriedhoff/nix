@@ -258,7 +258,7 @@ in
   # Needed by cephadm to satisfy asyncssh dependency for health checks.
   environment.systemPackages = with pkgs; [
     python3Packages.asyncssh
-    nvtop
+    nvtopPackages.full
   ];
 
   networking.firewall.allowedTCPPorts = [ 4243 ];
