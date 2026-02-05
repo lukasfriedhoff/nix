@@ -6,6 +6,10 @@
 }:
 
 {
+  home.sessionVariables = {
+    OLLAMA_HOST = "http://srv1.lab.h4xx.io:11434";
+  };
+
   home.packages = lib.mkAfter [
     pkgs.podman
     pkgs.btop
@@ -14,10 +18,10 @@
   programs.oh-my-opencode = {
     enable = true;
     subscriptions = {
-      claude = "yes";
-      openai = "yes";
+      claude = "no";
+      openai = "no";
       gemini = "no";
-      copilot = "yes";
+      copilot = "no";
       opencodeZen = "no";
       zaiCodingPlan = "no";
     };
