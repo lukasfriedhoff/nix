@@ -268,7 +268,7 @@ in
 
     [Service]
     TimeoutStartSec=900
-    ExecStartPre=-/run/current-system/sw/bin/podman --force WolfPulseAudio
+    ExecStartPre=-/run/current-system/sw/bin/podman rm --force WolfPulseAudio
     Restart=on-failure
     RestartSec=5
     StartLimitBurst=5
