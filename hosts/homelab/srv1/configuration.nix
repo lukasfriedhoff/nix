@@ -149,6 +149,11 @@ in
     };
   };
 
+  lukasf.wolf = {
+    enable = true;
+    openFirewall = true;
+  };
+
   lukasf.ceph = {
     enable = true;
     monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
@@ -259,42 +264,4 @@ in
     # srv1 srv1.lab.h4xx.io 10.1.30.12
   '';
 
-  systemd.tmpfiles.rules = [
-    "d /etc/wolf 0755 root root -"
-  ];
-
-  # Podman quadlet for Wolf (Games on Whales) container
-  environment.etc."containers/systemd/wolf.container".text = ''
-    [Unit]
-    Description=Wolf / Games On Whales
-    Requires=network-online.target podman.socket
-    After=network-online.target podman.socket
-
-    [Service]
-    TimeoutStartSec=900
-    ExecStartPre=-/run/current-system/sw/bin/podman rm --force WolfPulseAudio
-    Restart=on-failure
-    RestartSec=5
-    StartLimitBurst=5
-
-    [Container]
-    AutoUpdate=registry
-    ContainerName=%p
-    HostName=%p
-    Image=ghcr.io/games-on-whales/wolf:stable
-    Network=host
-    SecurityLabelDisable=true
-    PodmanArgs=--ipc=host --device-cgroup-rule "c 13:* rmw"
-    AddDevice=/dev/dri
-    AddDevice=/dev/uinput
-    AddDevice=/dev/uhid
-    Volume=/dev/:/dev/:rw
-    Volume=/run/udev:/run/udev:rw
-    Volume=/etc/wolf/:/etc/wolf:z
-    Volume=/run/podman/podman.sock:/var/run/docker.sock:ro
-    Environment=WOLF_STOP_CONTAINER_ON_EXIT=TRUE
-
-    [Install]
-    WantedBy=multi-user.target
-  '';
 }
