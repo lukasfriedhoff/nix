@@ -27,6 +27,76 @@ let
       (
         lib.filterAttrs (_: v: v.host == hostName && v.purpose == "ceph" && v ? lockboxKeyFile) homelabDisks
       );
+  allowUnfreePackages = [
+    "open-webui"
+    "cuda-merged"
+    # CUDA toolkit (pkgs.cudaPackages) unfree packages
+    "cuda-samples"
+    "cuda_cccl"
+    "cuda_compat"
+    "cuda_crt"
+    "cuda_ctadvisor"
+    "cuda_cudart"
+    "cuda_culibos"
+    "cuda_cuobjdump"
+    "cuda_cupti"
+    "cuda_cuxxfilt"
+    "cuda_demo_suite"
+    "cuda_documentation"
+    "cuda_gdb"
+    "cuda_nsight"
+    "cuda_nvcc"
+    "cuda_nvdisasm"
+    "cuda_nvml_dev"
+    "cuda_nvprof"
+    "cuda_nvprune"
+    "cuda_nvrtc"
+    "cuda_nvtx"
+    "cuda_nvvp"
+    "cuda_opencl"
+    "cuda_profiler_api"
+    "cuda_sanitizer_api"
+    "cudatoolkit"
+    "cudnn"
+    "cuquantum"
+    "fabricmanager"
+    "imex"
+    "libcublas"
+    "libcublasmp"
+    "libcudla"
+    "libcudss"
+    "libcufft"
+    "libcufile"
+    "libcurand"
+    "libcusolver"
+    "libcusolvermp"
+    "libcusparse"
+    "libcusparse_lt"
+    "libcutensor"
+    "libnpp"
+    "libnpp_plus"
+    "libnvfatbin"
+    "libnvjitlink"
+    "libnvjpeg"
+    "libnvjpeg_2k"
+    "libnvptxcompiler"
+    "libnvshmem"
+    "libnvtiff"
+    "libnvvm"
+    "nsight_compute"
+    "nsight_systems"
+    "nvcomp"
+    "nvidia_fs"
+    "nvpl_blas"
+    "nvpl_common"
+    "nvpl_fft"
+    "nvpl_lapack"
+    "nvpl_rand"
+    "nvpl_scalapack"
+    "nvpl_sparse"
+    "nvpl_tensor"
+    "tensorrt"
+  ];
 in
 {
   imports = [
@@ -38,13 +108,7 @@ in
   ];
 
   networking.hostName = hostName;
-  nixpkgs.config.allowUnfreePredicate =
-    pkg:
-    builtins.elem (lib.getName pkg) [
-      "cuda-merged"
-      "open-webui"
-      "cuda_cuobjdump"
-    ];
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) allowUnfreePackages;
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
