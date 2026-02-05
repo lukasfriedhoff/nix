@@ -612,6 +612,9 @@ in
       };
       # Ensure manager state directory exists and is writable.
       systemd.services."ceph-mgr@" = {
+        environment = {
+          PYTHONPATH = "${pythonWithCephadmDeps}/${pythonSite}";
+        };
         serviceConfig = {
           ExecStart = lib.mkForce "${cfg.package}/bin/ceph-mgr -f --id %i --setuser ceph --setgroup ceph";
           ExecStartPre = [
@@ -644,8 +647,24 @@ in
           };
       # Explicitly enable the mon/mgr instances on the current host so they
       # start after reboot without cephadm managing them.
-      systemd.services."ceph-mon@${hostName}".enable = lib.mkDefault true;
-      systemd.services."ceph-mgr@${hostName}".enable = lib.mkDefault true;
+      systemd.services."ceph-mon@${hostName}" = {
+        enable = lib.mkDefault true;
+        wantedBy = lib.mkDefault [ "multi-user.target" ];
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+      };
+      systemd.services."ceph-mgr@${hostName}" = {
+        enable = lib.mkDefault true;
+        wantedBy = lib.mkDefault [ "multi-user.target" ];
+        after = [
+          "network-online.target"
+          "ceph-mon@${hostName}.service"
+        ];
+        wants = [
+          "network-online.target"
+          "ceph-mon@${hostName}.service"
+        ];
+      };
 
       networking.firewall = lib.mkIf cfg.openFirewall {
         allowedTCPPorts = [
@@ -751,8 +770,8 @@ in
               done
 
               if [ -z "$connect_addrs" ]; then
-                echo "ceph public network: unable to connect to mon for config update" >&2
-                exit 1
+                echo "ceph public network: unable to connect to mon for config update; skipping" >&2
+                exit 0
               fi
 
               "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" \
@@ -1563,6 +1582,8 @@ in
               ${lib.optionalString allowPoolSizeOne ''
                 ceph_cmd config set mon mon_allow_pool_size_one true || true
                 ceph_cmd config set global mon_allow_pool_size_one true || true
+                ceph_cmd config set mon mon_warn_on_pool_no_redundancy false || true
+                ceph_cmd config set global mon_warn_on_pool_no_redundancy false || true
               ''}
 
               pools_json="$(ceph_cmd_timeout 20 osd pool ls --format json | sed -n '/^[[:space:]]*\\[/,$p' || true)"
@@ -1705,8 +1726,8 @@ in
               done
 
               if [ -z "$mon_dump" ]; then
-                echo "ceph mon update: unable to read monmap" >&2
-                exit 1
+                echo "ceph mon update: unable to read monmap; skipping" >&2
+                exit 0
               fi
 
               if [ -z "$mon" ]; then
@@ -1800,10 +1821,20 @@ in
                 fi
               }
 
-              fsid="$(ceph_cmd fsid 2>/dev/null || true)"
+              ceph_cmd_timeout() {
+                local timeout_secs="$1"
+                shift
+                if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                  timeout "$timeout_secs" "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+                else
+                  timeout "$timeout_secs" ${cephadm} shell -- ceph "$@"
+                fi
+              }
+
+              fsid="$(ceph_cmd_timeout 10 fsid 2>/dev/null || true)"
               if [ -z "$fsid" ]; then
-                echo "Failed to determine Ceph FSID" >&2
-                exit 1
+                echo "cephadm path: cluster not reachable; skipping" >&2
+                exit 0
               fi
 
               if [ -n "$fsid" ]; then
