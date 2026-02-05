@@ -146,6 +146,7 @@ in
     ui = {
       enable = true;
       host = "0.0.0.0";
+      port = 8081;
       openFirewall = true;
       ollamaUrl = "http://10.1.30.12:11434";
     };
