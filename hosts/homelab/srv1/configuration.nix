@@ -145,7 +145,7 @@ in
       enable = true;
       host = "0.0.0.0";
       openFirewall = true;
-      ollamaUrl = "http://127.0.0.1:11434";
+      ollamaUrl = "http://10.1.30.12:11434";
     };
   };
 
