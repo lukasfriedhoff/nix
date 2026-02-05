@@ -243,7 +243,7 @@ in
   '';
 
   # Podman quadlet for Wolf (Games on Whales) container
-  environment.etc."containers/systemd/Wolf.container".text = ''
+  environment.etc."containers/systemd/wolf.container".text = ''
     [Unit]
     Description=Wolf / Games On Whales
     Requires=network-online.target podman.socket
@@ -251,7 +251,7 @@ in
 
     [Service]
     TimeoutStartSec=900
-    ExecStartPre=-/usr/bin/podman rm --force WolfPulseAudio
+    ExecStartPre=-/run/current-system/sw/bin/podman --force WolfPulseAudio
     Restart=on-failure
     RestartSec=5
     StartLimitBurst=5
