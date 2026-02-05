@@ -38,6 +38,11 @@ in
   ];
 
   networking.hostName = hostName;
+  nixpkgs.config.allowUnfreePredicate =
+    pkg:
+    builtins.elem (lib.getName pkg) [
+      "open-webui"
+    ];
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
@@ -131,6 +136,18 @@ in
   lukasf.serverDeployment.enableComin = true;
 
   lukasf.seaweedfs.enable = false;
+
+  lukasf.ollama = {
+    enable = true;
+    host = "0.0.0.0";
+    openFirewall = true;
+    ui = {
+      enable = true;
+      host = "0.0.0.0";
+      openFirewall = true;
+      ollamaUrl = "http://127.0.0.1:11434";
+    };
+  };
 
   lukasf.ceph = {
     enable = true;
