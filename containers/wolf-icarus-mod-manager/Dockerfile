@@ -21,6 +21,7 @@ ARG REQUIRED_PACKAGES=" \
     mesa-vulkan-drivers \
     mesa-vulkan-drivers:i386 \
     p7zip-full \
+    unzip \
     wine-stable \
     wine32 \
     wine64 \
