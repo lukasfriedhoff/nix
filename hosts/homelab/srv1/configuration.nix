@@ -560,6 +560,9 @@ in
     cacheUrl = "http://127.0.0.1:5000";
   };
 
+  # Avoid self-SSH remote builds; let comin build locally on srv1.
+  lukasf.remoteBuilds.enable = false;
+
   lukasf.serverDeployment.enableComin = true;
 
   lukasf.seaweedfs.enable = false;
