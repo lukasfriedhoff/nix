@@ -28,7 +28,11 @@
     defaultRenderer = "nvidia";
   };
 
-  lukasf.ollama.enable = true;
+  lukasf.ollama = {
+    enable = true;
+    autoStart = false;
+    ui.autoStart = false;
+  };
   lukasf.protonvpn.enable = true;
   lukasf.tuxedoControlCenter.enable = true;
 

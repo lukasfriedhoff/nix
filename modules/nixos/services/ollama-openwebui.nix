@@ -21,6 +21,11 @@ in
 {
   options.lukasf.ollama = {
     enable = lib.mkEnableOption "Ollama server with Open-WebUI frontend";
+    autoStart = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Start the Ollama systemd service at boot (disable for on-demand use).";
+    };
 
     package = lib.mkPackageOption pkgs "ollama" { };
     host = lib.mkOption {
@@ -76,6 +81,11 @@ in
         type = lib.types.bool;
         default = true;
         description = "Enable Open-WebUI as a frontend for Ollama.";
+      };
+      autoStart = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Start the Open-WebUI systemd service at boot (disable for on-demand use).";
       };
       package = lib.mkPackageOption pkgs "open-webui" { };
       host = lib.mkOption {
@@ -147,6 +157,14 @@ in
           OLLAMA_API_BASE_URL = resolvedOllamaUrl;
         }
         // cfg.ui.environment;
+      };
+
+      systemd.services.ollama = lib.mkIf (!cfg.autoStart) {
+        wantedBy = lib.mkForce [ ];
+      };
+
+      systemd.services.open-webui = lib.mkIf (cfg.ui.enable && !cfg.ui.autoStart) {
+        wantedBy = lib.mkForce [ ];
       };
     }
   );
