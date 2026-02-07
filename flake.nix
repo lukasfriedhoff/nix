@@ -47,7 +47,12 @@
       ];
 
       perSystem =
-        { system, pkgs, ... }:
+        {
+          system,
+          pkgs,
+          lib,
+          ...
+        }:
         {
           _module.args.pkgs = import nixpkgs {
             inherit system;
@@ -56,6 +61,10 @@
           };
 
           formatter = pkgs.nixfmt or pkgs.nixfmt-classic;
+
+          packages = lib.optionalAttrs pkgs.stdenv.isLinux {
+            tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
+          };
 
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
