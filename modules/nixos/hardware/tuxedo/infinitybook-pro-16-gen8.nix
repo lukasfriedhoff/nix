@@ -16,6 +16,11 @@
   hardware.sensor.iio.enable = true;
   hardware.bluetooth.enable = true;
 
+  hardware.tuxedo-rs = {
+    enable = true;
+    tailor-gui.enable = true;
+  };
+
   programs.light.enable = true;
 
   # Graphics: Intel iGPU + NVIDIA RTX 4070 Max-Q (01:00.0)
