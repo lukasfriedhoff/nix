@@ -30,6 +30,7 @@
 
   lukasf.ollama.enable = true;
   lukasf.protonvpn.enable = true;
+  lukasf.tuxedoControlCenter.enable = true;
 
   desktop.wireguardHomelab = {
     enable = true;
@@ -41,6 +42,7 @@
     owner = "root";
     format = "binary";
     mode = "0400";
+    path = "/var/lib/sops-nix/ssh/srv1-builder-key";
   };
 
   lukasf.nixCache = {
@@ -80,6 +82,7 @@
   # Ensure ~/.ceph exists for the user keyring.
   systemd.tmpfiles.rules = [
     "d /home/lukasf/.ceph 0700 lukasf users -"
+    "d /var/lib/sops-nix/ssh 0700 root root -"
   ];
 
   # Minimal Ceph config for user tools (defaults to srv1 mon on 3300).
