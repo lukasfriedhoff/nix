@@ -2173,6 +2173,7 @@ in
                 ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}"
               fi
 
+              ceph_cmd mgr module disable cephadm >/dev/null 2>&1 || true
               ceph_cmd mgr module enable cephadm >/dev/null 2>&1 || true
               ceph_cmd config set mgr mgr/orchestrator/orchestrator cephadm >/dev/null 2>&1 || true
               if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
