@@ -218,6 +218,20 @@ in
 
     package = lib.mkPackageOption pkgs "ceph" { };
 
+    user = {
+      uid = lib.mkOption {
+        type = lib.types.int;
+        default = 167;
+        description = "UID for the ceph user (matches cephadm container user).";
+      };
+
+      gid = lib.mkOption {
+        type = lib.types.int;
+        default = 167;
+        description = "GID for the ceph group (matches cephadm container group).";
+      };
+    };
+
     wrapRuntimeDeps = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -698,9 +712,12 @@ in
 
       virtualisation.podman.enable = true;
 
-      users.groups.ceph = { };
+      users.groups.ceph = {
+        gid = cfg.user.gid;
+      };
       users.users.ceph = {
         isSystemUser = true;
+        uid = cfg.user.uid;
         group = "ceph";
         home = "/var/lib/ceph";
         shell = "${pkgs.shadow}/bin/nologin";
