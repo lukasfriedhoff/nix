@@ -749,10 +749,15 @@ in
               install -d -m0755 -o ceph -g ceph /var/lib/ceph/mon "/var/lib/ceph/''${fsid}"
               mon_src="/var/lib/ceph/''${fsid}/mon.''${host}"
               mon_link="/var/lib/ceph/mon/ceph-''${host}"
+              fs_root="/var/lib/ceph/''${fsid}"
               if [ -d "''${mon_src}" ] && [ ! -e "''${mon_link}" ]; then
                 ln -s "''${mon_src}" "''${mon_link}"
               fi
               chown -h ceph:ceph "''${mon_link}" "''${mon_src}" 2>/dev/null || true
+              if [ -d "''${fs_root}" ]; then
+                chown ceph:ceph "''${fs_root}" || true
+                chmod 0755 "''${fs_root}" || true
+              fi
               if [ -d "''${mon_src}" ]; then
                 chown -R ceph:ceph "''${mon_src}" || true
                 if [ -f "''${mon_src}/keyring" ]; then
