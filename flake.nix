@@ -71,6 +71,7 @@
               git
               nixfmt
               sops
+              sysstat
             ];
           };
         };
