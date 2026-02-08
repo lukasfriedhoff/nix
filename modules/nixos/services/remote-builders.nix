@@ -14,6 +14,15 @@ let
     optionalAttrs
     types
     ;
+
+  localHostNames = [
+    config.networking.hostName
+  ]
+  ++ lib.optional (
+    config.networking.domain != null && config.networking.domain != ""
+  ) "${config.networking.hostName}.${config.networking.domain}";
+
+  skipLocalBuilder = cfg.skipLocalBuilder && lib.elem cfg.hostName localHostNames;
 in
 {
   options.lukasf.remoteBuilds = {
@@ -95,43 +104,55 @@ in
       default = 4;
       description = "Max parallel jobs for local builds when fallback is enabled.";
     };
-  };
 
-  config = mkIf cfg.enable {
-    nix = {
-      distributedBuilds = true;
-      settings = {
-        builders-use-substitutes = true;
-        # Allow local builds as fallback when remote builder is unavailable
-        max-jobs = lib.mkIf cfg.fallbackToLocal cfg.localMaxJobs;
-      };
-      buildMachines = [
-        (
-          {
-            hostName = cfg.hostName;
-            system = cfg.system;
-            sshUser = cfg.sshUser;
-            maxJobs = cfg.maxJobs;
-            speedFactor = cfg.speedFactor;
-            supportedFeatures = cfg.supportedFeatures;
-            mandatoryFeatures = cfg.mandatoryFeatures;
-          }
-          // optionalAttrs (cfg.sshKeyFile != null) {
-            sshKey = cfg.sshKeyFile;
-          }
-          // optionalAttrs (cfg.publicHostKey != null) {
-            publicHostKey = cfg.publicHostKey;
-          }
-        )
-      ];
+    skipLocalBuilder = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Skip configuring a remote builder when the builder host resolves to this machine.";
     };
-
-    # Configure SSH with connection timeout for the builder
-    programs.ssh.extraConfig = ''
-      Host ${cfg.hostName}
-        ConnectTimeout ${toString cfg.connectTimeout}
-        ServerAliveInterval 10
-        ServerAliveCountMax 3
-    '';
   };
+
+  config = mkIf cfg.enable (
+    lib.mkMerge [
+      {
+        nix = {
+          distributedBuilds = lib.mkDefault (!skipLocalBuilder);
+          settings = {
+            builders-use-substitutes = true;
+            # Allow local builds as fallback when remote builder is unavailable
+            max-jobs = lib.mkIf cfg.fallbackToLocal cfg.localMaxJobs;
+          };
+        };
+      }
+      (mkIf (!skipLocalBuilder) {
+        nix.buildMachines = [
+          (
+            {
+              hostName = cfg.hostName;
+              system = cfg.system;
+              sshUser = cfg.sshUser;
+              maxJobs = cfg.maxJobs;
+              speedFactor = cfg.speedFactor;
+              supportedFeatures = cfg.supportedFeatures;
+              mandatoryFeatures = cfg.mandatoryFeatures;
+            }
+            // optionalAttrs (cfg.sshKeyFile != null) {
+              sshKey = cfg.sshKeyFile;
+            }
+            // optionalAttrs (cfg.publicHostKey != null) {
+              publicHostKey = cfg.publicHostKey;
+            }
+          )
+        ];
+
+        # Configure SSH with connection timeout for the builder
+        programs.ssh.extraConfig = ''
+          Host ${cfg.hostName}
+            ConnectTimeout ${toString cfg.connectTimeout}
+            ServerAliveInterval 10
+            ServerAliveCountMax 3
+        '';
+      })
+    ]
+  );
 }
