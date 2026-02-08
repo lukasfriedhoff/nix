@@ -736,12 +736,23 @@ in
           pkgs.shadow
           pkgs.coreutils
           pkgs.glibc.getent
+          pkgs.systemd
         ];
         script = ''
           set -euo pipefail
 
           target_uid=${toString cfg.user.uid}
           target_gid=${toString cfg.user.gid}
+          stopped_units=0
+
+          stop_ceph_units() {
+            systemctl stop 'ceph-mon@*.service' 'ceph-mgr@*.service' 'ceph-osd@*.service' >/dev/null 2>&1 || true
+            stopped_units=1
+          }
+
+          start_ceph_units() {
+            systemctl start 'ceph-mon@*.service' 'ceph-mgr@*.service' 'ceph-osd@*.service' >/dev/null 2>&1 || true
+          }
 
           current_uid="$(id -u ceph 2>/dev/null || true)"
           current_gid="$(getent group ceph | cut -d: -f3 || true)"
@@ -762,7 +773,11 @@ in
             if getent passwd "$target_uid" | grep -qv '^ceph:'; then
               echo "ceph-user-sync: uid $target_uid already used by another user" >&2
             else
-              usermod -u "$target_uid" -g "$target_gid" ceph
+              if ! usermod -u "$target_uid" -g "$target_gid" ceph; then
+                echo "ceph-user-sync: usermod failed; stopping ceph services and retrying" >&2
+                stop_ceph_units
+                usermod -u "$target_uid" -g "$target_gid" ceph || true
+              fi
             fi
           fi
 
@@ -771,6 +786,10 @@ in
               chown -R ceph:ceph "$dir" || true
             fi
           done
+
+          if [ "$stopped_units" -eq 1 ]; then
+            start_ceph_units
+          fi
         '';
       };
 
