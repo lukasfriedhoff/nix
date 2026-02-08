@@ -63,6 +63,7 @@
           formatter = pkgs.nixfmt or pkgs.nixfmt-classic;
 
           packages = lib.optionalAttrs pkgs.stdenv.isLinux {
+            ceph-wrapped = pkgs.callPackage ./pkgs/ceph-wrapped { };
             tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
           };
 

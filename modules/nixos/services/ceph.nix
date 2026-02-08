@@ -102,11 +102,17 @@ let
     ps.requests
     ps.six
     ps.urllib3
+    ps.werkzeug
   ]);
   pythonSite = pkgs.python3.sitePackages;
+  cephRuntimePkg =
+    if cfg.wrapRuntimeDeps then
+      pkgs.callPackage ../../../pkgs/ceph-wrapped { ceph = cfg.package; }
+    else
+      cfg.package;
   cephWithCephadmDeps = pkgs.symlinkJoin {
-    name = "${cfg.package.name}-with-cephadm-deps";
-    paths = [ cfg.package ];
+    name = "${cephRuntimePkg.name}-with-cephadm-deps";
+    paths = [ cephRuntimePkg ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
     postBuild = ''
       if [ -x "$out/bin/cephadm" ]; then
@@ -115,7 +121,7 @@ let
       fi
     '';
   };
-  cephPkg = if cfg.cephadm.wrapCephadm then cephWithCephadmDeps else cfg.package;
+  cephPkg = if cfg.cephadm.wrapCephadm then cephWithCephadmDeps else cephRuntimePkg;
   cephadmBin = pkgs.writeShellScriptBin "cephadm-with-deps" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
     exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
@@ -211,6 +217,15 @@ in
     enable = lib.mkEnableOption "Ceph (cephadm/ceph-volume)";
 
     package = lib.mkPackageOption pkgs "ceph" { };
+
+    wrapRuntimeDeps = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Wrap Ceph helper binaries with a PATH that includes runtime tools
+        like modprobe, mount/fusermount, lsblk/lvs, and smartctl.
+      '';
+    };
 
     openFirewall = lib.mkOption {
       type = lib.types.bool;
