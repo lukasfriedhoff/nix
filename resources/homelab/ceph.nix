@@ -53,6 +53,36 @@
           minSize = 2;
         }
       ];
+      cephfs = [
+        {
+          name = "ssd-cephfs";
+          metadataPool = {
+            name = "ssd-cephfs-meta-3r";
+            size = 3;
+            minSize = 2;
+          };
+          dataPools = [
+            {
+              name = "ssd-cephfs-1r";
+              size = 1;
+              minSize = 1;
+            }
+            {
+              name = "ssd-cephfs-2r";
+              size = 2;
+              minSize = 1;
+            }
+            {
+              name = "ssd-cephfs-3r";
+              size = 3;
+              minSize = 2;
+            }
+          ];
+          mds = {
+            count = 1;
+          };
+        }
+      ];
       kvmPools = [
         {
           name = "ceph-images";
