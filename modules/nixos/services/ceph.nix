@@ -753,6 +753,12 @@ in
                 ln -s "''${mon_src}" "''${mon_link}"
               fi
               chown -h ceph:ceph "''${mon_link}" "''${mon_src}" 2>/dev/null || true
+              if [ -d "''${mon_src}" ]; then
+                chown -R ceph:ceph "''${mon_src}" || true
+                if [ -f "''${mon_src}/keyring" ]; then
+                  chmod 0600 "''${mon_src}/keyring" || true
+                fi
+              fi
             '')
           ];
         };
