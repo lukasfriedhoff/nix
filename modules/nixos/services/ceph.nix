@@ -735,7 +735,7 @@ in
         path = [
           pkgs.shadow
           pkgs.coreutils
-          pkgs.glibc.bin
+          pkgs.glibc.getent
         ];
         script = ''
           set -euo pipefail
