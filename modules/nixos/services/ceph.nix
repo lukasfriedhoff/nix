@@ -104,17 +104,29 @@ let
     ps.urllib3
   ]);
   pythonSite = pkgs.python3.sitePackages;
+  cephWithCephadmDeps = pkgs.symlinkJoin {
+    name = "${cfg.package.name}-with-cephadm-deps";
+    paths = [ cfg.package ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      if [ -x "$out/bin/cephadm" ]; then
+        wrapProgram "$out/bin/cephadm" \
+          --set PYTHONPATH "${pythonWithCephadmDeps}/${pythonSite}"
+      fi
+    '';
+  };
+  cephPkg = if cfg.cephadm.wrapCephadm then cephWithCephadmDeps else cfg.package;
   cephadmBin = pkgs.writeShellScriptBin "cephadm-with-deps" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
-    exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
+    exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   cephadm = "${cephadmBin}/bin/cephadm-with-deps";
   cephadmOrch = pkgs.writeShellScriptBin "cephadm-orch" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
-    exec ${cfg.package}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
+    exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
-  cephadmMgrPath = "/var/log/ceph/cephadm-orch";
+  cephadmMgrPath = "/run/ceph/cephadm-orch";
   cephadmMgrWrapper = pkgs.writeTextFile {
     name = "cephadm-orch-wrapper.py";
     executable = true;
@@ -273,6 +285,12 @@ in
         type = lib.types.nullOr lib.types.str;
         default = "/run/systemd/system";
         description = "Directory where cephadm installs systemd units on the host.";
+      };
+
+      wrapCephadm = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Wrap cephadm with Python dependencies to avoid missing-module errors.";
       };
     };
 
@@ -655,7 +673,7 @@ in
       ];
 
       environment.systemPackages = [
-        cfg.package
+        cephPkg
         pkgs.python3
         pkgs.cryptsetup
         pkgs.lvm2
@@ -692,7 +710,7 @@ in
       ];
 
       # Ship upstream ceph-* unit templates (mon/mgr/osd) so ExecStart is present.
-      systemd.packages = lib.mkIf cfg.enable [ cfg.package ];
+      systemd.packages = lib.mkIf cfg.enable [ cephPkg ];
       systemd.services."ceph-osd@" = {
         path = [
           pkgs.coreutils
@@ -703,7 +721,7 @@ in
       # Ensure /run/ceph exists and is writable by the ceph user before mon starts.
       systemd.services."ceph-mon@" = {
         serviceConfig = {
-          ExecStart = lib.mkForce "${cfg.package}/bin/ceph-mon -f --id %i --setuser ceph --setgroup ceph";
+          ExecStart = lib.mkForce "${cephPkg}/bin/ceph-mon -f --id %i --setuser ceph --setgroup ceph";
           ExecStartPre = [
             "${pkgs.coreutils}/bin/mkdir -p /run/ceph"
             "${pkgs.coreutils}/bin/chown ceph:ceph /run/ceph"
@@ -730,7 +748,7 @@ in
           PYTHONPATH = "${pythonWithCephadmDeps}/${pythonSite}";
         };
         serviceConfig = {
-          ExecStart = lib.mkForce "${cfg.package}/bin/ceph-mgr -f --id %i --setuser ceph --setgroup ceph";
+          ExecStart = lib.mkForce "${cephPkg}/bin/ceph-mgr -f --id %i --setuser ceph --setgroup ceph";
           ExecStartPre = [
             (pkgs.writeShellScript "ceph-mgr-prepare-paths" ''
               set -euo pipefail
@@ -858,7 +876,7 @@ in
                 echo "ceph public network: missing admin keyring at $keyring" >&2
                 exit 1
               fi
-              ceph_bin="${cfg.package}/bin/ceph"
+              ceph_bin="${cephPkg}/bin/ceph"
               format_addrs() {
                 local host="$1"
                 case "$host" in
@@ -936,7 +954,7 @@ in
                               fi
 
                               keyring="/etc/ceph/ceph.client.admin.keyring"
-                              ceph_bin="${cfg.package}/bin/ceph"
+                              ceph_bin="${cephPkg}/bin/ceph"
                               connect_addrs=""
                               format_addrs() {
                                 local host="$1"
@@ -1093,8 +1111,8 @@ in
                   dmcryptFlag = lib.optionalString cfg.osd.encrypted "--dmcrypt";
                   zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
                   deviceList = lib.concatStringsSep " " cfg.osd.devices;
-                  cephVolume = "${cfg.package}/bin/ceph-volume";
-                  cephBin = "${cfg.package}/bin/ceph";
+                  cephVolume = "${cephPkg}/bin/ceph-volume";
+                  cephBin = "${cephPkg}/bin/ceph";
                   adminKeyring = "/etc/ceph/ceph.client.admin.keyring";
                   bootstrapKeyring = "/var/lib/ceph/bootstrap-osd/ceph.keyring";
                 in
@@ -1189,7 +1207,7 @@ in
           ExecStart = pkgs.writeShellScript "ceph-volume-osd-activate" ''
             set -euo pipefail
             admin_keyring="/etc/ceph/ceph.client.admin.keyring"
-            ceph_bin="${cfg.package}/bin/ceph"
+            ceph_bin="${cephPkg}/bin/ceph"
             if [ -s "$admin_keyring" ]; then
               for osd_dir in /var/lib/ceph/osd/ceph-*; do
                 if [ ! -d "$osd_dir" ]; then
@@ -1215,7 +1233,7 @@ in
                       >/dev/null 2>&1 || true
               done
             fi
-                if ! ${cfg.package}/bin/ceph-volume lvm activate --all --no-systemd; then
+                if ! ${cephPkg}/bin/ceph-volume lvm activate --all --no-systemd; then
                   echo "ceph-volume activation failed; keeping system activation healthy" >&2
                   exit 0
                 fi
@@ -1270,7 +1288,7 @@ in
         };
         path = [
           pkgs.coreutils
-          cfg.package
+          cephPkg
         ];
         script =
           let
@@ -1330,7 +1348,7 @@ in
           pkgs.gnutar
           pkgs.gzip
           pkgs.openssl
-          cfg.package
+          cephPkg
         ];
         script =
           let
@@ -1634,7 +1652,7 @@ in
             pkgs.writeShellScript "cephadm-pools" ''
               set -euo pipefail
               keyring="/etc/ceph/ceph.client.admin.keyring"
-              ceph_bin="${cfg.package}/bin/ceph"
+              ceph_bin="${cephPkg}/bin/ceph"
               connect_addrs=""
               format_addrs() {
                 local host="$1"
@@ -1777,6 +1795,7 @@ in
               lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
             v1Port = cfg.monUpdate.v1Port;
             v2Port = cfg.monUpdate.v2Port;
+            hasMds = lib.any (fs: fs.mds.enable) cfg.cephfs;
             fsCommands = lib.concatMapStringsSep "\n" (
               fs:
               let
@@ -1830,7 +1849,10 @@ in
                     placement_arg="$mds_count"
                   fi
                   if [ -n "$placement_arg" ]; then
-                    ceph_cmd orch apply mds "$fs_name" --placement "$placement_arg" || true
+                    if ! ceph_cmd orch apply mds "$fs_name" --placement "$placement_arg"; then
+                      echo "cephfs: unable to apply MDS placement for $fs_name; check cephadm/orchestrator health" >&2
+                      exit 1
+                    fi
                   fi
                 fi
               ''
@@ -1839,7 +1861,7 @@ in
           ''
             set -euo pipefail
             keyring="/etc/ceph/ceph.client.admin.keyring"
-            ceph_bin="${cfg.package}/bin/ceph"
+            ceph_bin="${cephPkg}/bin/ceph"
             connect_addrs=""
             format_addrs() {
               local host="$1"
@@ -1916,6 +1938,17 @@ in
             PY
             }
 
+            if [ "${lib.boolToString hasMds}" = "true" ]; then
+              if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
+                ceph_cmd mgr module enable cephadm >/dev/null 2>&1 || true
+                ceph_cmd config set mgr mgr/orchestrator/orchestrator cephadm >/dev/null 2>&1 || true
+              fi
+              if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
+                echo "cephadm-cephfs: orchestrator commands unavailable; check cephadm_path permissions" >&2
+                exit 1
+              fi
+            fi
+
             ${fsCommands}
           '';
       };
@@ -1959,7 +1992,7 @@ in
                 echo "ceph mon update: missing admin keyring at $keyring" >&2
                 exit 1
               fi
-              ceph_bin="${cfg.package}/bin/ceph"
+              ceph_bin="${cephPkg}/bin/ceph"
               format_addrs() {
                 local host="$1"
                 case "$host" in
@@ -2077,7 +2110,7 @@ in
             pkgs.writeShellScript "cephadm-cephadm-path" ''
               set -euo pipefail
               keyring="/etc/ceph/ceph.client.admin.keyring"
-              ceph_bin="${cfg.package}/bin/ceph"
+              ceph_bin="${cephPkg}/bin/ceph"
               connect_addrs=""
               format_addrs() {
                 local host="$1"
@@ -2128,9 +2161,9 @@ in
               fi
 
               if [ -n "$fsid" ]; then
-                cephadm_path="/var/log/ceph/$fsid/cephadm-orch"
-                install -D -m 0755 ${cephadmMgrWrapper} "$cephadm_path"
-                ln -sf "$cephadm_path" "${cephadmMgrPath}"
+                install -d -m 0755 -o ceph -g ceph /run/ceph
+                cephadm_path="${cephadmMgrPath}"
+                install -D -m 0755 -o ceph -g ceph ${cephadmMgrWrapper} "$cephadm_path"
               fi
 
               current="$(
@@ -2138,6 +2171,13 @@ in
               )"
               if [ "$current" != "${cephadmMgrPath}" ]; then
                 ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}"
+              fi
+
+              ceph_cmd mgr module enable cephadm >/dev/null 2>&1 || true
+              ceph_cmd config set mgr mgr/orchestrator/orchestrator cephadm >/dev/null 2>&1 || true
+              if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
+                echo "cephadm path: ceph orch unavailable after updating cephadm_path" >&2
+                exit 1
               fi
             '';
         };
