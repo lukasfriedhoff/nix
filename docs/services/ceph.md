@@ -116,6 +116,41 @@ lukasf.ceph.pools = [
 ];
 ```
 
+`lukasf.ceph.cephfs`:
+- `name` (string): filesystem name.
+- `metadataPool` (attrs): pool definition (name/size/minSize/pgNum) for CephFS metadata.
+- `dataPools` (list): pool definitions for CephFS data (first entry is primary).
+- `mds.enable` (bool, default true): manage MDS placement.
+- `mds.count` (int, default 1): number of active MDS daemons (also sets max_mds).
+- `mds.standbyCount` (int|null): standby_count_wanted (optional).
+- `mds.placement` (string|null): ceph orch placement string (overrides count).
+
+Example:
+
+```nix
+lukasf.ceph.cephfs = [
+  {
+    name = "k8s";
+    metadataPool = {
+      name = "k8s-cephfs-meta";
+      size = 1;
+      minSize = 1;
+    };
+    dataPools = [
+      {
+        name = "k8s-cephfs-data";
+        size = 1;
+        minSize = 1;
+      }
+    ];
+    mds = {
+      count = 1;
+      placement = "1";
+    };
+  }
+];
+```
+
 ## Adding storage (OSDs)
 
 Update your device list and re-deploy. When using `provisioner = "ceph-volume"`,

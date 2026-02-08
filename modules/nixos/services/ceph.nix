@@ -138,6 +138,61 @@ let
     host: port:
     if isNumericHost host then "v2:${host}:${toString port}" else "${host}:${toString port}";
   formatMonHosts = hosts: port: lib.concatMapStringsSep "," (host: formatMonHost host port) hosts;
+  cephfsPoolModule = lib.types.submodule (
+    { ... }:
+    {
+      options = {
+        name = lib.mkOption {
+          type = lib.types.str;
+          description = "Pool name.";
+        };
+
+        size = lib.mkOption {
+          type = lib.types.int;
+          default = 3;
+          description = "Replication size.";
+        };
+
+        minSize = lib.mkOption {
+          type = lib.types.nullOr lib.types.int;
+          default = null;
+          description = "Minimum replication size.";
+        };
+
+        pgNum = lib.mkOption {
+          type = lib.types.nullOr lib.types.int;
+          default = null;
+          description = "PG count.";
+        };
+      };
+    }
+  );
+  dedupPools =
+    pools:
+    (builtins.foldl'
+      (
+        acc: pool:
+        if lib.elem pool.name acc.names then
+          acc
+        else
+          {
+            names = acc.names ++ [ pool.name ];
+            pools = acc.pools ++ [ pool ];
+          }
+      )
+      {
+        names = [ ];
+        pools = [ ];
+      }
+      pools
+    ).pools;
+  cephfsPools =
+    let
+      poolWithApp = pool: pool // { application = "cephfs"; };
+      poolsForFs = fs: [ (poolWithApp fs.metadataPool) ] ++ map poolWithApp fs.dataPools;
+    in
+    lib.concatMap poolsForFs cfg.cephfs;
+  allPools = dedupPools (cfg.pools ++ cephfsPools);
 in
 {
   options.lukasf.ceph = {
@@ -261,6 +316,61 @@ in
       );
       default = [ ];
       description = "Ceph pools to create and configure.";
+    };
+
+    cephfs = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.submodule (
+          { ... }:
+          {
+            options = {
+              name = lib.mkOption {
+                type = lib.types.str;
+                description = "CephFS filesystem name.";
+              };
+
+              metadataPool = lib.mkOption {
+                type = cephfsPoolModule;
+                description = "Metadata pool configuration (application forced to cephfs).";
+              };
+
+              dataPools = lib.mkOption {
+                type = lib.types.listOf cephfsPoolModule;
+                default = [ ];
+                description = "Data pool configurations (first entry becomes the primary data pool).";
+              };
+
+              mds = {
+                enable = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                  description = "Manage MDS placement for this filesystem.";
+                };
+
+                count = lib.mkOption {
+                  type = lib.types.int;
+                  default = 1;
+                  description = "Number of active MDS daemons (also sets max_mds).";
+                };
+
+                standbyCount = lib.mkOption {
+                  type = lib.types.nullOr lib.types.int;
+                  default = null;
+                  description = "Desired standby MDS count (standby_count_wanted).";
+                };
+
+                placement = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = "Ceph orchestrator placement string for MDS daemons (overrides count when set).";
+                };
+              };
+            };
+          }
+        )
+      );
+      default = [ ];
+      description = "CephFS filesystems to create and configure.";
     };
 
     osd = {
@@ -537,6 +647,10 @@ in
         {
           assertion = (!cfg.backup.enable) || (cfg.backup.secretKeyFile != null);
           message = "lukasf.ceph.backup.secretKeyFile must be set when backups are enabled.";
+        }
+        {
+          assertion = lib.all (fs: fs.dataPools != [ ]) cfg.cephfs;
+          message = "lukasf.ceph.cephfs entries must define at least one data pool.";
         }
       ];
 
@@ -1487,7 +1601,7 @@ in
             deps = [ ];
           };
 
-      systemd.services.cephadm-pools = lib.mkIf (cfg.pools != [ ]) {
+      systemd.services.cephadm-pools = lib.mkIf (allPools != [ ]) {
         description = "Ceph pool setup";
         after = [
           "network-online.target"
@@ -1503,7 +1617,8 @@ in
           RemainAfterExit = true;
           ExecStart =
             let
-              allowPoolSizeOne = lib.any (pool: pool.size == 1) cfg.pools;
+              poolEntries = allPools;
+              allowPoolSizeOne = lib.any (pool: pool.size == 1) poolEntries;
               monCandidates =
                 let
                   rawCandidates = [
@@ -1624,10 +1739,185 @@ in
                                 ${lib.optionalString (pool.minSize != null) ''
                                   ceph_cmd osd pool set "${pool.name}" min_size ${toString pool.minSize}
                                 ''}
-                '') cfg.pools
+                '') poolEntries
               )}
             '';
         };
+      };
+
+      systemd.services.cephadm-cephfs = lib.mkIf (cfg.cephfs != [ ]) {
+        description = "CephFS setup";
+        after = [
+          "network-online.target"
+          "cephadm-cephadm-path.service"
+          "cephadm-bootstrap.service"
+          "cephadm-pools.service"
+        ];
+        wants = [
+          "network-online.target"
+          "cephadm-pools.service"
+        ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script =
+          let
+            monCandidates =
+              let
+                rawCandidates = [
+                  cfg.monUpdate.address
+                  cfg.bootstrap.monIp
+                ]
+                ++ cfg.monHosts;
+              in
+              lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
+            v1Port = cfg.monUpdate.v1Port;
+            v2Port = cfg.monUpdate.v2Port;
+            fsCommands = lib.concatMapStringsSep "\n" (
+              fs:
+              let
+                dataPools = fs.dataPools;
+                primaryDataPool = if dataPools == [ ] then null else builtins.head dataPools;
+                extraDataPools = if dataPools == [ ] then [ ] else lib.drop 1 dataPools;
+                primaryDataPoolName = if primaryDataPool == null then "" else primaryDataPool.name;
+                extraDataPoolsList = lib.concatMapStringsSep " " (pool: pool.name) extraDataPools;
+                metadataPoolName = fs.metadataPool.name;
+                mdsEnabled = lib.boolToString fs.mds.enable;
+                mdsCount = toString fs.mds.count;
+                mdsStandby = if fs.mds.standbyCount == null then "" else toString fs.mds.standbyCount;
+                mdsPlacement = if fs.mds.placement == null then "" else fs.mds.placement;
+              in
+              ''
+                # CephFS ${fs.name}
+                fs_name=${lib.escapeShellArg fs.name}
+                metadata_pool=${lib.escapeShellArg metadataPoolName}
+                primary_data_pool=${lib.escapeShellArg primaryDataPoolName}
+                extra_data_pools=${lib.escapeShellArg extraDataPoolsList}
+                mds_enable=${lib.escapeShellArg mdsEnabled}
+                mds_count=${lib.escapeShellArg mdsCount}
+                mds_standby=${lib.escapeShellArg mdsStandby}
+                mds_placement=${lib.escapeShellArg mdsPlacement}
+
+                if ! fs_exists "$fs_name"; then
+                  if [ -z "$primary_data_pool" ]; then
+                    echo "cephfs: $fs_name has no data pools configured" >&2
+                    exit 1
+                  fi
+                  ceph_cmd fs new "$fs_name" "$metadata_pool" "$primary_data_pool"
+                fi
+
+                for pool in $extra_data_pools; do
+                  if [ -n "$pool" ]; then
+                    if ! ceph_cmd fs add_data_pool "$fs_name" "$pool"; then
+                      echo "cephfs: add_data_pool $pool failed; continuing" >&2
+                    fi
+                  fi
+                done
+
+                if [ "$mds_enable" = "true" ]; then
+                  if [ -n "$mds_count" ]; then
+                    ceph_cmd fs set "$fs_name" max_mds "$mds_count" || true
+                  fi
+                  if [ -n "$mds_standby" ]; then
+                    ceph_cmd fs set "$fs_name" standby_count_wanted "$mds_standby" || true
+                  fi
+                  placement_arg="$mds_placement"
+                  if [ -z "$placement_arg" ]; then
+                    placement_arg="$mds_count"
+                  fi
+                  if [ -n "$placement_arg" ]; then
+                    ceph_cmd orch apply mds "$fs_name" --placement "$placement_arg" || true
+                  fi
+                fi
+              ''
+            ) cfg.cephfs;
+          in
+          ''
+            set -euo pipefail
+            keyring="/etc/ceph/ceph.client.admin.keyring"
+            ceph_bin="${cfg.package}/bin/ceph"
+            connect_addrs=""
+            format_addrs() {
+              local host="$1"
+              case "$host" in
+                (*[!0-9.:]*)
+                  printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  ;;
+                (*)
+                  printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  ;;
+              esac
+            }
+            if [ -s "$keyring" ]; then
+              for addr in ${monCandidates}; do
+                if [ -z "$addr" ]; then
+                  continue
+                fi
+                candidate_addrs="$(format_addrs "$addr")"
+                if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                  connect_addrs="$candidate_addrs"
+                  break
+                fi
+              done
+            fi
+
+            ceph_cmd() {
+              if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+              else
+                ${cephadm} shell -- ceph "$@"
+              fi
+            }
+
+            ceph_cmd_timeout() {
+              local timeout_secs="$1"
+              shift
+              if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                timeout "$timeout_secs" "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+              else
+                timeout "$timeout_secs" ${cephadm} shell -- ceph "$@"
+              fi
+            }
+
+            status_timeout=10
+            status_attempts=10
+            ready=0
+            for _ in $(seq 1 "$status_attempts"); do
+              if ceph_cmd_timeout "$status_timeout" status >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$ready" -ne 1 ]; then
+              echo "cephadm-cephfs: cluster not reachable; skipping filesystem setup" >&2
+              exit 0
+            fi
+
+            fs_list_json="$(ceph_cmd_timeout 20 fs ls --format json 2>/dev/null || echo '[]')"
+            fs_exists() {
+              local name="$1"
+              printf '%s' "$fs_list_json" | ${python} - "$name" <<'PY' || return 1
+            import json, sys
+            name = sys.argv[1]
+            try:
+                data = json.load(sys.stdin)
+            except Exception:
+                sys.exit(1)
+            for entry in data:
+                if entry.get("name") == name:
+                    sys.exit(0)
+            sys.exit(1)
+            PY
+            }
+
+            ${fsCommands}
+          '';
       };
 
       systemd.services.cephadm-mon-update = lib.mkIf cfg.monUpdate.enable {
