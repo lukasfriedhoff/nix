@@ -41,11 +41,364 @@ let
     "WOLF_STOP_CONTAINER_ON_EXIT=TRUE"
   ];
 
+  defaultAppCatalog = {
+    ui = {
+      title = "Wolf UI";
+      icon_png_path = "https://raw.githubusercontent.com/games-on-whales/wolf-ui/refs/heads/main/src/Icons/wolf_ui_icon.png";
+      start_virtual_compositor = true;
+      runner = {
+        type = "docker";
+        name = "Wolf-UI";
+        image = "ghcr.io/games-on-whales/wolf-ui:main";
+        mounts = [
+          "/var/run/wolf/wolf.sock:/var/run/wolf/wolf.sock"
+        ];
+        env = [
+          "GOW_REQUIRED_DEVICES=/dev/input/event* /dev/dri/* /dev/nvidia*"
+          "WOLF_SOCKET_PATH=/var/run/wolf/wolf.sock"
+          "WOLF_UI_AUTOUPDATE=False"
+          "LOGLEVEL=INFO"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+              "Privileged": false,
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    testBall = {
+      title = "Test ball";
+      icon_png_path = "https://raw.githubusercontent.com/games-on-whales/wolf/refs/heads/stable/docs/images/test_ball_icon.png";
+      start_audio_server = false;
+      start_virtual_compositor = false;
+      runner = {
+        type = "process";
+        run_cmd = "sh -c \"while :; do echo 'running...'; sleep 10; done\"";
+      };
+      audio = {
+        source = "audiotestsrc wave=ticks is-live=true";
+      };
+      video = {
+        source = "videotestsrc pattern=ball flip=true is-live=true !\nvideo/x-raw, framerate={fps}/1\n";
+      };
+    };
+    firefox = {
+      title = "Firefox";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/firefox/assets/icon.png";
+      start_virtual_compositor = true;
+      runner = {
+        type = "docker";
+        name = "WolfFirefox";
+        image = "ghcr.io/games-on-whales/firefox:edge";
+        mounts = [ ];
+        env = [
+          "RUN_SWAY=1"
+          "MOZ_ENABLE_WAYLAND=1"
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "Privileged": false,
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    retroarch = {
+      title = "RetroArch";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/retroarch/assets/icon.png";
+      start_virtual_compositor = true;
+      runner = {
+        type = "docker";
+        name = "WolfRetroarch";
+        image = "ghcr.io/games-on-whales/retroarch:edge";
+        mounts = [ ];
+        env = [
+          "RUN_SWAY=true"
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+              "Privileged": false,
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    steam = {
+      title = "Steam";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/steam/assets/icon.png";
+      start_virtual_compositor = true;
+      runner = {
+        type = "docker";
+        name = "WolfSteam";
+        image = "ghcr.io/games-on-whales/steam:edge";
+        mounts = [ ];
+        env = [
+          "PROTON_LOG=1"
+          "RUN_SWAY=true"
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
+              "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
+              "Ulimits": [{"Name":"nofile", "Hard":10240, "Soft":10240}],
+              "Privileged": false,
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    pegasus = {
+      title = "Pegasus";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/pegasus/assets/icon.png";
+      start_virtual_compositor = true;
+      runner = {
+        type = "docker";
+        name = "WolfPegasus";
+        image = "ghcr.io/games-on-whales/pegasus:edge";
+        mounts = [ ];
+        env = [
+          "RUN_SWAY=1"
+          "GOW_REQUIRED_DEVICES=/dev/input/event* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+              "Privileged": false,
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    lutris = {
+      title = "Lutris";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/lutris/assets/icon.png";
+      start_virtual_compositor = true;
+      runner = {
+        type = "docker";
+        name = "WolfLutris";
+        image = "ghcr.io/games-on-whales/lutris:edge";
+        mounts = [
+          "lutris:/var/lutris/:rw"
+        ];
+        env = [
+          "RUN_SWAY=1"
+          "GOW_REQUIRED_DEVICES=/dev/input/event* /dev/dri/* /dev/nvidia* /var/lutris/"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+              "Privileged": false,
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    prismlauncher = {
+      title = "Prismlauncher";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/prismlauncher/assets/icon.png";
+      start_virtual_compositor = true;
+      runner = {
+        type = "docker";
+        name = "Prismlauncher";
+        image = "ghcr.io/games-on-whales/prismlauncher:edge";
+        mounts = [ ];
+        env = [
+          "RUN_SWAY=1"
+          "GOW_REQUIRED_DEVICES=/dev/input/event* /dev/dri/* /dev/nvidia* /var/lutris/"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+              "Privileged": false,
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    desktop = {
+      title = "Desktop (xfce)";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/xfce/assets/icon.png";
+      runner = {
+        type = "docker";
+        name = "WolfXFCE";
+        image = "ghcr.io/games-on-whales/xfce:edge";
+        mounts = [ ];
+        env = [
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "Privileged": false,
+              "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
+              "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    emulationstation = {
+      title = "EmulationStation";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/es-de/assets/icon.png";
+      runner = {
+        type = "docker";
+        name = "WolfES-DE";
+        image = "ghcr.io/games-on-whales/es-de:edge";
+        mounts = [ ];
+        env = [
+          "RUN_SWAY=1"
+          "MOZ_ENABLE_WAYLAND=1"
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "Privileged": false,
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    kodi = {
+      title = "Kodi";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/kodi/assets/icon.png";
+      runner = {
+        type = "docker";
+        name = "WolfKodi";
+        image = "ghcr.io/games-on-whales/kodi:edge";
+        mounts = [ ];
+        env = [
+          "RUN_SWAY=true"
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "Privileged": false,
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+    icarusModManager = {
+      title = "Icarus Mod Manager";
+      start_virtual_compositor = true;
+      app_state_folder = "icarus-mod-manager";
+      runner = {
+        type = "docker";
+        name = "WolfIcarusModManager";
+        image = "localhost/wolf-icarus-mod-manager:latest";
+        mounts = [ ];
+        env = [
+          "RUN_SWAY=1"
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "Privileged": false,
+              "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
+  };
+
+  effectiveCatalog = defaultAppCatalog // cfg.appCatalog;
+
+  resolvedProfiles = map (
+    profile:
+    let
+      resolvedApps = map (name: effectiveCatalog.${name}) profile.appNames;
+      extraApps = profile.apps;
+      baseProfile = lib.removeAttrs profile [
+        "appNames"
+        "apps"
+        "name"
+      ];
+      nameAttr = lib.optionalAttrs (profile.name != null) { name = profile.name; };
+    in
+    baseProfile // nameAttr // { apps = resolvedApps ++ extraApps; }
+  ) cfg.profiles;
+
+  mergedSettings = lib.recursiveUpdate cfg.settings (
+    lib.optionalAttrs (cfg.profiles != [ ]) {
+      profiles = resolvedProfiles;
+    }
+  );
+
+  missingAppNames = lib.unique (
+    lib.concatLists (
+      map (profile: lib.filter (name: !(lib.hasAttr name effectiveCatalog)) profile.appNames) cfg.profiles
+    )
+  );
+
   configFileSource =
     if cfg.configText != null then
       pkgs.writeText "wolf-config.toml" cfg.configText
-    else if cfg.settings != { } then
-      tomlFormat.generate "wolf-config.toml" cfg.settings
+    else if mergedSettings != { } then
+      tomlFormat.generate "wolf-config.toml" mergedSettings
     else
       null;
 
@@ -182,6 +535,46 @@ in
       type = types.nullOr types.lines;
       default = null;
       description = "Raw TOML configuration content (overrides settings).";
+    };
+
+    appCatalog = mkOption {
+      type = types.attrsOf types.attrs;
+      default = defaultAppCatalog;
+      description = "Catalog of Wolf app definitions keyed by name.";
+    };
+
+    profiles = mkOption {
+      type = types.listOf (
+        types.submodule ({
+          freeformType = types.attrs;
+          options = {
+            id = mkOption {
+              type = types.str;
+              description = "Profile identifier stored in the Wolf config.";
+            };
+
+            name = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "Optional profile display name.";
+            };
+
+            appNames = mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "Names of apps from appCatalog to attach to this profile.";
+            };
+
+            apps = mkOption {
+              type = types.listOf types.attrs;
+              default = [ ];
+              description = "Inline app definitions appended after appNames.";
+            };
+          };
+        })
+      );
+      default = [ ];
+      description = "Profiles assembled from appCatalog selections.";
     };
 
     preserveKeys = mkOption {
@@ -349,6 +742,13 @@ in
   };
 
   config = mkIf cfg.enable {
+    lukasf.wolf.appCatalog = lib.mkDefault defaultAppCatalog;
+
+    assertions = map (name: {
+      assertion = lib.hasAttr name cfg.appCatalog;
+      message = "lukasf.wolf.appCatalog is missing app '${name}'";
+    }) missingAppNames;
+
     networking.firewall = mkIf cfg.openFirewall {
       allowedTCPPorts = [
         cfg.ports.https
