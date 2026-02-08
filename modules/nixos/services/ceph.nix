@@ -723,6 +723,56 @@ in
         shell = "${pkgs.shadow}/bin/nologin";
       };
 
+      systemd.services.ceph-user-sync = {
+        description = "Ensure Ceph user/group IDs match the configured values";
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        path = [
+          pkgs.shadow
+          pkgs.coreutils
+        ];
+        script = ''
+          set -euo pipefail
+
+          target_uid=${toString cfg.user.uid}
+          target_gid=${toString cfg.user.gid}
+
+          current_uid="$(id -u ceph 2>/dev/null || true)"
+          current_gid="$(getent group ceph | cut -d: -f3 || true)"
+
+          if [ -z "$current_uid" ] || [ -z "$current_gid" ]; then
+            exit 0
+          fi
+
+          if [ "$current_gid" != "$target_gid" ]; then
+            if getent group "$target_gid" | grep -qv '^ceph:'; then
+              echo "ceph-user-sync: gid $target_gid already used by another group" >&2
+            else
+              groupmod -g "$target_gid" ceph
+            fi
+          fi
+
+          if [ "$current_uid" != "$target_uid" ]; then
+            if getent passwd "$target_uid" | grep -qv '^ceph:'; then
+              echo "ceph-user-sync: uid $target_uid already used by another user" >&2
+            else
+              usermod -u "$target_uid" -g "$target_gid" ceph
+            fi
+          fi
+
+          for dir in /var/lib/ceph /var/log/ceph /run/ceph; do
+            if [ -d "$dir" ]; then
+              chown -R ceph:ceph "$dir" || true
+            fi
+          done
+        '';
+      };
+
       systemd.tmpfiles.rules = [
         "d /bin 0755 root root -"
         "L+ /bin/bash - - - - ${pkgs.bashInteractive}/bin/bash"
@@ -825,18 +875,26 @@ in
       systemd.services."ceph-mon@${hostName}" = {
         enable = lib.mkDefault true;
         wantedBy = lib.mkDefault [ "multi-user.target" ];
-        after = [ "network-online.target" ];
-        wants = [ "network-online.target" ];
+        after = [
+          "network-online.target"
+          "ceph-user-sync.service"
+        ];
+        wants = [
+          "network-online.target"
+          "ceph-user-sync.service"
+        ];
       };
       systemd.services."ceph-mgr@${hostName}" = {
         enable = lib.mkDefault true;
         wantedBy = lib.mkDefault [ "multi-user.target" ];
         after = [
           "network-online.target"
+          "ceph-user-sync.service"
           "ceph-mon@${hostName}.service"
         ];
         wants = [
           "network-online.target"
+          "ceph-user-sync.service"
           "ceph-mon@${hostName}.service"
         ];
       };
@@ -1246,7 +1304,7 @@ in
         serviceConfig = {
           Type = "oneshot";
           KillMode = "none";
-          TimeoutSec = 0;
+          TimeoutSec = 300;
           ExecStart = pkgs.writeShellScript "ceph-volume-osd-activate" ''
             set -euo pipefail
             admin_keyring="/etc/ceph/ceph.client.admin.keyring"
@@ -1263,20 +1321,24 @@ in
                 lockbox_keyring="$osd_dir/lockbox.keyring"
                     if ! timeout 5 "$ceph_bin" -n client.admin -k "$admin_keyring" \
                       auth get "client.osd-lockbox.$fsid" >/dev/null 2>&1; then
-                      "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                      if timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
                         auth get-or-create "client.osd-lockbox.$fsid" \
                         mon 'allow profile osd-lockbox' \
-                        -o "$lockbox_keyring"
-                      chown ceph:ceph "$lockbox_keyring"
-                      chmod 0600 "$lockbox_keyring"
+                        -o "$lockbox_keyring"; then
+                        chown ceph:ceph "$lockbox_keyring"
+                        chmod 0600 "$lockbox_keyring"
+                      else
+                        echo "ceph-volume: unable to refresh lockbox key for $fsid" >&2
+                        continue
+                      fi
                     fi
-                    "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                    timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
                       auth caps "client.osd-lockbox.$fsid" \
                       mon 'allow profile osd-lockbox, allow command "config-key get"' \
                       >/dev/null 2>&1 || true
               done
             fi
-                if ! ${cephPkg}/bin/ceph-volume lvm activate --all --no-systemd; then
+                if ! timeout 300 ${cephPkg}/bin/ceph-volume lvm activate --all --no-systemd; then
                   echo "ceph-volume activation failed; keeping system activation healthy" >&2
                   exit 0
                 fi
