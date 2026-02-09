@@ -73,6 +73,7 @@ let
     podman
     util-linux
   ];
+  cephadmBinPath = lib.makeBinPath cephadmPath;
   cephVolumePath = with pkgs; [
     bash
     coreutils
@@ -124,11 +125,13 @@ let
   cephPkg = if cfg.cephadm.wrapCephadm then cephWithCephadmDeps else cephRuntimePkg;
   cephadmBin = pkgs.writeShellScriptBin "cephadm-with-deps" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
+    export PATH="${cephadmBinPath}:''${PATH:-}"
     exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   cephadm = "${cephadmBin}/bin/cephadm-with-deps";
   cephadmOrch = pkgs.writeShellScriptBin "cephadm-orch" ''
     export PYTHONPATH="${pythonWithCephadmDeps}/${pythonSite}:''${PYTHONPATH:-}"
+    export PATH="${cephadmBinPath}:''${PATH:-}"
     exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
@@ -142,9 +145,13 @@ let
       import sys
 
       args = sys.argv[1:]
-      os.environ["PATH"] = "${systemctlShim}/bin:" + os.environ.get("PATH", "")
+      os.environ["PATH"] = "${cephadmBinPath}:" + os.environ.get("PATH", "")
       if "--unit-dir" not in args:
           args = ["--unit-dir", "${cfg.cephadm.unitDir}"] + args
+      use_sudo = ${if cfg.cephadm.useSudo then "True" else "False"}
+      sudo_cmd = "/run/wrappers/bin/sudo"
+      if use_sudo and os.geteuid() != 0:
+          os.execv(sudo_cmd, [sudo_cmd, "-n", "${cephadm}"] + args)
       os.execv("${cephadm}", ["${cephadm}"] + args)
     '';
   };
@@ -320,6 +327,12 @@ in
         type = lib.types.bool;
         default = true;
         description = "Wrap cephadm with Python dependencies to avoid missing-module errors.";
+      };
+
+      useSudo = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Run cephadm via sudo when invoked by ceph-mgr to avoid rootless podman ownership issues.";
       };
     };
 
@@ -699,6 +712,10 @@ in
           assertion = lib.all (fs: fs.dataPools != [ ]) cfg.cephfs;
           message = "lukasf.ceph.cephfs entries must define at least one data pool.";
         }
+        {
+          assertion = (!cfg.cephadm.useSudo) || config.security.sudo.enable;
+          message = "lukasf.ceph.cephadm.useSudo requires security.sudo.enable = true.";
+        }
       ];
 
       environment.systemPackages = [
@@ -791,6 +808,39 @@ in
             start_ceph_units
           fi
         '';
+      };
+
+      systemd.services.ceph-fsid-perms = lib.mkIf (cfg.bootstrap.fsid != null) {
+        description = "Ensure Ceph FSID directory ownership";
+        after = [ "ceph-user-sync.service" ];
+        wants = [ "ceph-user-sync.service" ];
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig.Type = "oneshot";
+        path = [
+          pkgs.coreutils
+          pkgs.systemd
+        ];
+        script = ''
+          set -euo pipefail
+          fs_root="/var/lib/ceph/${cfg.bootstrap.fsid}"
+          if [ -d "$fs_root" ]; then
+            owner="$(stat -c '%U:%G' "$fs_root" 2>/dev/null || true)"
+            if [ "$owner" != "ceph:ceph" ]; then
+              chown -R ceph:ceph "$fs_root" || true
+              chmod 0755 "$fs_root" || true
+              ${pkgs.systemd}/bin/systemctl try-restart 'ceph-mon@*.service' 'ceph-mgr@*.service' || true
+            fi
+          fi
+        '';
+      };
+
+      systemd.paths.ceph-fsid-perms = lib.mkIf (cfg.bootstrap.fsid != null) {
+        description = "Watch Ceph FSID directory for permission changes";
+        wantedBy = [ "multi-user.target" ];
+        pathConfig = {
+          PathChanged = "/var/lib/ceph/${cfg.bootstrap.fsid}";
+          Unit = "ceph-fsid-perms.service";
+        };
       };
 
       systemd.tmpfiles.rules = [
@@ -973,7 +1023,10 @@ in
         wants = [ "cephadm-bootstrap.service" ];
         wantedBy = [ "multi-user.target" ];
         path = cephadmPath;
-        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        unitConfig = {
+          ConditionPathExists = "/etc/ceph/ceph.conf";
+          StartLimitIntervalSec = 0;
+        };
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
@@ -1339,39 +1392,40 @@ in
                   continue
                 fi
                 lockbox_keyring="$osd_dir/lockbox.keyring"
-                    if ! timeout 5 "$ceph_bin" -n client.admin -k "$admin_keyring" \
-                      auth get "client.osd-lockbox.$fsid" >/dev/null 2>&1; then
-                      if timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
-                        auth get-or-create "client.osd-lockbox.$fsid" \
-                        mon 'allow profile osd-lockbox' \
-                        -o "$lockbox_keyring"; then
-                        chown ceph:ceph "$lockbox_keyring"
-                        chmod 0600 "$lockbox_keyring"
-                      else
-                        echo "ceph-volume: unable to refresh lockbox key for $fsid" >&2
-                        continue
-                      fi
+                if [ ! -s "$lockbox_keyring" ]; then
+                  if ! timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                    auth get "client.osd-lockbox.$fsid" -o "$lockbox_keyring"; then
+                    if ! timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                      auth get-or-create "client.osd-lockbox.$fsid" \
+                      mon 'allow profile osd-lockbox' \
+                      -o "$lockbox_keyring"; then
+                      echo "ceph-volume: unable to refresh lockbox key for $fsid" >&2
+                      continue
                     fi
-                    timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
-                      auth caps "client.osd-lockbox.$fsid" \
-                      mon 'allow profile osd-lockbox, allow command "config-key get"' \
-                      >/dev/null 2>&1 || true
+                  fi
+                  chown ceph:ceph "$lockbox_keyring" || true
+                  chmod 0600 "$lockbox_keyring" || true
+                fi
+                timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                  auth caps "client.osd-lockbox.$fsid" \
+                  mon 'allow profile osd-lockbox, allow command "config-key get"' \
+                  >/dev/null 2>&1 || true
               done
             fi
-                if ! timeout 300 ${cephPkg}/bin/ceph-volume lvm activate --all --no-systemd; then
-                  echo "ceph-volume activation failed; keeping system activation healthy" >&2
-                  exit 0
-                fi
+            if ! timeout 300 ${cephPkg}/bin/ceph-volume lvm activate --all --no-systemd; then
+              echo "ceph-volume activation failed; keeping system activation healthy" >&2
+              exit 0
+            fi
 
-                for osd_dir in /var/lib/ceph/osd/ceph-*; do
-                  if [ ! -d "$osd_dir" ]; then
-                    continue
-                  fi
-                  osd_id="''${osd_dir##*/ceph-}"
-                  if [ -n "$osd_id" ]; then
-                    ${pkgs.systemd}/bin/systemctl start "ceph-osd@''${osd_id}.service" || true
-                  fi
-                done
+            for osd_dir in /var/lib/ceph/osd/ceph-*; do
+              if [ ! -d "$osd_dir" ]; then
+                continue
+              fi
+              osd_id="''${osd_dir##*/ceph-}"
+              if [ -n "$osd_id" ]; then
+                ${pkgs.systemd}/bin/systemctl start "ceph-osd@''${osd_id}.service" || true
+              fi
+            done
           '';
         };
       };
@@ -2218,6 +2272,8 @@ in
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
+          Restart = "on-failure";
+          RestartSec = 30;
           ExecStart =
             let
               monCandidates =
@@ -2281,8 +2337,8 @@ in
 
               fsid="$(ceph_cmd_timeout 10 fsid 2>/dev/null || true)"
               if [ -z "$fsid" ]; then
-                echo "cephadm path: cluster not reachable; skipping" >&2
-                exit 0
+                echo "cephadm path: cluster not reachable; retrying" >&2
+                exit 1
               fi
 
               if [ -n "$fsid" ]; then
@@ -2297,6 +2353,7 @@ in
               if [ "$current" != "${cephadmMgrPath}" ]; then
                 ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}"
               fi
+              ceph_cmd config set mgr mgr/cephadm/mode root >/dev/null 2>&1 || true
 
               ceph_cmd mgr module disable cephadm >/dev/null 2>&1 || true
               ceph_cmd mgr module enable cephadm >/dev/null 2>&1 || true
@@ -2308,6 +2365,18 @@ in
             '';
         };
       };
+
+      security.sudo.extraRules = lib.mkIf cfg.cephadm.useSudo [
+        {
+          users = [ "ceph" ];
+          commands = [
+            {
+              command = "${cephadm}";
+              options = [ "NOPASSWD" ];
+            }
+          ];
+        }
+      ];
     })
     # Only create client ceph.conf when client is enabled AND bootstrap is NOT enabled
     # When bootstrap is enabled, cephadm manages /etc/ceph/ceph.conf
