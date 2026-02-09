@@ -753,6 +753,7 @@ in
           pkgs.shadow
           pkgs.coreutils
           pkgs.glibc.getent
+          pkgs.procps
           pkgs.systemd
         ];
         script = ''
@@ -763,12 +764,37 @@ in
           stopped_units=0
 
           stop_ceph_units() {
-            systemctl stop 'ceph-mon@*.service' 'ceph-mgr@*.service' 'ceph-osd@*.service' >/dev/null 2>&1 || true
+            systemctl stop \
+              'ceph-mon@*.service' \
+              'ceph-mgr@*.service' \
+              'ceph-osd@*.service' \
+              'ceph-mds@*.service' \
+              'ceph-radosgw@*.service' \
+              >/dev/null 2>&1 || true
             stopped_units=1
           }
 
           start_ceph_units() {
-            systemctl start 'ceph-mon@*.service' 'ceph-mgr@*.service' 'ceph-osd@*.service' >/dev/null 2>&1 || true
+            systemctl start \
+              'ceph-mon@*.service' \
+              'ceph-mgr@*.service' \
+              'ceph-osd@*.service' \
+              'ceph-mds@*.service' \
+              'ceph-radosgw@*.service' \
+              >/dev/null 2>&1 || true
+          }
+
+          stop_ceph_processes() {
+            if pgrep -u ceph >/dev/null 2>&1; then
+              pkill -u ceph >/dev/null 2>&1 || true
+              for _ in 1 2 3; do
+                if ! pgrep -u ceph >/dev/null 2>&1; then
+                  return 0
+                fi
+                sleep 1
+              done
+              pkill -KILL -u ceph >/dev/null 2>&1 || true
+            fi
           }
 
           current_uid="$(id -u ceph 2>/dev/null || true)"
@@ -793,6 +819,7 @@ in
               if ! usermod -u "$target_uid" -g "$target_gid" ceph; then
                 echo "ceph-user-sync: usermod failed; stopping ceph services and retrying" >&2
                 stop_ceph_units
+                stop_ceph_processes
                 usermod -u "$target_uid" -g "$target_gid" ceph || true
               fi
             fi
