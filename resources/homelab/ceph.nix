@@ -83,6 +83,42 @@
           };
         }
       ];
+      rgw = {
+        enable = true;
+        serviceId = "homelab";
+        realm = "homelab";
+        zonegroup = "homelab";
+        zone = "homelab";
+        endpoint = "http://srv1.lab.h4xx.io:7480";
+        poolPrefix = "homelab";
+        pool = {
+          size = 1;
+          minSize = 1;
+        };
+        bucketPrefix = "homelab";
+        users = [
+          {
+            name = "homelab-lgtm";
+            displayName = "Homelab LGTM";
+            accessKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/rgw/homelab-lgtm.access.key";
+            secretKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/rgw/homelab-lgtm.secret.key";
+          }
+        ];
+        buckets = [
+          {
+            name = "loki";
+            user = "homelab-lgtm";
+          }
+          {
+            name = "mimir";
+            user = "homelab-lgtm";
+          }
+          {
+            name = "tempo";
+            user = "homelab-lgtm";
+          }
+        ];
+      };
       kvmPools = [
         {
           name = "ceph-images";
