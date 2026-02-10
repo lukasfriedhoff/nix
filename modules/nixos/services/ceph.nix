@@ -276,6 +276,17 @@ let
       fullName = if rgwBucketPrefix == null then bucket.name else "${rgwBucketPrefix}-${bucket.name}";
     }
   ) cfg.rgw.buckets;
+  rgwBucketEntries = map (
+    bucket:
+    let
+      owner = lib.findFirst (user: user.name == bucket.user) null rgwUsers;
+    in
+    bucket
+    // {
+      ownerAccessSecretName = owner.accessSecretName;
+      ownerSecretSecretName = owner.secretSecretName;
+    }
+  ) rgwBuckets;
   rgwSecretEntries = lib.concatMap (user: [
     {
       name = user.accessSecretName;
@@ -286,6 +297,7 @@ let
       file = user.secretKeyFile;
     }
   ]) rgwUsers;
+  rgwPath = cephadmPath ++ [ pkgs.awscli2 ];
   allPools = dedupPools (cfg.pools ++ cephfsPools ++ rgwPools);
 in
 {
@@ -539,6 +551,12 @@ in
         type = lib.types.nullOr lib.types.str;
         default = null;
         description = "RGW endpoint URL used for realm/zonegroup/zone endpoints.";
+      };
+
+      region = lib.mkOption {
+        type = lib.types.str;
+        default = "us-east-1";
+        description = "RGW region used by S3 clients and bucket creation.";
       };
 
       port = lib.mkOption {
@@ -1246,7 +1264,7 @@ in
         after = [ "network-online.target" ];
         wants = [ "network-online.target" ];
         wantedBy = [ "multi-user.target" ];
-        path = cephadmPath;
+        path = rgwPath;
         unitConfig = {
           # Check for admin keyring instead of ceph.conf to allow client config to coexist
           ConditionPathExists = "!/etc/ceph/ceph.client.admin.keyring";
@@ -2511,17 +2529,48 @@ in
                                 fi
               ''
             ) rgwUsers;
-            bucketCommands = lib.concatMapStringsSep "\n" (bucket: ''
-              # RGW bucket ${bucket.fullName}
-              rgw_bucket=${lib.escapeShellArg bucket.fullName}
-              rgw_bucket_owner=${lib.escapeShellArg bucket.user}
+            bucketCommands = lib.concatMapStringsSep "\n" (
+              bucket:
+              let
+                accessFile = config.sops.secrets."${bucket.ownerAccessSecretName}".path;
+                secretFile = config.sops.secrets."${bucket.ownerSecretSecretName}".path;
+              in
+              ''
+                # RGW bucket ${bucket.fullName}
+                rgw_bucket=${lib.escapeShellArg bucket.fullName}
+                rgw_bucket_owner=${lib.escapeShellArg bucket.user}
+                rgw_bucket_access_file=${lib.escapeShellArg accessFile}
+                rgw_bucket_secret_file=${lib.escapeShellArg secretFile}
 
-              if rgw_admin_zone bucket stats --bucket "$rgw_bucket" >/dev/null 2>&1; then
-                :
-              else
-                rgw_admin_zone bucket create --bucket "$rgw_bucket" --uid "$rgw_bucket_owner"
-              fi
-            '') rgwBuckets;
+                if [ -z "$rgw_endpoint" ]; then
+                  echo "cephadm-rgw: endpoint not set; skipping bucket create for $rgw_bucket" >&2
+                elif [ ! -s "$rgw_bucket_access_file" ] || [ ! -s "$rgw_bucket_secret_file" ]; then
+                  echo "cephadm-rgw: missing bucket credentials for $rgw_bucket_owner" >&2
+                  exit 1
+                else
+                  rgw_bucket_access="$(tr -d '\n' < "$rgw_bucket_access_file")"
+                  rgw_bucket_secret="$(tr -d '\n' < "$rgw_bucket_secret_file")"
+                  if ! AWS_ACCESS_KEY_ID="$rgw_bucket_access" \
+                    AWS_SECRET_ACCESS_KEY="$rgw_bucket_secret" \
+                    AWS_EC2_METADATA_DISABLED=true \
+                    AWS_DEFAULT_REGION="$rgw_region" \
+                    AWS_S3_FORCE_PATH_STYLE=true \
+                    aws --endpoint-url "$rgw_endpoint" s3api head-bucket --bucket "$rgw_bucket" >/dev/null 2>&1; then
+                    create_args=()
+                    if [ "$rgw_region" != "us-east-1" ]; then
+                      create_args=(--create-bucket-configuration "LocationConstraint=$rgw_region")
+                    fi
+                    AWS_ACCESS_KEY_ID="$rgw_bucket_access" \
+                      AWS_SECRET_ACCESS_KEY="$rgw_bucket_secret" \
+                      AWS_EC2_METADATA_DISABLED=true \
+                      AWS_DEFAULT_REGION="$rgw_region" \
+                      AWS_S3_FORCE_PATH_STYLE=true \
+                      aws --endpoint-url "$rgw_endpoint" s3api create-bucket --bucket "$rgw_bucket" "''${create_args[@]}" \
+                      >/dev/null
+                  fi
+                fi
+              ''
+            ) rgwBucketEntries;
           in
           ''
             set -euo pipefail
@@ -2617,6 +2666,8 @@ in
             rgw_service=${lib.escapeShellArg cfg.rgw.serviceId}
             rgw_placement=${lib.escapeShellArg cfg.rgw.placement}
             rgw_port=${lib.escapeShellArg (toString cfg.rgw.port)}
+            rgw_endpoint=${lib.escapeShellArg (if cfg.rgw.endpoint != null then cfg.rgw.endpoint else "")}
+            rgw_region=${lib.escapeShellArg cfg.rgw.region}
 
             if ! rgw_admin realm get --rgw-realm "$rgw_realm" >/dev/null 2>&1; then
               rgw_admin realm create --rgw-realm "$rgw_realm" --default

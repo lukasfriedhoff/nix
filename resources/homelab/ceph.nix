@@ -90,6 +90,7 @@
         zonegroup = "homelab";
         zone = "homelab";
         endpoint = "http://srv1.lab.h4xx.io:7480";
+        region = "us-east-1";
         poolPrefix = "homelab";
         pool = {
           size = 1;
