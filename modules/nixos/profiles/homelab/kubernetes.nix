@@ -104,6 +104,7 @@ in
     boot.kernelModules = [
       "br_netfilter"
       "rbd"
+      "nbd"
     ];
     boot.kernel.sysctl = {
       "net.ipv4.ip_forward" = 1;
