@@ -2554,7 +2554,8 @@ in
                     AWS_EC2_METADATA_DISABLED=true \
                     AWS_DEFAULT_REGION="$rgw_region" \
                     AWS_S3_FORCE_PATH_STYLE=true \
-                    aws --endpoint-url "$rgw_endpoint" s3api head-bucket --bucket "$rgw_bucket" >/dev/null 2>&1; then
+                    ${pkgs.awscli2}/bin/aws --endpoint-url "$rgw_endpoint" s3api head-bucket --bucket "$rgw_bucket" \
+                    >/dev/null 2>&1; then
                     create_args=()
                     if [ "$rgw_region" != "us-east-1" ]; then
                       create_args=(--create-bucket-configuration "LocationConstraint=$rgw_region")
@@ -2564,7 +2565,8 @@ in
                       AWS_EC2_METADATA_DISABLED=true \
                       AWS_DEFAULT_REGION="$rgw_region" \
                       AWS_S3_FORCE_PATH_STYLE=true \
-                      aws --endpoint-url "$rgw_endpoint" s3api create-bucket --bucket "$rgw_bucket" "''${create_args[@]}" \
+                      ${pkgs.awscli2}/bin/aws --endpoint-url "$rgw_endpoint" s3api create-bucket \
+                      --bucket "$rgw_bucket" "''${create_args[@]}" \
                       >/dev/null
                   fi
                 fi
