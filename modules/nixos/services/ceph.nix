@@ -2501,21 +2501,20 @@ in
                                     --access-key "$rgw_access_key" \
                                     --secret-key "$rgw_secret_key"
                                 else
-                                  read -r current_access current_secret <<EOF || true
-                                $(printf '%s' "$user_info" | ${python} - <<'PY'
-                                import json, sys
-                                try:
-                                    data = json.load(sys.stdin)
-                                except Exception:
-                                    sys.exit(0)
-                                keys = data.get("keys", [])
-                                if keys:
-                                    access = keys[0].get("access_key", "")
-                                    secret = keys[0].get("secret_key", "")
-                                    print(f"{access} {secret}")
-                                PY
-                                )
-                EOF
+                  read -r current_access current_secret < <(
+                    printf '%s' "$user_info" | ${python} - <<'PY'
+                import json, sys
+                try:
+                    data = json.load(sys.stdin)
+                except Exception:
+                    sys.exit(0)
+                keys = data.get("keys", [])
+                if keys:
+                    access = keys[0].get("access_key", "")
+                    secret = keys[0].get("secret_key", "")
+                    print(f"{access} {secret}")
+                PY
+                  ) || true
                                   if [ "$current_access" != "$rgw_access_key" ] || [ "$current_secret" != "$rgw_secret_key" ]; then
                                     rgw_admin_zone user modify \
                                       --uid "$rgw_user" \
