@@ -217,7 +217,76 @@ let
       poolsForFs = fs: [ (poolWithApp fs.metadataPool) ] ++ map poolWithApp fs.dataPools;
     in
     lib.concatMap poolsForFs cfg.cephfs;
-  allPools = dedupPools (cfg.pools ++ cephfsPools);
+  rgwPoolPrefix =
+    if cfg.rgw.poolPrefix != null && cfg.rgw.poolPrefix != "" then
+      cfg.rgw.poolPrefix
+    else if cfg.rgw.bucketPrefix != null && cfg.rgw.bucketPrefix != "" then
+      cfg.rgw.bucketPrefix
+    else
+      "rgw";
+  rgwPools =
+    if cfg.rgw.enable then
+      let
+        poolSettings = cfg.rgw.pool;
+        poolSuffixes = [
+          "rgw.control"
+          "rgw.meta"
+          "rgw.log"
+          "rgw.buckets.index"
+          "rgw.buckets.data"
+          "rgw.buckets.non-ec"
+          "rgw.buckets.extra"
+          "rgw.reshard"
+          "rgw.gc"
+          "rgw.lc"
+          "rgw.usage"
+          "rgw.users.keys"
+          "rgw.users.email"
+          "rgw.users.swift"
+          "rgw.users.uid"
+        ];
+        poolNames = [ ".rgw.root" ] ++ map (suffix: "${rgwPoolPrefix}.${suffix}") poolSuffixes;
+      in
+      map (name: {
+        inherit name;
+        application = "rgw";
+        size = poolSettings.size;
+        minSize = poolSettings.minSize;
+        pgNum = poolSettings.pgNum;
+      }) poolNames
+    else
+      [ ];
+  rgwUsers = map (
+    user:
+    let
+      userName = sanitizeName user.name;
+    in
+    user
+    // {
+      accessSecretName = "ceph-rgw-${userName}-access-key";
+      secretSecretName = "ceph-rgw-${userName}-secret-key";
+    }
+  ) cfg.rgw.users;
+  rgwBucketPrefix =
+    if cfg.rgw.bucketPrefix != null && cfg.rgw.bucketPrefix != "" then cfg.rgw.bucketPrefix else null;
+  rgwBuckets = map (
+    bucket:
+    bucket
+    // {
+      fullName = if rgwBucketPrefix == null then bucket.name else "${rgwBucketPrefix}-${bucket.name}";
+    }
+  ) cfg.rgw.buckets;
+  rgwSecretEntries = lib.concatMap (user: [
+    {
+      name = user.accessSecretName;
+      file = user.accessKeyFile;
+    }
+    {
+      name = user.secretSecretName;
+      file = user.secretKeyFile;
+    }
+  ]) rgwUsers;
+  allPools = dedupPools (cfg.pools ++ cephfsPools ++ rgwPools);
 in
 {
   options.lukasf.ceph = {
@@ -431,6 +500,155 @@ in
       );
       default = [ ];
       description = "CephFS filesystems to create and configure.";
+    };
+
+    rgw = {
+      enable = lib.mkEnableOption "Ceph RGW (RADOS Gateway) S3 endpoint";
+
+      serviceId = lib.mkOption {
+        type = lib.types.str;
+        default = "rgw";
+        description = "Ceph orch service id used for the RGW deployment.";
+      };
+
+      realm = lib.mkOption {
+        type = lib.types.str;
+        default = "default";
+        description = "RGW realm name (set explicitly for multi-site readiness).";
+      };
+
+      zonegroup = lib.mkOption {
+        type = lib.types.str;
+        default = "default";
+        description = "RGW zonegroup name (set explicitly for multi-site readiness).";
+      };
+
+      zone = lib.mkOption {
+        type = lib.types.str;
+        default = "default";
+        description = "RGW zone name (set explicitly for multi-site readiness).";
+      };
+
+      placement = lib.mkOption {
+        type = lib.types.str;
+        default = "1";
+        description = "Ceph orchestrator placement string for RGW daemons.";
+      };
+
+      endpoint = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "RGW endpoint URL used for realm/zonegroup/zone endpoints.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.int;
+        default = 7480;
+        description = "RGW HTTP port.";
+      };
+
+      sslPort = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "RGW HTTPS port (optional).";
+      };
+
+      poolPrefix = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Prefix for RGW internal pools (e.g. homelab).";
+      };
+
+      pool = {
+        size = lib.mkOption {
+          type = lib.types.int;
+          default = 3;
+          description = "Replication size for RGW pools.";
+        };
+
+        minSize = lib.mkOption {
+          type = lib.types.nullOr lib.types.int;
+          default = null;
+          description = "Minimum replication size for RGW pools.";
+        };
+
+        pgNum = lib.mkOption {
+          type = lib.types.nullOr lib.types.int;
+          default = null;
+          description = "PG count for RGW pools.";
+        };
+      };
+
+      bucketPrefix = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Prefix applied to RGW buckets created by this module.";
+      };
+
+      users = lib.mkOption {
+        type = lib.types.listOf (
+          lib.types.submodule (
+            { ... }:
+            {
+              options = {
+                name = lib.mkOption {
+                  type = lib.types.str;
+                  description = "RGW user ID.";
+                };
+
+                displayName = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = "Human-friendly RGW user display name.";
+                };
+
+                accessKeyFile = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = "SOPS secret file containing the RGW access key.";
+                };
+
+                secretKeyFile = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = "SOPS secret file containing the RGW secret key.";
+                };
+
+                caps = lib.mkOption {
+                  type = lib.types.listOf lib.types.str;
+                  default = [ ];
+                  description = "Optional RGW caps to apply to this user.";
+                };
+              };
+            }
+          )
+        );
+        default = [ ];
+        description = "RGW users to create with fixed credentials.";
+      };
+
+      buckets = lib.mkOption {
+        type = lib.types.listOf (
+          lib.types.submodule (
+            { ... }:
+            {
+              options = {
+                name = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Bucket short name (prefix applied if configured).";
+                };
+
+                user = lib.mkOption {
+                  type = lib.types.str;
+                  description = "RGW user ID that owns the bucket.";
+                };
+              };
+            }
+          )
+        );
+        default = [ ];
+        description = "RGW buckets to create.";
+      };
     };
 
     osd = {
@@ -716,6 +934,18 @@ in
           assertion = (!cfg.cephadm.useSudo) || config.security.sudo.enable;
           message = "lukasf.ceph.cephadm.useSudo requires security.sudo.enable = true.";
         }
+        {
+          assertion =
+            (!cfg.rgw.enable)
+            || lib.all (user: user.accessKeyFile != null && user.secretKeyFile != null) cfg.rgw.users;
+          message = "lukasf.ceph.rgw.users entries must set accessKeyFile and secretKeyFile.";
+        }
+        {
+          assertion =
+            (!cfg.rgw.enable)
+            || lib.all (bucket: lib.any (user: user.name == bucket.user) cfg.rgw.users) cfg.rgw.buckets;
+          message = "lukasf.ceph.rgw.buckets entries must reference a user listed in lukasf.ceph.rgw.users.";
+        }
       ];
 
       environment.systemPackages = [
@@ -1000,7 +1230,9 @@ in
         allowedTCPPorts = [
           3300
           6789
-        ];
+        ]
+        ++ lib.optionals cfg.rgw.enable [ cfg.rgw.port ]
+        ++ lib.optionals (cfg.rgw.enable && cfg.rgw.sslPort != null) [ cfg.rgw.sslPort ];
         allowedTCPPortRanges = [
           {
             from = 6800;
@@ -1479,6 +1711,16 @@ in
               group = "ceph";
             };
           }) lockboxEntries
+        ++ lib.optionals cfg.rgw.enable (
+          map (entry: {
+            "${entry.name}" = {
+              sopsFile = resolveSecret entry.file;
+              format = "binary";
+              mode = "0400";
+              owner = "root";
+            };
+          }) (lib.filter (entry: entry.file != null) rgwSecretEntries)
+        )
       );
 
       # Service to import lockbox keys before OSD activation
@@ -2156,6 +2398,264 @@ in
             fi
 
             ${fsCommands}
+          '';
+      };
+
+      systemd.services.cephadm-rgw = lib.mkIf cfg.rgw.enable {
+        description = "Ceph RGW setup";
+        after = [
+          "network-online.target"
+          "cephadm-cephadm-path.service"
+          "cephadm-bootstrap.service"
+          "cephadm-pools.service"
+        ];
+        wants = [
+          "network-online.target"
+          "cephadm-pools.service"
+        ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script =
+          let
+            monCandidates =
+              let
+                rawCandidates = [
+                  cfg.monUpdate.address
+                  cfg.bootstrap.monIp
+                ]
+                ++ cfg.monHosts;
+              in
+              lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
+            v1Port = cfg.monUpdate.v1Port;
+            v2Port = cfg.monUpdate.v2Port;
+            endpointArg = lib.optionalString (
+              cfg.rgw.endpoint != null && cfg.rgw.endpoint != ""
+            ) "--endpoints ${lib.escapeShellArg cfg.rgw.endpoint}";
+            sslPortArg = lib.optionalString (cfg.rgw.sslPort != null) "--ssl-port ${toString cfg.rgw.sslPort}";
+            zonegroupModifyCmd = lib.optionalString (cfg.rgw.endpoint != null && cfg.rgw.endpoint != "") ''
+              rgw_admin zonegroup modify \
+                --rgw-realm "$rgw_realm" \
+                --rgw-zonegroup "$rgw_zonegroup" \
+                ${endpointArg}
+            '';
+            zoneModifyCmd = lib.optionalString (cfg.rgw.endpoint != null && cfg.rgw.endpoint != "") ''
+              rgw_admin zone modify \
+                --rgw-realm "$rgw_realm" \
+                --rgw-zonegroup "$rgw_zonegroup" \
+                --rgw-zone "$rgw_zone" \
+                ${endpointArg}
+            '';
+            userCommands = lib.concatMapStringsSep "\n" (
+              user:
+              let
+                displayName =
+                  if user.displayName != null && user.displayName != "" then user.displayName else user.name;
+                accessFile = config.sops.secrets."${user.accessSecretName}".path;
+                secretFile = config.sops.secrets."${user.secretSecretName}".path;
+                capsValue = lib.concatStringsSep ";" user.caps;
+              in
+              ''
+                                # RGW user ${user.name}
+                                rgw_user=${lib.escapeShellArg user.name}
+                                rgw_display=${lib.escapeShellArg displayName}
+                                rgw_access_file=${lib.escapeShellArg accessFile}
+                                rgw_secret_file=${lib.escapeShellArg secretFile}
+                                rgw_caps=${lib.escapeShellArg capsValue}
+
+                                if [ ! -s "$rgw_access_file" ] || [ ! -s "$rgw_secret_file" ]; then
+                                  echo "cephadm-rgw: missing key material for $rgw_user" >&2
+                                  exit 1
+                                fi
+
+                                rgw_access_key="$(tr -d '\n' < "$rgw_access_file")"
+                                rgw_secret_key="$(tr -d '\n' < "$rgw_secret_file")"
+
+                                user_info="$(rgw_admin_zone user info --uid "$rgw_user" --format json 2>/dev/null || true)"
+                                if [ -z "$user_info" ]; then
+                                  rgw_admin_zone user create \
+                                    --uid "$rgw_user" \
+                                    --display-name "$rgw_display" \
+                                    --access-key "$rgw_access_key" \
+                                    --secret-key "$rgw_secret_key"
+                                else
+                                  read -r current_access current_secret <<EOF || true
+                                $(printf '%s' "$user_info" | ${python} - <<'PY'
+                                import json, sys
+                                try:
+                                    data = json.load(sys.stdin)
+                                except Exception:
+                                    sys.exit(0)
+                                keys = data.get("keys", [])
+                                if keys:
+                                    access = keys[0].get("access_key", "")
+                                    secret = keys[0].get("secret_key", "")
+                                    print(f"{access} {secret}")
+                                PY
+                                )
+                EOF
+                                  if [ "$current_access" != "$rgw_access_key" ] || [ "$current_secret" != "$rgw_secret_key" ]; then
+                                    rgw_admin_zone user modify \
+                                      --uid "$rgw_user" \
+                                      --access-key "$rgw_access_key" \
+                                      --secret-key "$rgw_secret_key"
+                                  fi
+                                fi
+
+                                if [ -n "$rgw_caps" ]; then
+                                  rgw_admin_zone caps add --uid "$rgw_user" --caps "$rgw_caps" || true
+                                fi
+              ''
+            ) rgwUsers;
+            bucketCommands = lib.concatMapStringsSep "\n" (bucket: ''
+              # RGW bucket ${bucket.fullName}
+              rgw_bucket=${lib.escapeShellArg bucket.fullName}
+              rgw_bucket_owner=${lib.escapeShellArg bucket.user}
+
+              if rgw_admin_zone bucket stats --bucket "$rgw_bucket" >/dev/null 2>&1; then
+                :
+              else
+                rgw_admin_zone bucket create --bucket "$rgw_bucket" --uid "$rgw_bucket_owner"
+              fi
+            '') rgwBuckets;
+          in
+          ''
+            set -euo pipefail
+            keyring="/etc/ceph/ceph.client.admin.keyring"
+            ceph_bin="${cephPkg}/bin/ceph"
+            radosgw_admin="${cephPkg}/bin/radosgw-admin"
+            connect_addrs=""
+            format_addrs() {
+              local host="$1"
+              case "$host" in
+                (*[!0-9.:]*)
+                  printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  ;;
+                (*)
+                  printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  ;;
+              esac
+            }
+            if [ -s "$keyring" ]; then
+              for addr in ${monCandidates}; do
+                if [ -z "$addr" ]; then
+                  continue
+                fi
+                candidate_addrs="$(format_addrs "$addr")"
+                if timeout 10 "$ceph_bin" -m "$candidate_addrs" -n client.admin -k "$keyring" status >/dev/null 2>&1; then
+                  connect_addrs="$candidate_addrs"
+                  break
+                fi
+              done
+            fi
+
+            ceph_cmd() {
+              if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+              else
+                ${cephadm} shell -- ceph "$@"
+              fi
+            }
+
+            ceph_cmd_timeout() {
+              local timeout_secs="$1"
+              shift
+              if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                timeout "$timeout_secs" "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
+              else
+                timeout "$timeout_secs" ${cephadm} shell -- ceph "$@"
+              fi
+            }
+
+            rgw_admin() {
+              if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
+                "$radosgw_admin" -n client.admin -k "$keyring" "$@"
+              else
+                ${cephadm} shell -- radosgw-admin -n client.admin -k "$keyring" "$@"
+              fi
+            }
+            rgw_admin_zone() {
+              rgw_admin \
+                --rgw-realm "$rgw_realm" \
+                --rgw-zonegroup "$rgw_zonegroup" \
+                --rgw-zone "$rgw_zone" \
+                "$@"
+            }
+
+            status_timeout=10
+            status_attempts=10
+            ready=0
+            for _ in $(seq 1 "$status_attempts"); do
+              if ceph_cmd_timeout "$status_timeout" status >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$ready" -ne 1 ]; then
+              echo "cephadm-rgw: cluster not reachable; skipping rgw setup" >&2
+              exit 0
+            fi
+
+            if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
+              ceph_cmd mgr module enable cephadm >/dev/null 2>&1 || true
+              ceph_cmd config set mgr mgr/orchestrator/orchestrator cephadm >/dev/null 2>&1 || true
+            fi
+            if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
+              echo "cephadm-rgw: orchestrator commands unavailable; check cephadm_path permissions" >&2
+              exit 1
+            fi
+
+            rgw_realm=${lib.escapeShellArg cfg.rgw.realm}
+            rgw_zonegroup=${lib.escapeShellArg cfg.rgw.zonegroup}
+            rgw_zone=${lib.escapeShellArg cfg.rgw.zone}
+            rgw_service=${lib.escapeShellArg cfg.rgw.serviceId}
+            rgw_placement=${lib.escapeShellArg cfg.rgw.placement}
+            rgw_port=${lib.escapeShellArg (toString cfg.rgw.port)}
+
+            if ! rgw_admin realm get --rgw-realm "$rgw_realm" >/dev/null 2>&1; then
+              rgw_admin realm create --rgw-realm "$rgw_realm" --default
+            fi
+
+            if ! rgw_admin zonegroup get --rgw-realm "$rgw_realm" --rgw-zonegroup "$rgw_zonegroup" >/dev/null 2>&1; then
+              rgw_admin zonegroup create \
+                --rgw-realm "$rgw_realm" \
+                --rgw-zonegroup "$rgw_zonegroup" \
+                --master \
+                --default ${endpointArg}
+            else
+              ${zonegroupModifyCmd}
+            fi
+
+            if ! rgw_admin zone get --rgw-realm "$rgw_realm" --rgw-zonegroup "$rgw_zonegroup" --rgw-zone "$rgw_zone" \
+              >/dev/null 2>&1; then
+              rgw_admin zone create \
+                --rgw-realm "$rgw_realm" \
+                --rgw-zonegroup "$rgw_zonegroup" \
+                --rgw-zone "$rgw_zone" \
+                --master \
+                --default ${endpointArg}
+            else
+              ${zoneModifyCmd}
+            fi
+
+            rgw_admin period update --rgw-realm "$rgw_realm" --commit >/dev/null 2>&1 || true
+
+            ceph_cmd orch apply rgw \
+              "$rgw_service" \
+              --realm "$rgw_realm" \
+              --zone "$rgw_zone" \
+              --placement "$rgw_placement" \
+              --port "$rgw_port" \
+              ${sslPortArg}
+
+            ${userCommands}
+            ${bucketCommands}
           '';
       };
 

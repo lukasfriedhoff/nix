@@ -305,6 +305,7 @@ in
     };
     pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
     cephfs = lib.optionals (hasRole "bootstrap") (cephCluster.cephfs or [ ]);
+    rgw = lib.mkIf (hasRole "bootstrap") (cephCluster.rgw or { });
     backup = lib.mkIf (hasRole "bootstrap") {
       enable = cephCluster.backup.enable or false;
       secretKeyFile = cephCluster.backup.secretKeyFile or null;
