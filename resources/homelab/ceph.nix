@@ -111,7 +111,15 @@
             user = "homelab-lgtm";
           }
           {
-            name = "mimir";
+            name = "mimir-blocks";
+            user = "homelab-lgtm";
+          }
+          {
+            name = "mimir-alertmanager";
+            user = "homelab-lgtm";
+          }
+          {
+            name = "mimir-ruler";
             user = "homelab-lgtm";
           }
           {
