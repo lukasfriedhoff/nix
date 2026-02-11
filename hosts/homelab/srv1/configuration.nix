@@ -248,6 +248,11 @@ in
     host = "0.0.0.0";
     acceleration = "rocm";
     rocmOverrideGfx = "11.0.0"; # AMD 7900 XTX (RDNA3/gfx1100)
+    environmentVariables = {
+      OLLAMA_LLM_LIBRARY = "rocm";
+      OLLAMA_NUM_GPU = "1";
+      OLLAMA_LOAD_TIMEOUT = "10m";
+    };
     openFirewall = true;
     ui = {
       enable = true;
