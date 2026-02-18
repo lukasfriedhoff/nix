@@ -5,6 +5,7 @@ Source of truth: `.sops.yaml` `creation_rules` and current directory layout unde
 ## Recipient key owners (human-readable)
 - **tux-h4xx-01**: personal desktop (age16aay…)
 - **tab-h4xx-02**: personal laptop/tablet (age192f9…)
+- **lenovo-h4xx-03**: personal desktop (age1r773…)
 - **srv4-vm-01**: personal server key labeled `srv4` (age1yff2…)
 - **srv1**: homelab server (age1qms8…)
 - **srv2**: homelab server (age1jgca…)
@@ -15,24 +16,26 @@ Source of truth: `.sops.yaml` `creation_rules` and current directory layout unde
 ```
 secrets/profiles/
 ├── common/
-│   └── shared/                          [tux, tab, srv4, macbook-pro]
+│   └── shared/                          [tux, tab, lenovo, srv4, macbook-pro]
 │       (reserved for cross-profile secrets)
 ├── personal/
-│   ├── shared/                          [tux, tab, srv4, srv1]
+│   ├── shared/                          [tux, tab, lenovo, srv4, srv1]
 │   │   ├── homelab/                     (shared personal homelab secrets)
 │   │   │   └── flux-cluster-dev/
 │   │   └── luks/                        (shared luks material)
 │   │   └── wireguard/                   (personal-only WireGuard domain/endpoint)
 │   ├── desktops/
-│   │   ├── common/ssh/                  [tux, tab]
+│   │   ├── common/ssh/                  [tux, tab, lenovo]
 │   │   │   (desktop SSH identities used by personal machines)
 │   │   ├── tux-h4xx-01/                 [tux]
 │   │   │   ├── ceph/
 │   │   │   ├── ssh/                     [tux, tab] (ssh rule applies)
 │   │   │   └── wireguard/
+│   │   ├── lenovo-h4xx-03/              [lenovo]
+│   │   │   └── wireguard/
 │   │   └── tab-h4xx-02/                 [tab]
 │   │       └── wireguard/
-│   └── servers/                         [tux, tab, srv4, srv1, srv2]
+│   └── servers/                         [tux, tab, lenovo, srv4, srv1, srv2]
 │       ├── ceph/
 │       │   └── 83897024-e964-11f0-9d5c-0cc47a6c3802/
 │       ├── srv1/

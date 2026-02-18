@@ -10,6 +10,7 @@ stored in `secrets/profiles/personal/shared/wireguard/endpoint.txt`). Every pers
 |-----------------|-----------------|------------------------------------------------------------------------------|
 | tux-h4xx-01     | `10.1.90.2/24`  | `secrets/profiles/personal/desktops/tux-h4xx-01/wireguard/homelab.priv`     |
 | tab-h4xx-02     | `10.1.90.3/24`  | `secrets/profiles/personal/desktops/tab-h4xx-02/wireguard/homelab.priv`     |
+| lenovo-h4xx-03  | `10.1.90.5/24`  | `secrets/profiles/personal/desktops/lenovo-h4xx-03/wireguard/homelab.priv`  |
 | srv4-vm-01      | `10.1.90.4/24`  | `secrets/profiles/personal/servers/srv4-vm-01/wireguard/homelab.priv`       |
 
 Shared settings (used by every personal host):
@@ -37,7 +38,7 @@ sops secrets/profiles/personal/desktops/tux-h4xx-01/wireguard/homelab.priv
 # replace the placeholder with the real key, save and exit
 ```
 
-Repeat for `tab` and `srv4`. The files are encrypted with the per-host age
+Repeat for `tab`, `lenovo`, and `srv4`. The files are encrypted with the per-host age
 recipient defined in `.sops.yaml`, so only that machine (plus the admin box)
 can decrypt them.
 
