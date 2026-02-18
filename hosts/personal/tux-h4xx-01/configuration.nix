@@ -1,10 +1,4 @@
-{
-  config,
-  pkgs,
-  secrets,
-  lib,
-  ...
-}:
+{ lib, ... }:
 
 {
   imports = [
@@ -23,93 +17,15 @@
   boot.loader.generic-extlinux-compatible.configurationLimit = lib.mkDefault 10;
   boot.loader.grub.configurationLimit = lib.mkDefault 10;
 
-  desktop.gaming = {
+  desktop.personalWorkstation = {
     enable = true;
-    defaultRenderer = "nvidia";
+    wireguardAddress = "10.1.90.2/24";
+    cephClientName = "tux";
   };
 
-  lukasf.ollama = {
-    enable = true;
-    autoStart = false;
-    ui.autoStart = false;
-  };
-  lukasf.protonvpn.enable = true;
+  desktop.gaming.defaultRenderer = "nvidia";
+
   lukasf.tuxedoControlCenter.enable = true;
-
-  desktop.wireguardHomelab = {
-    enable = true;
-    address = "10.1.90.2/24";
-  };
-
-  sops.secrets."srv1-builder-key" = {
-    sopsFile = "${secrets.profileCommon}/ssh/srv1-personal-mgmt.priv";
-    owner = "root";
-    format = "binary";
-    mode = "0400";
-    path = "/var/lib/sops-nix/ssh/srv1-builder-key";
-  };
-
-  lukasf.nixCache = {
-    enable = true;
-    serve = false;
-    configureClient = true;
-    cacheHost = "srv1.lab.h4xx.io";
-    publicKey = builtins.readFile ../../../resources/nix-cache/personal-cache.pub;
-    connectTimeout = 2; # try srv1 first, but fall back quickly to cache.nixos.org
-    fallbackToOfficial = true;
-  };
-
-  # If the private cache is unreachable, build locally instead of aborting.
-  nix.settings.fallback = true;
-
-  lukasf.remoteBuilds.sshKeyFile = config.sops.secrets."srv1-builder-key".path;
-  lukasf.remoteBuilds.publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURZeXEvNm9XNS9vTkhMazZOM1FLaWFjSVBnaEkrdW9VTlY1T0MyRXI0YUEgcm9vdEBuaXhvcwo=";
-
-  # Ceph client credentials for RBD access from tux.
-  sops.secrets."ceph/client-tux-keyring" = {
-    sopsFile = ../../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
-    owner = "root";
-    mode = "0400";
-    path = "/etc/ceph/ceph.client.tux.keyring";
-    format = "binary";
-  };
-
-  # User-readable copy for CLI use (rbd/rados) without sudo.
-  sops.secrets."ceph/client-tux-keyring-user" = {
-    sopsFile = ../../../secrets/profiles/personal/desktops/tux-h4xx-01/ceph/client.tux.keyring.txt;
-    owner = "lukasf";
-    mode = "0600";
-    path = "/home/lukasf/.ceph/ceph.client.tux.keyring";
-    format = "binary";
-  };
-
-  # Ensure ~/.ceph exists for the user keyring.
-  systemd.tmpfiles.rules = [
-    "d /home/lukasf/.ceph 0700 lukasf users -"
-    "d /var/lib/sops-nix/ssh 0700 root root -"
-  ];
-
-  # Minimal Ceph config for user tools (defaults to srv1 mon on 3300).
-  environment.etc."ceph/ceph.conf".text = ''
-    [global]
-    mon_host = srv1.lab.h4xx.io:3300
-  '';
-
-  lukasf.ceph.client = {
-    enable = true;
-    monHosts = [ "srv1.lab.h4xx.io" ];
-    monPort = 3300;
-    publicNetwork = "10.1.30.0/24";
-  };
-
-  shared.ssh.knownHosts.srv1 = {
-    hostNames = [
-      "srv1"
-      "srv1.lab.h4xx.io"
-      "10.1.30.12"
-    ];
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDYyq/6oW5/oNHLk6N3QKiacIPghI+uoUNV5OC2Er4aA";
-  };
 
   # Power management
   powerManagement.powertop.enable = true;
@@ -134,30 +50,6 @@
         "resample.quality" = 8;
       };
     };
-  };
-
-  virtualisation.podman = {
-    enable = true;
-    dockerCompat = true;
-    defaultNetwork.settings = {
-      dns_enabled = true;
-    };
-  };
-
-  environment.systemPackages = with pkgs; [
-    libvirt
-    ceph
-  ];
-
-  # Allow dynamic binaries from third-party installers (e.g., oh-my-opencode CLI).
-  programs.nix-ld = {
-    enable = true;
-    libraries = with pkgs; [
-      stdenv.cc.cc
-      glibc
-      openssl
-      zlib
-    ];
   };
 
   # Keep the Windows partition declared so the unit exists, but avoid

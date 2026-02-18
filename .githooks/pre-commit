@@ -39,7 +39,7 @@ while IFS= read -r file; do
     case "$file" in
       *.md) ;;
       *)
-        if ! git show :"$file" | grep -q '"sops":'; then
+        if ! git show :"$file" | grep -Eq '^[[:space:]]*sops:|"sops"[[:space:]]*:|^sops_'; then
           fail "refusing to commit unencrypted secret $file (missing sops payload)"
         fi
       ;;

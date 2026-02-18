@@ -24,6 +24,8 @@
 
     comin.url = "github:nlewo/comin";
     comin.inputs.nixpkgs.follows = "nixpkgs";
+
+    nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
   };
 
   outputs =
@@ -38,6 +40,7 @@
       disko,
       sops-nix,
       comin,
+      nixos-facter-modules,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -146,6 +149,15 @@
               ceph = "${personalProfileRoot}/servers/ceph";
               root = personalDesktopRoot "tab-h4xx-02";
               personal = personalDesktopRoot "tab-h4xx-02";
+            };
+            lenovo = {
+              primary = personalDesktopRoot "lenovo-h4xx-03";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
+              ceph = "${personalProfileRoot}/servers/ceph";
+              root = personalDesktopRoot "lenovo-h4xx-03";
+              personal = personalDesktopRoot "lenovo-h4xx-03";
             };
             mac = {
               primary = workDesktopRoot "macbook-pro";
@@ -289,7 +301,6 @@
                 (mkDesktopHome "tux" [
                   stylix.homeModules.stylix
                   ./home
-                  ./home/hosts/tux.nix
                 ])
               ]
             );
@@ -299,6 +310,17 @@
               ++ [
                 ./hosts/personal/tab-h4xx-02/configuration.nix
                 (mkDesktopHome "tab" [
+                  stylix.homeModules.stylix
+                  ./home
+                ])
+              ]
+            );
+
+            lenovo-h4xx-03 = mkNixosHost "lenovo" (
+              gnomeDesktopModules
+              ++ [
+                ./hosts/personal/lenovo-h4xx-03/configuration.nix
+                (mkDesktopHome "lenovo" [
                   stylix.homeModules.stylix
                   ./home
                 ])
@@ -401,7 +423,6 @@
                 profile = "tux";
                 extraImports = [
                   stylix.homeModules.stylix
-                  ./home/hosts/tux.nix
                 ];
               };
               "${macUser}@macbook-pro" = mkStandaloneHome {

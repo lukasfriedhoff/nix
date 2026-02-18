@@ -24,7 +24,6 @@ in
         dnssec = lib.mkDefault "false";
         fallbackDns = lib.mkDefault [
           "1.1.1.1"
-          "9.9.9.9"
         ];
         networkmanagerDns = lib.mkDefault "systemd-resolved";
         resolvconfEnable = lib.mkDefault false;
