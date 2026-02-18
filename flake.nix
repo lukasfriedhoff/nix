@@ -68,12 +68,25 @@
           };
 
           devShells.default = pkgs.mkShell {
+            packages =
+              (with pkgs; [
+                git
+                nixfmt
+                sops
+              ])
+              ++ lib.optionals pkgs.stdenv.isLinux (with pkgs; [ sysstat ]);
+          };
+
+          devShells.versatelalerting = pkgs.mkShell {
             packages = with pkgs; [
-              git
-              nixfmt
-              sops
-              sysstat
+              jdk21
+              maven
             ];
+
+            shellHook = ''
+              export JAVA_HOME="${pkgs.jdk21}"
+              export PATH="$JAVA_HOME/bin:$PATH"
+            '';
           };
         };
 
