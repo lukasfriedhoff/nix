@@ -12,6 +12,12 @@ in
     enableCompletion = true;
     # TODO add your custom bashrc here
     bashrcExtra = ''
+      # macOS ships Bash 3.2 which is too old for modern `bash-completion`.
+      # Re-exec into Nix Bash for interactive shells so completions work.
+      if [[ $- == *i* ]] && (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 2) )); then
+        exec "${pkgs.bashInteractive}/bin/bash"
+      fi
+
       # Ensure JDK bin is always first in PATH, even on macOS
       if [ -d "${jdkHome}/bin" ] && [[ ":$PATH:" != *":${jdkHome}/bin:"* ]]; then
         export PATH="${jdkHome}/bin:$PATH"
