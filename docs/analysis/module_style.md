@@ -17,7 +17,7 @@
 ## Option patterns
 - Always provide `enable` via `lib.mkEnableOption`.
   - Service modules usually default to `false`.
-  - Profile modules that are always imported default to `true` using `// { default = true; }`.
+  - Profile modules that should apply globally can default to `true`; feature profiles should default to `false` and be enabled in the flake or host config.
 - Use `package = lib.mkPackageOption pkgs "<pkg>" { };` when a module wraps a primary package.
 - Use `openFirewall` (bool, default `false`) when a service binds to network ports.
 - Provide `extraConfig` (`types.lines`) or `extraArgs` (`listOf str`) for pass-through configuration.
