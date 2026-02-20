@@ -3,7 +3,7 @@
 - **Form factor**: Detachable 13" tablet with Intel SoC and on-board eMMC storage.
 - **Desktop**: GNOME on Wayland (good touch/pen support).
 - **Input**: Touchscreen + pen via libinput/libwacom; accelerometer exposed through IIO.
-- **Storage quirk**: The built-in eMMC freezes when command queueing is enabled. The module `modules/nixos/hardware/asus/vivobook-t3300.nix` disables blk-mq and limits the mmc queue depth via:
+- **Storage quirk**: The built-in eMMC freezes when command queueing is enabled. The module `modules/features/hardware/asus/vivobook-t3300/nixos.nix` disables blk-mq and limits the mmc queue depth via:
   - `boot.kernelParams = [ "mmc_core.queue_depth=2" "mmc_core.default_cmdq_depth=0" ];`
   - A `systemd` oneshot (`disable-emmc-cq`) that writes `0` to `/sys/block/mmcblk*/queue/use_cq`.
 

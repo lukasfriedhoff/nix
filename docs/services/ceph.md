@@ -1,6 +1,6 @@
 # Ceph module (cephadm + ceph-volume)
 
-This repo ships a minimal Ceph module at `modules/nixos/services/ceph.nix`.
+This repo ships a minimal Ceph module at `modules/features/ceph/nixos.nix`.
 It bootstraps a cluster (if none exists), optionally sets the public network, and can
 auto-provision OSDs from a device list (via cephadm or ceph-volume).
 

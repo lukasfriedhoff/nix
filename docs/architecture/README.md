@@ -17,11 +17,12 @@ This directory contains architectural decisions and pattern documentation for th
 Hosts are built from composable module sets defined in `flake.nix`:
 
 ```
-baseDesktopModules     → Common desktop modules (base, services, stylix)
+coreModules            → Feature modules (`modules/features/**/nixos.nix`) + sops/comin/facter
+baseDesktopModules     → coreModules + stylix + Home Manager
 ├── plasmaDesktopModules  → + KDE Plasma
 └── gnomeDesktopModules   → + GNOME + laptop power management
 
-baseServerModules      → Common server modules (base, services, comin)
+baseServerModules      → coreModules + server defaults
 ├── homelabServerModules  → + Kubernetes, GitOps
 └── personalHomelabServerModules → + Personal server profile
 ```
@@ -48,6 +49,7 @@ Custom import helpers in `lib/default.nix`:
 myLib.importDir ./path      # Import all .nix files in directory
 myLib.importSubdirs ./path  # Import subdirs with default.nix
 myLib.importTree ./path     # Recursive import
+myLib.importTreeByName ./modules/features "nixos.nix"
 ```
 
 ## Design Principles

@@ -11,23 +11,14 @@ customer-facing servers.
 ├── flake.lock             # Pinned dependency versions
 ├── lib/                   # Custom library functions
 │   └── default.nix        # Import helpers (importDir, importSubdirs, importTree)
-├── modules/nixos/         # Reusable NixOS modules
-│   ├── profiles/          # Role-based configs (desktop, server, homelab)
-│   │   └── desktop/
-│   │       ├── gnome.nix
-│   │       ├── plasma.nix
-│   │       ├── laptop.nix # Power management for mobile devices
-│   │       └── gaming.nix
-│   ├── services/          # System services (ceph, kvm, wireguard)
-│   └── hardware/          # Device-specific configs
-├── home/                  # Home Manager configuration
-│   ├── programs/          # User programs (organized by category)
-│   │   ├── dev/           # Development: git, neovim, vscode
-│   │   ├── devops/        # Infrastructure: kubectl, k9s, velero
-│   │   ├── utils/         # Utilities: alacritty, starship, gpg
-│   │   ├── work/          # Work tools: cassandra, mariadb, maven
-│   │   └── gaming/        # Gaming: mod managers
-│   └── platforms/         # OS-specific config (linux, macos)
+├── modules/               # Feature-based modules (NixOS, Home Manager, Darwin)
+│   └── features/
+│       ├── base/          # Base defaults (nixos.nix, home.nix)
+│       ├── desktop/       # Desktop profiles + desktop apps
+│       ├── gaming/        # Gaming stack (system + home)
+│       ├── homelab/       # Homelab profiles (k3s, gitops)
+│       ├── hardware/      # Device-specific profiles
+│       └── ...
 ├── hosts/                 # Host-specific configurations
 ├── resources/             # Static resources (SSH hosts, Ceph topology)
 ├── secrets/               # SOPS-encrypted secrets (by profile)
@@ -43,8 +34,7 @@ customer-facing servers.
 
 - `flake.nix` – declarative host definitions (`nixosConfigurations.*`,
   `darwinConfigurations.*`, `homeConfigurations.*`)
-- `modules/` – reusable NixOS/Home Manager profiles (desktops, servers, secrets)
-- `home/` – user-level Home Manager configuration
+- `modules/` – feature-based NixOS/Home Manager/Darwin modules (`modules/features`)
 - `hosts/` – host-specific modules and hardware descriptors
 - `scripts/` – helper tooling (bootstrap keys, deploy remote hosts, etc.)
 - `docs/` – long-form documentation
