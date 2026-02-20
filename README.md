@@ -57,6 +57,7 @@ customer-facing servers.
 | tab-h4xx-02 | Desktop | GNOME | ASUS Vivobook T3300 (tablet) |
 | srv4-vm-01 | Desktop | Plasma | Virtual machine |
 | srv1 | Server | Homelab | Personal homelab (Ceph, k3s) |
+| srv2 | Server | Homelab | Personal homelab node |
 | macbook-pro | Darwin | macOS | Work MacBook |
 | docker-host-01 | Server | Work | Customer Docker host |
 
