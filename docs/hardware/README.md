@@ -10,6 +10,7 @@ This directory contains hardware-specific documentation for each managed device.
 | tab-h4xx-02 | ASUS Vivobook T3300 | [Documented](tab-h4xx-02.md) |
 | lenovo-h4xx-03 | Lenovo ThinkPad P15 Gen 2i | [Draft](lenovo-h4xx-03.md) |
 | srv1 | Supermicro server | See host config |
+| srv2 | Homelab server | See host config |
 | srv4-vm-01 | Virtual machine | N/A |
 
 ## Hardware Quirks
