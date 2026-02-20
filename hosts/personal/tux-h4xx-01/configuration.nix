@@ -4,11 +4,11 @@
   imports = [
     ../../common/default.nix
     ./hardware-configuration.nix
-    ../../../modules/nixos/hardware/tuxedo/infinitybook-pro-16-gen8.nix
-    ../../../modules/nixos/profiles/desktop/gaming.nix
   ];
 
   networking.hostName = "tux-h4xx-01";
+
+  hardwareProfiles.tuxedo.infinitybookPro16Gen8.enable = true;
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;

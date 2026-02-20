@@ -12,11 +12,11 @@
     ./hardware-configuration.nix
     inputs.disko.nixosModules.disko
     ./disko.nix
-    ../../../modules/nixos/hardware/lenovo/thinkpad-p15-gen2i.nix
-    ../../../modules/nixos/profiles/desktop/gaming.nix
   ];
 
   networking.hostName = "lenovo-h4xx-03";
+
+  hardwareProfiles.lenovo.thinkpadP15Gen2i.enable = true;
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;

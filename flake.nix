@@ -103,6 +103,12 @@
           darwinSystem = "aarch64-darwin";
 
           myLib = import ./lib { inherit (nixpkgs) lib; };
+          featureRoot = ./modules/features;
+          featureModules = {
+            nixos = myLib.importTreeByName featureRoot "nixos.nix";
+            home = myLib.importTreeByName featureRoot "home.nix";
+            darwin = myLib.importTreeByName featureRoot "darwin.nix";
+          };
 
           linuxUser = "lukasf";
           macUser = "lukasfriedhoff";
@@ -223,16 +229,12 @@
               pkgs = linuxPkgs;
             };
             home-manager.users.${linuxUser} = {
-              imports = extraImports;
+              imports = featureModules.home ++ extraImports;
             };
           };
 
           # Shared by ALL NixOS hosts
-          coreModules = [
-            ./modules/nixos/profiles/base.nix
-            ./modules/nixos/shared
-            ./modules/nixos/profiles
-            ./modules/nixos/services
+          coreModules = featureModules.nixos ++ [
             sops-nix.nixosModules.sops
             comin.nixosModules.comin
             inputs.nixos-facter-modules.nixosModules.facter
@@ -314,7 +316,6 @@
                 ./hosts/personal/srv4-vm-01/configuration.nix
                 (mkDesktopHome "srv4" [
                   stylix.homeModules.stylix
-                  ./home
                 ])
               ]
             );
@@ -325,7 +326,6 @@
                 ./hosts/personal/tux-h4xx-01/configuration.nix
                 (mkDesktopHome "tux" [
                   stylix.homeModules.stylix
-                  ./home
                 ])
               ]
             );
@@ -336,7 +336,6 @@
                 ./hosts/personal/tab-h4xx-02/configuration.nix
                 (mkDesktopHome "tab" [
                   stylix.homeModules.stylix
-                  ./home
                 ])
               ]
             );
@@ -347,7 +346,6 @@
                 ./hosts/personal/lenovo-h4xx-03/configuration.nix
                 (mkDesktopHome "lenovo" [
                   stylix.homeModules.stylix
-                  ./home
                 ])
               ]
             );
@@ -385,8 +383,7 @@
 
           darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {
             system = darwinSystem;
-            modules = [
-              ./modules/darwin
+            modules = featureModules.darwin ++ [
               ./hosts/work/macbook-pro/configuration.nix
               home-manager.darwinModules.home-manager
               nix-homebrew.darwinModules.nix-homebrew
@@ -399,8 +396,7 @@
                   extraSpecialArgs = mkSpecialArgs "mac";
                   users.${macUser} = {
                     nixpkgs.config.allowUnfree = true;
-                    imports = [
-                      ./home
+                    imports = featureModules.home ++ [
                       stylix.homeModules.stylix
                     ];
                   };
@@ -433,10 +429,7 @@
                   extraSpecialArgs = mkSpecialArgs profile // {
                     pkgs = hmPkgs;
                   };
-                  modules = [
-                    ./home
-                  ]
-                  ++ extraImports;
+                  modules = featureModules.home ++ extraImports;
                   username = username;
                   homeDirectory = if system == darwinSystem then "/Users/${username}" else "/home/${username}";
                 };

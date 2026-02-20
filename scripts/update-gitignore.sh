@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Refresh the prefetched gitignore bundle used by home/programs/git/gitignore.nix.
+# Refresh the prefetched gitignore bundle used by modules/features/dev/git/gitignore.nix.
 set -euo pipefail
 
 TEMPLATES=(macos linux vim direnv node go python)
