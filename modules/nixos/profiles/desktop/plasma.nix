@@ -13,9 +13,7 @@ let
 in
 {
   options.desktop.plasma = {
-    enable = lib.mkEnableOption "Plasma desktop profile" // {
-      default = true;
-    };
+    enable = lib.mkEnableOption "Plasma desktop profile";
   };
 
   config = lib.mkIf cfg.enable {

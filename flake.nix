@@ -234,6 +234,7 @@
             ./modules/nixos/profiles
             ./modules/nixos/services
             sops-nix.nixosModules.sops
+            inputs.nixos-facter-modules.nixosModules.facter
           ];
 
           # Additional modules for desktop hosts
@@ -252,12 +253,22 @@
           baseDesktopModules = coreModules ++ desktopExtras;
 
           plasmaDesktopModules = baseDesktopModules ++ [
-            ./modules/nixos/profiles/desktop/plasma.nix
+            (
+              { lib, ... }:
+              {
+                desktop.plasma.enable = lib.mkDefault true;
+              }
+            )
           ];
 
           gnomeDesktopModules = baseDesktopModules ++ [
-            ./modules/nixos/profiles/desktop/gnome.nix
-            ./modules/nixos/profiles/desktop/laptop.nix
+            (
+              { lib, ... }:
+              {
+                desktop.gnome.enable = lib.mkDefault true;
+                desktop.laptop.enable = lib.mkDefault true;
+              }
+            )
           ];
 
           baseServerModules =
@@ -268,8 +279,6 @@
             ];
 
           homelabServerModules = coreModules ++ serverExtras;
-
-          personalHomelabServerModules = coreModules ++ serverExtras;
 
           mkNixosHost =
             profile: extraModules:
@@ -344,14 +353,14 @@
             );
 
             srv1 = mkNixosHost "srv1" (
-              personalHomelabServerModules
+              homelabServerModules
               ++ [
                 ./hosts/homelab/srv1/configuration.nix
               ]
             );
 
             srv2 = mkNixosHost "srv2" (
-              personalHomelabServerModules
+              homelabServerModules
               ++ [
                 ./hosts/homelab/srv2/configuration.nix
               ]

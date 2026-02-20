@@ -18,9 +18,7 @@ let
 in
 {
   options.desktop.gnome = {
-    enable = lib.mkEnableOption "GNOME desktop profile" // {
-      default = true;
-    };
+    enable = lib.mkEnableOption "GNOME desktop profile";
   };
 
   config = lib.mkIf cfg.enable {
