@@ -10,9 +10,7 @@ let
 in
 {
   options.desktop.laptop = {
-    enable = lib.mkEnableOption "laptop power management profile" // {
-      default = true;
-    };
+    enable = lib.mkEnableOption "laptop power management profile";
   };
 
   config = lib.mkIf cfg.enable {
