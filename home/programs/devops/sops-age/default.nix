@@ -50,6 +50,8 @@ in
         sshKeyPrivSecret = secretPath "git-personal-ed25519.priv";
         gpgSecret = secretPath "git-personal-gpg.asc";
         openAIEnv = secretPath "openai.env";
+        nextcloudConfig = secretPath "nextcloud/nextcloud.cfg.txt";
+        nextcloudExclude = secretPath "nextcloud/sync-exclude.lst.txt";
         extraSshKeys = import ../../../../resources/ssh/keys.nix;
         extraSshConfigSnippets = import ../../../../resources/ssh/config-snippets.nix;
         managedSshFiles = (lib.optionals (!workSystem) extraSshKeys) ++ extraSshConfigSnippets;
@@ -160,6 +162,39 @@ in
           elif [ -f "$dst" ]; then
             "${pkgs.coreutils}/bin/rm" -f "$dst"
           fi
+        '';
+
+        home.activation.installNextcloudConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          set -eu
+
+          export SOPS_AGE_KEY_FILE='${ageKeyFile}'
+
+          if [ ! -r "${ageKeyFile}" ]; then
+            echo "[HM][nextcloud] Skipping: ${ageKeyFile} not found"
+            exit 0
+          fi
+
+          cfg_dir="${config.xdg.configHome}/Nextcloud"
+          "${pkgs.coreutils}/bin/mkdir" -p "$cfg_dir"
+
+          install_secret() {
+            secret="$1"
+            dest="$2"
+
+            if [ -f "$secret" ]; then
+              tmp="$(mktemp)"
+              if ${sopsBin} -d "$secret" > "$tmp"; then
+                "${pkgs.coreutils}/bin/install" -m 600 "$tmp" "$dest"
+                echo "[HM][nextcloud] Installed $(basename "$dest")"
+              else
+                echo "[HM][nextcloud] Failed to decrypt $secret"
+              fi
+              "${pkgs.coreutils}/bin/rm" -f "$tmp"
+            fi
+          }
+
+          install_secret '${nextcloudConfig}' "$cfg_dir/nextcloud.cfg"
+          install_secret '${nextcloudExclude}' "$cfg_dir/sync-exclude.lst"
         '';
 
         home.activation.installManagedSshKeys =
