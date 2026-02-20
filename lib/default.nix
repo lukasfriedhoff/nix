@@ -59,6 +59,26 @@
     (map (name: dir + "/${name}") (builtins.attrNames nixFiles))
     ++ (map (name: dir + "/${name}") (builtins.attrNames validDirs));
 
+  # Import all files matching a given name from a directory tree (recursive).
+  #
+  # Usage:
+  #   imports = myLib.importTreeByName ./modules/features "nixos.nix";
+  importTreeByName =
+    dir: fileName:
+    let
+      recurse =
+        current:
+        let
+          entries = builtins.readDir current;
+          matchingFiles = lib.filterAttrs (name: type: type == "regular" && name == fileName) entries;
+          dirs = lib.filterAttrs (name: type: type == "directory") entries;
+          filesHere = map (name: current + "/${name}") (builtins.attrNames matchingFiles);
+          filesInDirs = lib.concatMap (name: recurse (current + "/${name}")) (builtins.attrNames dirs);
+        in
+        filesHere ++ filesInDirs;
+    in
+    recurse dir;
+
   # Resolve a secret path against a base directory.
   # If path is absolute, return it. If root is null, throw.
   #

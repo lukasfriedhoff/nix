@@ -8,10 +8,11 @@
   imports = [
     ../../common/default.nix
     ./hardware-configuration.nix
-    ../../../modules/nixos/hardware/asus/vivobook-t3300.nix
   ];
 
   networking.hostName = "tab-h4xx-02";
+
+  hardwareProfiles.asus.vivobookT3300.enable = true;
   boot.initrd.luks.devices."luks-3ec9fc7f-dba1-4c81-9eb0-255731e15fd6".device =
     "/dev/disk/by-uuid/3ec9fc7f-dba1-4c81-9eb0-255731e15fd6";
   hardware.graphics = {
