@@ -23,10 +23,10 @@ which NixOS modules can use to automatically configure hardware-specific setting
 We use manual hardware modules per device model:
 
 ```
-modules/nixos/hardware/
-├── asus/vivobook-t3300.nix
-├── supermicro/amd7900xtx.nix
-└── tuxedo/infinitybook-pro-16-gen8.nix
+modules/features/hardware/
+├── asus/vivobook-t3300/nixos.nix
+├── supermicro/amd7900xtx/nixos.nix
+└── tuxedo/infinitybook-pro-16-gen8/nixos.nix
 ```
 
 Each module explicitly configures:
@@ -35,6 +35,8 @@ Each module explicitly configures:
 - Kernel parameters
 - Power management
 - Device-specific quirks
+
+Hardware modules are auto-imported and enabled per host via `hardwareProfiles.<vendor>.<model>.enable = true;`.
 
 ### nixos-facter Approach
 
@@ -85,12 +87,13 @@ inputs.nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
   imports = [
     inputs.nixos-facter-modules.nixosModules.facter
     ./hardware-configuration.nix
-    # Keep custom module for quirks
-    ../../modules/nixos/hardware/tuxedo/infinitybook-pro-16-gen8.nix
   ];
 
   # Let facter handle basic detection
   hardware.facter.reportPath = ./facter.json;
+
+  # Keep custom hardware profile for quirks
+  hardwareProfiles.tuxedo.infinitybookPro16Gen8.enable = true;
 
   # Override specific settings in custom module
 }

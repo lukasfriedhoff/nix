@@ -40,15 +40,19 @@ See [`tab-h4xx-02.md`](tab-h4xx-02.md) for full hardware inventory.
    sudo ./scripts/hardware-survey.sh
    ```
 
-2. Create a hardware module in `modules/nixos/hardware/<vendor>/<model>.nix`
+2. Create a hardware module in `modules/features/hardware/<vendor>/<model>/nixos.nix`
+3. Enable it in the host config:
+   ```nix
+   hardwareProfiles.<vendor>.<model>.enable = true;
+   ```
 
-3. Document the hardware in `docs/hardware/<hostname>.md`
+4. Document the hardware in `docs/hardware/<hostname>.md`
 
-4. Add any required kernel parameters or quirks to the host configuration
+5. Add any required kernel parameters or quirks to the host configuration
 
 ## Power Management
 
-All laptop hosts include the laptop profile (`modules/nixos/profiles/desktop/laptop.nix`) which provides:
+All laptop hosts include the laptop profile (`modules/features/desktop/laptop/nixos.nix`) which provides:
 
 - auto-cpufreq for dynamic CPU frequency scaling
 - thermald for Intel thermal management

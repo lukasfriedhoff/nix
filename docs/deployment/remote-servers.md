@@ -10,7 +10,7 @@ PXE, kexec). The workflow is optimised for two classes of machines:
 
 ### 0. Prerequisites
 
-- `nix` with flakes + the Age key material (see `home/programs/sops-age`)
+- `nix` with flakes + the Age key material (see `modules/features/devops/sops-age`)
 - `ssh`, `sops`, and [`nixos-anywhere`](https://github.com/nix-community/nixos-anywhere)
   (the wrapper script calls it via `nix run`)
 - Reachability (wired LAN or console access) to the installer

@@ -44,12 +44,12 @@ Both controllers expose standard NVMe capabilities; firmware supports disk encry
 ## Audio
 
 - Intel Raptor Lake-P/U/H cAVS (00:1f.3) driven by `snd_hda_intel`, `snd_soc_avs`, `snd_sof_pci_intel_tgl`.
-- PipeWire stack recommended (configured in `modules/nixos/profiles/desktop/plasma.nix`).
+- PipeWire stack recommended (configured in `modules/features/desktop/plasma/nixos.nix`).
 
 ## Sensors / Power
 
 - Thermal management handled by Intel DPTF participants (00:04.0) + `proc_thermal_pci`.
-- `thermald`, `power-profiles-daemon`, `bolt`, and `fwupd` should stay enabled (see `modules/nixos/hardware/tuxedo/infinitybook-pro-16-gen8.nix`).
+- `thermald`, `power-profiles-daemon`, `bolt`, and `fwupd` should stay enabled (see `modules/features/hardware/tuxedo/infinitybook-pro-16-gen8/nixos.nix`).
 - `programs.light` is enabled for backlight control; consider adding udev rules for brightness keys if needed.
 
 ## Notes for NixOS Configuration
