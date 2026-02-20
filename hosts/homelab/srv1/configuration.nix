@@ -180,6 +180,7 @@ in
   };
   networking.interfaces.brvlan30 = {
     useDHCP = true;
+    macAddress = "0c:c4:7a:6c:38:02";
   };
   networking.interfaces.brvlan20.useDHCP = true;
   networking.interfaces.brvlan40.useDHCP = true;
@@ -193,14 +194,6 @@ in
     networkConfig.DHCP = "yes";
     dhcpV4Config.ClientIdentifier = "mac";
   };
-  systemd.network.netdevs."40-brvlan30" = {
-    netdevConfig = {
-      Name = "brvlan30";
-      Kind = "bridge";
-      MACAddress = "0c:c4:7a:6c:38:02";
-    };
-  };
-
   homelab.personalServer = {
     enable = true;
     managementPubKey = "ssh/srv1-personal-mgmt.pub";
