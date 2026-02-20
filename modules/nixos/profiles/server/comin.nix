@@ -42,9 +42,7 @@ let
 in
 {
   options.lukasf.serverDeployment = {
-    enable = lib.mkEnableOption "server deployment defaults via comin" // {
-      default = true;
-    };
+    enable = lib.mkEnableOption "server deployment defaults via comin";
 
     enableComin = lib.mkEnableOption "comin-based deployment for ${repoUrl}" // {
       default = true;

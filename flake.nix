@@ -234,6 +234,7 @@
             ./modules/nixos/profiles
             ./modules/nixos/services
             sops-nix.nixosModules.sops
+            comin.nixosModules.comin
             inputs.nixos-facter-modules.nixosModules.facter
           ];
 
@@ -244,10 +245,7 @@
           ];
 
           # Additional modules for server hosts
-          serverExtras = [
-            comin.nixosModules.comin
-            ./modules/nixos/profiles/server
-          ];
+          serverExtras = [ ];
 
           # Composed from layers
           baseDesktopModules = coreModules ++ desktopExtras;
@@ -271,14 +269,32 @@
             )
           ];
 
+          serverDefaultsModule =
+            { lib, ... }:
+            {
+              lukasf.serverDeployment.enable = lib.mkDefault true;
+            };
+
+          dacosoDefaultsModule =
+            { lib, ... }:
+            {
+              dacoso.server.enable = lib.mkDefault true;
+            };
+
           baseServerModules =
             coreModules
             ++ serverExtras
             ++ [
-              ./modules/nixos/profiles/dacoso
+              serverDefaultsModule
+              dacosoDefaultsModule
             ];
 
-          homelabServerModules = coreModules ++ serverExtras;
+          homelabServerModules =
+            coreModules
+            ++ serverExtras
+            ++ [
+              serverDefaultsModule
+            ];
 
           mkNixosHost =
             profile: extraModules:

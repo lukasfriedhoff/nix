@@ -143,9 +143,7 @@ let
 in
 {
   options.dacoso.server = {
-    enable = lib.mkEnableOption "Dacoso server profile" // {
-      default = true;
-    };
+    enable = lib.mkEnableOption "Dacoso server profile";
 
     secretsDirectory = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
