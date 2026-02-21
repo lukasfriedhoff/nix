@@ -5,6 +5,8 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
+    treefmt-nix.url = "github:numtide/treefmt-nix";
+    treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.url = "github:nix-community/home-manager/master";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -41,12 +43,18 @@
       sops-nix,
       comin,
       nixos-facter-modules,
+      treefmt-nix,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [
         "x86_64-linux"
         "aarch64-darwin"
+      ];
+
+      imports = [
+        ./nix/treefmt.nix
+        ./nix/tests.nix
       ];
 
       perSystem =
@@ -62,8 +70,6 @@
             overlays = [ ];
             config.allowUnfree = false;
           };
-
-          formatter = pkgs.nixfmt or pkgs.nixfmt-classic;
 
           packages = lib.optionalAttrs pkgs.stdenv.isLinux {
             ceph-wrapped = pkgs.callPackage ./pkgs/ceph-wrapped { };
