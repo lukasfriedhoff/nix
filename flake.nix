@@ -250,7 +250,17 @@
           serverExtras = [ ];
 
           # Composed from layers
-          baseDesktopModules = coreModules ++ desktopExtras;
+          baseDesktopModules =
+            coreModules
+            ++ desktopExtras
+            ++ [
+              (
+                { lib, ... }:
+                {
+                  lukasf.pipewire.enable = lib.mkDefault true;
+                }
+              )
+            ];
 
           plasmaDesktopModules = baseDesktopModules ++ [
             (
