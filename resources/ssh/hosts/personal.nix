@@ -108,7 +108,7 @@
     match = "mikrotikrb5009";
     alias = "mikrotikrb5009";
     hostName = "mikrotikrb5009.lab.h4xx.io";
-    user = "root";
+    user = "admin";
     keyName = "mikrotikrb5009";
   }
 ]
