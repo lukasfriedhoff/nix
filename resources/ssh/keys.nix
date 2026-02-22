@@ -63,4 +63,12 @@
     secret = "ssh/srv2-personal-mgmt.priv";
     path = ".ssh/personal/srv2-personal-mgmt";
   }
+  {
+    secret = "ssh/mikrotikrb5009.priv";
+    path = ".ssh/personal/mikrotikrb5009";
+  }
+  {
+    secret = "ssh/travelrouter.priv";
+    path = ".ssh/personal/travelrouter";
+  }
 ]
