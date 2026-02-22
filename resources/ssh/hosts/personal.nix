@@ -97,5 +97,18 @@
     user = "root";
     keyName = "srv2-personal-mgmt";
   }
-
+  {
+    match = "travelrouter";
+    alias = "travelrouter";
+    hostName = "travelrouter.lab.h4xx.io";
+    user = "root";
+    keyName = "travelrouter";
+  }
+  {
+    match = "mikrotikrb5009";
+    alias = "mikrotikrb5009";
+    hostName = "mikrotikrb5009.lab.h4xx.io";
+    user = "root";
+    keyName = "mikrotikrb5009";
+  }
 ]
