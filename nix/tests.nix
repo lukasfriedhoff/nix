@@ -1,7 +1,11 @@
-{ self, ... }:
+{ self, inputs, ... }:
 {
   perSystem =
-    { lib, ... }:
+    {
+      lib,
+      pkgs,
+      ...
+    }:
     let
       withIntegrationTests = lib.filterAttrs (
         _: configuration: builtins.hasAttr "integrationTests" configuration.options
@@ -12,9 +16,68 @@
       ) withIntegrationTests;
 
       collectAndMerge = list: builtins.listToAttrs (builtins.concatLists list);
+
+      pipewireTest = pkgs.testers.nixosTest {
+        name = "pipewire-stack";
+        nodes.machine =
+          { ... }:
+          {
+            imports = [
+              ../modules/features/audio/pipewire/nixos.nix
+            ];
+            lukasf.pipewire.enable = true;
+            system.stateVersion = "25.05";
+          };
+        testScript = ''
+          machine.succeed("test -e /etc/systemd/user/pipewire.service")
+          machine.succeed("test -e /etc/systemd/user/pipewire-pulse.service")
+        '';
+      };
+
+      gcRootsCleanerTest = pkgs.testers.nixosTest {
+        name = "nix-gc-roots-cleaner";
+        nodes.machine =
+          { ... }:
+          {
+            imports = [
+              ../modules/features/nix/gc-roots-cleaner/nixos.nix
+            ];
+            nix.gc = {
+              automatic = true;
+              dates = "hourly";
+            };
+            system.stateVersion = "25.05";
+          };
+        testScript = ''
+          machine.wait_for_unit("nix-gc-roots-cleaner.timer")
+          machine.succeed("test -e /etc/systemd/system/nix-gc-roots-cleaner.service")
+        '';
+      };
+
+      nixRegistryTest = pkgs.testers.nixosTest {
+        name = "nix-registry";
+        nodes.machine =
+          { ... }:
+          {
+            imports = [
+              ../modules/features/nix/registry/nixos.nix
+            ];
+            _module.args.inputs = inputs;
+            lukasf.nixRegistry.enable = true;
+            system.stateVersion = "25.05";
+          };
+        testScript = ''
+          machine.succeed("test -s /etc/nix/registry.json")
+        '';
+      };
     in
     {
-      checks = collectAndMerge extractIntegrationTests;
+      checks = {
+        pipewire-stack = pipewireTest;
+        nix-gc-roots-cleaner = gcRootsCleanerTest;
+        nix-registry = nixRegistryTest;
+      }
+      // collectAndMerge extractIntegrationTests;
     };
 
   flake.nixosModules.integrationTests =
