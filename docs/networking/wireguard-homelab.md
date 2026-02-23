@@ -48,8 +48,22 @@ After editing the secrets run:
 
 ```bash
 sudo nixos-rebuild switch --flake .#tux-h4xx-01
-sudo systemctl status wg-quick@wg-homelab.service
+sudo systemctl status wireguard-wg-homelab.service
 ```
 
 The interface is declaratively defined, so it will auto-start on boot and
 set the DNS search domain pulled from `domain.txt` via `resolvectl`.
+
+### Start from the user session (laptops)
+
+If Wi-Fi is not available at boot, you can defer startup to the user session:
+
+```nix
+lukasf.wireguard.homelab.userUnit.enable = true;
+```
+
+Then check from your session:
+
+```bash
+systemctl --user status wireguard-wg-homelab.service
+```

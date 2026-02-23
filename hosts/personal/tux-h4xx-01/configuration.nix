@@ -23,6 +23,8 @@
     cephClientName = "tux";
   };
 
+  lukasf.wireguard.homelab.userUnit.enable = true;
+
   desktop.gaming.defaultRenderer = "nvidia";
 
   lukasf.tuxedoControlCenter.enable = true;
