@@ -2,6 +2,7 @@
   lib,
   config,
   pkgs,
+  linuxUser ? null,
   ...
 }:
 
@@ -9,6 +10,8 @@ let
   cfg = config.lukasf.wireguard.homelab;
   shared = config.shared.vpn.homelab;
   iface = "wg-homelab";
+  defaultUser = linuxUser;
+  userServiceName = "wireguard-${iface}";
 in
 {
   options.lukasf.wireguard.homelab = {
@@ -72,6 +75,21 @@ in
       ];
       description = "Networks reachable over the MikroTik VPN peer.";
     };
+
+    userUnit = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Start the WireGuard tunnel from a user systemd unit instead of at boot.";
+      };
+
+      user = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = defaultUser;
+        defaultText = if defaultUser != null then lib.literalExpression "linuxUser" else "null";
+        description = "User allowed to manage the homelab WireGuard unit from their session.";
+      };
+    };
   };
 
   config = lib.mkMerge [
@@ -83,6 +101,13 @@ in
         persistentKeepalive = lib.mkDefault shared.persistentKeepalive;
         mtu = lib.mkDefault shared.mtu;
       };
+
+      assertions = [
+        {
+          assertion = (!cfg.userUnit.enable) || cfg.userUnit.user != null;
+          message = "lukasf.wireguard.homelab.userUnit requires a user (set linuxUser or userUnit.user).";
+        }
+      ];
     }
     (lib.mkIf cfg.enable (
       let
@@ -135,6 +160,38 @@ in
             }
           ];
         };
+
+        systemd.targets.${userServiceName} = lib.mkIf cfg.userUnit.enable {
+          wantedBy = lib.mkForce [ ];
+        };
+
+        systemd.user.services.${userServiceName} = lib.mkIf cfg.userUnit.enable {
+          description = "WireGuard Tunnel - ${iface} (user)";
+          after = [ "graphical-session.target" ];
+          wants = [ "graphical-session.target" ];
+          wantedBy = [ "default.target" ];
+          partOf = [ "graphical-session.target" ];
+          unitConfig.ConditionUser = cfg.userUnit.user;
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = "${pkgs.systemd}/bin/systemctl start ${userServiceName}.service";
+            ExecStop = "${pkgs.systemd}/bin/systemctl stop ${userServiceName}.service";
+          };
+        };
+
+        security.polkit.extraConfig = lib.mkIf cfg.userUnit.enable (
+          lib.mkAfter ''
+            polkit.addRule(function(action, subject) {
+              if (action.id == "org.freedesktop.systemd1.manage-units" &&
+                  subject.user == "${cfg.userUnit.user}" &&
+                  action.lookup("unit") == "${userServiceName}.service" &&
+                  ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0) {
+                return polkit.Result.YES;
+              }
+            });
+          ''
+        );
       }
     ))
   ];
