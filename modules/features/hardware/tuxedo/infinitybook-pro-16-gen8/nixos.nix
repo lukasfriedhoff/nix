@@ -81,6 +81,12 @@ in
       ''
         # Allow access to thunderbolt controller for logged-in users.
         ACTION=="add", SUBSYSTEM=="thunderbolt", RUN+="${chmodBin} 0660 /sys/%p/device"
+
+        # Keep USB input devices awake to avoid losing keyboard/mouse on autosuspend.
+        ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030101:*", TEST=="power/control", ATTR{power/control}="on"
+        ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030102:*", TEST=="power/control", ATTR{power/control}="on"
+        ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="c539", TEST=="power/control", ATTR{power/control}="on"
+        ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0951", ATTR{idProduct}=="16be", TEST=="power/control", ATTR{power/control}="on"
       '';
   };
 }
