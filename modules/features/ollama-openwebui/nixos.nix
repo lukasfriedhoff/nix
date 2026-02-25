@@ -13,7 +13,7 @@ let
       pkgs.ollama-cuda
     else if cfg.acceleration == "rocm" then
       pkgs.ollama-rocm
-    else if cfg.acceleration == false then
+    else if cfg.acceleration == null || !cfg.acceleration then
       pkgs.ollama-cpu
     else
       cfg.package;
@@ -136,23 +136,23 @@ in
       services.ollama = {
         enable = true;
         package = ollamaPackage;
-        host = cfg.host;
-        port = cfg.port;
-        rocmOverrideGfx = cfg.rocmOverrideGfx;
-        loadModels = cfg.loadModels;
-        syncModels = cfg.syncModels;
-        environmentVariables = cfg.environmentVariables;
-        openFirewall = cfg.openFirewall;
+        inherit (cfg) host;
+        inherit (cfg) port;
+        inherit (cfg) rocmOverrideGfx;
+        inherit (cfg) loadModels;
+        inherit (cfg) syncModels;
+        inherit (cfg) environmentVariables;
+        inherit (cfg) openFirewall;
       };
 
       services.open-webui = lib.mkIf cfg.ui.enable {
         enable = true;
-        package = cfg.ui.package;
-        host = cfg.ui.host;
-        port = cfg.ui.port;
-        stateDir = cfg.ui.stateDir;
-        environmentFile = cfg.ui.environmentFile;
-        openFirewall = cfg.ui.openFirewall;
+        inherit (cfg.ui) package;
+        inherit (cfg.ui) host;
+        inherit (cfg.ui) port;
+        inherit (cfg.ui) stateDir;
+        inherit (cfg.ui) environmentFile;
+        inherit (cfg.ui) openFirewall;
         environment = {
           OLLAMA_API_BASE_URL = resolvedOllamaUrl;
         }
