@@ -88,15 +88,17 @@ rm -rf "$tmp_dir"
 
 Management SSH keys for server access are created via:
 ```bash
-./scripts/servers/create-management-key.sh <host>
+./scripts/servers/create-management-key.sh <host> <personal|work>
 ```
 
-Keys are stored encrypted in `secrets/profiles/<profile>/ssh/`.
+Keys are stored encrypted under:
+- manager paths (private + public): `secrets/profiles/personal/desktops/common/ssh/` or `secrets/profiles/work/desktops/macbook-pro/ssh/`
+- host paths (public): `secrets/profiles/<profile>/servers/<host>/ssh/`
 
 ### Backup Considerations
 
 - Private keys are SOPS-encrypted in git
-- Public keys are stored in `resources/ssh/keys/`
+- SSH key deployment mappings are tracked in `resources/ssh/keys.nix`
 - Host SSH keys are generated during installation
 
 ## Disaster Recovery Checklist
