@@ -160,6 +160,114 @@ remote_remove_file() {
   run_remote "rm -f $(printf '%q' "$path")"
 }
 
+is_local_system_connection() {
+  [[ "$remote_mode" == false && "$connect_uri" == "qemu:///system" ]]
+}
+
+pool_target_path() {
+  local pool="$1"
+  virsh --connect "$connect_uri" pool-dumpxml "$pool" 2>/dev/null | awk -F'[<>]' '
+    /<target>/ { in_target = 1 }
+    in_target && /<path>/ { print $3; exit }
+    /<\/target>/ { in_target = 0 }
+  '
+}
+
+local_pool_for_path() {
+  local path="$1"
+  local dir
+  local pool=""
+  local target=""
+  dir="$(dirname "$path")"
+
+  while IFS= read -r pool; do
+    [[ -n "$pool" ]] || continue
+    target="$(pool_target_path "$pool")"
+    [[ -n "$target" ]] || continue
+    target="${target%/}"
+    if [[ "$dir" == "$target" ]]; then
+      printf '%s\n' "$pool"
+      return 0
+    fi
+  done < <(virsh --connect "$connect_uri" pool-list --all --name 2>/dev/null)
+
+  return 1
+}
+
+local_volume_exists() {
+  local path="$1"
+  local pool
+  local vol
+  pool="$(local_pool_for_path "$path")" || return 1
+  vol="$(basename "$path")"
+  virsh --connect "$connect_uri" vol-info "$vol" "$pool" >/dev/null 2>&1
+}
+
+local_path_exists() {
+  local path="$1"
+  if [[ -e "$path" ]]; then
+    return 0
+  fi
+  if is_local_system_connection && local_volume_exists "$path"; then
+    return 0
+  fi
+  return 1
+}
+
+local_remove_file() {
+  local path="$1"
+  local pool=""
+  local vol=""
+
+  if is_local_system_connection; then
+    if pool="$(local_pool_for_path "$path")"; then
+      vol="$(basename "$path")"
+      if virsh --connect "$connect_uri" vol-info "$vol" "$pool" >/dev/null 2>&1; then
+        run_cmd virsh --connect "$connect_uri" vol-delete "$vol" "$pool"
+        return
+      fi
+    fi
+  fi
+
+  run_cmd rm -f "$path"
+}
+
+create_plain_disk_local() {
+  local format="$1"
+  local path="$2"
+  local size_gib="$3"
+  local pool=""
+  local vol=""
+
+  if is_local_system_connection; then
+    if pool="$(local_pool_for_path "$path")"; then
+      vol="$(basename "$path")"
+      run_cmd virsh --connect "$connect_uri" vol-create-as "$pool" "$vol" "${size_gib}G" --format "$format"
+      return
+    fi
+  fi
+
+  if ! run_cmd qemu-img create -f "$format" "$path" "${size_gib}G"; then
+    if is_local_system_connection; then
+      die "failed to create disk at ${path}; for qemu:///system use a path in a libvirt storage pool or run with privileges that can write this path"
+    fi
+    die "failed to create disk at ${path}"
+  fi
+}
+
+create_overlay_disk_local() {
+  local path="$1"
+  local backing="$2"
+  local size_gib="$3"
+
+  if ! run_cmd qemu-img create -f qcow2 -F qcow2 -b "$backing" "$path" "${size_gib}G"; then
+    if is_local_system_connection; then
+      die "failed to create cloud overlay disk at ${path}; qemu:///system may require elevated write access for this path"
+    fi
+    die "failed to create cloud overlay disk at ${path}"
+  fi
+}
+
 sanitize_url_basename() {
   local url="$1"
   local base="${url##*/}"
@@ -647,16 +755,16 @@ if [[ "$remote_mode" == true ]]; then
     fi
   fi
 else
-  if [[ -e "$disk_path" ]]; then
+  if local_path_exists "$disk_path"; then
     if [[ "$force" == true ]]; then
-      run_cmd rm -f "$disk_path"
+      local_remove_file "$disk_path"
     else
       die "disk path already exists: ${disk_path}"
     fi
   fi
-  if [[ "$mode" == "cloud" && -e "$seed_path" ]]; then
+  if [[ "$mode" == "cloud" ]] && local_path_exists "$seed_path"; then
     if [[ "$force" == true ]]; then
-      run_cmd rm -f "$seed_path"
+      local_remove_file "$seed_path"
     else
       die "seed ISO path already exists: ${seed_path}"
     fi
@@ -724,7 +832,7 @@ META
     copy_local_to_remote "$seed_iso_local" "$seed_path"
     run_remote "qemu-img create -f qcow2 -F qcow2 -b $(printf '%q' "$disk_source") $(printf '%q' "$disk_path") ${disk_size_gib}G"
   else
-    run_cmd qemu-img create -f qcow2 -F qcow2 -b "$disk_source" "$disk_path" "${disk_size_gib}G"
+    create_overlay_disk_local "$disk_path" "$disk_source" "$disk_size_gib"
   fi
 else
   if [[ "$mode" == "iso" ]]; then
@@ -737,7 +845,7 @@ else
   if [[ "$remote_mode" == true ]]; then
     run_remote "qemu-img create -f $(printf '%q' "$disk_format") $(printf '%q' "$disk_path") ${disk_size_gib}G"
   else
-    run_cmd qemu-img create -f "$disk_format" "$disk_path" "${disk_size_gib}G"
+    create_plain_disk_local "$disk_format" "$disk_path" "$disk_size_gib"
   fi
 fi
 
