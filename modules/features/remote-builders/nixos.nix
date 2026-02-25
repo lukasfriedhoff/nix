@@ -128,19 +128,19 @@ in
         nix.buildMachines = [
           (
             {
-              hostName = cfg.hostName;
-              system = cfg.system;
-              sshUser = cfg.sshUser;
-              maxJobs = cfg.maxJobs;
-              speedFactor = cfg.speedFactor;
-              supportedFeatures = cfg.supportedFeatures;
-              mandatoryFeatures = cfg.mandatoryFeatures;
+              inherit (cfg) hostName;
+              inherit (cfg) system;
+              inherit (cfg) sshUser;
+              inherit (cfg) maxJobs;
+              inherit (cfg) speedFactor;
+              inherit (cfg) supportedFeatures;
+              inherit (cfg) mandatoryFeatures;
             }
             // optionalAttrs (cfg.sshKeyFile != null) {
               sshKey = cfg.sshKeyFile;
             }
             // optionalAttrs (cfg.publicHostKey != null) {
-              publicHostKey = cfg.publicHostKey;
+              inherit (cfg) publicHostKey;
             }
           )
         ];

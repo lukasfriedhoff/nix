@@ -377,7 +377,7 @@ let
         "apps"
         "name"
       ];
-      nameAttr = lib.optionalAttrs (profile.name != null) { name = profile.name; };
+      nameAttr = lib.optionalAttrs (profile.name != null) { inherit (profile) name; };
     in
     baseProfile // nameAttr // { apps = resolvedApps ++ extraApps; }
   ) cfg.profiles;
@@ -526,7 +526,7 @@ in
     };
 
     settings = mkOption {
-      type = tomlFormat.type;
+      inherit (tomlFormat) type;
       default = { };
       description = "Base TOML configuration written to ${configFile}.";
     };
@@ -545,7 +545,7 @@ in
 
     profiles = mkOption {
       type = types.listOf (
-        types.submodule ({
+        types.submodule {
           freeformType = types.attrs;
           options = {
             id = mkOption {
@@ -571,7 +571,7 @@ in
               description = "Inline app definitions appended after appNames.";
             };
           };
-        })
+        }
       );
       default = [ ];
       description = "Profiles assembled from appCatalog selections.";

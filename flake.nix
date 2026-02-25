@@ -42,8 +42,6 @@
       disko,
       sops-nix,
       comin,
-      nixos-facter-modules,
-      treefmt-nix,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -446,7 +444,7 @@
                     pkgs = hmPkgs;
                   };
                   modules = featureModules.home ++ extraImports;
-                  username = username;
+                  inherit username;
                   homeDirectory = if system == darwinSystem then "/Users/${username}" else "/home/${username}";
                 };
             in

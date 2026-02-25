@@ -17,23 +17,20 @@ in
       programs.vscode = {
         package = pkgs.vscode;
         profiles.default = {
-          extensions = (
-            with pkgs.vscode-extensions;
-            [
-              golang.go
-              hashicorp.hcl
-              hashicorp.terraform
-              jnoortheen.nix-ide
-              redhat.vscode-yaml
-              redhat.vscode-xml
-              vscjava.vscode-java-pack
-              ms-python.python
-              ms-kubernetes-tools.vscode-kubernetes-tools
-              dbaeumer.vscode-eslint
-              github.copilot
-              github.copilot-chat
-            ]
-          );
+          extensions = with pkgs.vscode-extensions; [
+            golang.go
+            hashicorp.hcl
+            hashicorp.terraform
+            jnoortheen.nix-ide
+            redhat.vscode-yaml
+            redhat.vscode-xml
+            vscjava.vscode-java-pack
+            ms-python.python
+            ms-kubernetes-tools.vscode-kubernetes-tools
+            dbaeumer.vscode-eslint
+            github.copilot
+            github.copilot-chat
+          ];
 
           userSettings = {
             "editor.formatOnSave" = true;

@@ -19,13 +19,13 @@ let
       [
         {
           name = cfg.storage.ceph.poolName;
-          pool = cfg.storage.ceph.pool;
-          user = cfg.storage.ceph.user;
-          secretUuid = cfg.storage.ceph.secretUuid;
-          keyringFile = cfg.storage.ceph.keyringFile;
-          confFile = cfg.storage.ceph.confFile;
-          monHost = cfg.storage.ceph.monHost;
-          monPort = cfg.storage.ceph.monPort;
+          inherit (cfg.storage.ceph) pool;
+          inherit (cfg.storage.ceph) user;
+          inherit (cfg.storage.ceph) secretUuid;
+          inherit (cfg.storage.ceph) keyringFile;
+          inherit (cfg.storage.ceph) confFile;
+          inherit (cfg.storage.ceph) monHost;
+          inherit (cfg.storage.ceph) monPort;
         }
       ];
 in
@@ -46,54 +46,51 @@ in
       ceph = {
         pools = lib.mkOption {
           type = lib.types.listOf (
-            lib.types.submodule (
-              { ... }:
-              {
-                options = {
-                  name = lib.mkOption {
-                    type = lib.types.str;
-                    description = "Libvirt storage pool name.";
-                  };
-
-                  pool = lib.mkOption {
-                    type = lib.types.str;
-                    description = "Ceph pool name.";
-                  };
-
-                  user = lib.mkOption {
-                    type = lib.types.str;
-                    description = "Ceph client user for libvirt (without the client. prefix).";
-                  };
-
-                  secretUuid = lib.mkOption {
-                    type = lib.types.nullOr lib.types.str;
-                    description = "Libvirt secret UUID to store the Ceph key.";
-                  };
-
-                  keyringFile = lib.mkOption {
-                    type = lib.types.str;
-                    description = "Path to the Ceph keyring for the libvirt client.";
-                  };
-
-                  confFile = lib.mkOption {
-                    type = lib.types.str;
-                    description = "Path to ceph.conf for libvirt RBD access.";
-                  };
-
-                  monHost = lib.mkOption {
-                    type = lib.types.nullOr lib.types.str;
-                    default = null;
-                    description = "Ceph monitor hostname or IP for the RBD pool.";
-                  };
-
-                  monPort = lib.mkOption {
-                    type = lib.types.int;
-                    default = 3300;
-                    description = "Ceph monitor port for the RBD pool (v2 default is 3300).";
-                  };
+            lib.types.submodule (_: {
+              options = {
+                name = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Libvirt storage pool name.";
                 };
-              }
-            )
+
+                pool = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Ceph pool name.";
+                };
+
+                user = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Ceph client user for libvirt (without the client. prefix).";
+                };
+
+                secretUuid = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  description = "Libvirt secret UUID to store the Ceph key.";
+                };
+
+                keyringFile = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Path to the Ceph keyring for the libvirt client.";
+                };
+
+                confFile = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Path to ceph.conf for libvirt RBD access.";
+                };
+
+                monHost = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = "Ceph monitor hostname or IP for the RBD pool.";
+                };
+
+                monPort = lib.mkOption {
+                  type = lib.types.int;
+                  default = 3300;
+                  description = "Ceph monitor port for the RBD pool (v2 default is 3300).";
+                };
+              };
+            })
           );
           default = [ ];
           description = "Ceph-backed libvirt storage pools.";

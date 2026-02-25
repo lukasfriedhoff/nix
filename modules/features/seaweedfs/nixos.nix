@@ -535,8 +535,8 @@ in
               "nofail"
               "x-systemd.device-timeout=1min"
             ]
-            ++ optional (cfg.volume.encryption.enable) "x-systemd.requires=seaweedfs-cryptsetup-${entry.diskId}.service"
-            ++ optional (cfg.volume.encryption.enable) "x-systemd.after=seaweedfs-cryptsetup-${entry.diskId}.service";
+            ++ optional cfg.volume.encryption.enable "x-systemd.requires=seaweedfs-cryptsetup-${entry.diskId}.service"
+            ++ optional cfg.volume.encryption.enable "x-systemd.after=seaweedfs-cryptsetup-${entry.diskId}.service";
           };
         }) diskEntries
       )

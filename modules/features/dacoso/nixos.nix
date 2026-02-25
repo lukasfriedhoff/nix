@@ -205,7 +205,7 @@ in
 
     authorizedKeysRepo = lib.mkOption {
       type = lib.types.nullOr (
-        lib.types.submodule ({
+        lib.types.submodule {
           options = {
             url = lib.mkOption {
               type = lib.types.str;
@@ -230,7 +230,7 @@ in
               description = "Relative file paths inside the repository that contain OpenSSH public keys.";
             };
           };
-        })
+        }
       );
       default = null;
       description = "Repository providing shared authorized_keys material for work hosts.";

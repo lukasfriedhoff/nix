@@ -144,10 +144,10 @@ in
       in
       {
         networking.wireguard.interfaces.${iface} = {
-          privateKeyFile = cfg.privateKeyFile;
+          inherit (cfg) privateKeyFile;
           ips = [ cfg.address ];
           listenPort = 0;
-          mtu = cfg.mtu;
+          inherit (cfg) mtu;
           postSetup = [
             "${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns}"
             "${setDomainScript} ${iface} ${cfg.dnsDomainFile}"
@@ -156,7 +156,7 @@ in
           peers = [
             {
               publicKey = cfg.peerPublicKey;
-              allowedIPs = cfg.allowedIPs;
+              inherit (cfg) allowedIPs;
             }
           ];
         };

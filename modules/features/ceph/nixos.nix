@@ -32,7 +32,7 @@ let
     in
     entry
     // {
-      name = name;
+      inherit name;
       secretName = "ceph-osd-lockbox-${name}";
     }
   ) cfg.osd.lockboxKeys;
@@ -134,7 +134,6 @@ let
     export PATH="${cephadmBinPath}:''${PATH:-}"
     exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
-  cephadmOrchPath = "${cephadmOrch}/bin/cephadm-orch";
   cephadmMgrPath = "/run/ceph/cephadm-orch";
   cephadmMgrWrapper = pkgs.writeTextFile {
     name = "cephadm-orch-wrapper.py";
@@ -156,42 +155,39 @@ let
     '';
   };
   python = "${pkgs.python3}/bin/python3";
-  hostName = config.networking.hostName;
+  inherit (config.networking) hostName;
   osdHost = cfg.osd.host;
   isNumericHost = host: builtins.match "^[0-9.:]+$" host != null;
   formatMonHost =
     host: port:
     if isNumericHost host then "v2:${host}:${toString port}" else "${host}:${toString port}";
   formatMonHosts = hosts: port: lib.concatMapStringsSep "," (host: formatMonHost host port) hosts;
-  cephfsPoolModule = lib.types.submodule (
-    { ... }:
-    {
-      options = {
-        name = lib.mkOption {
-          type = lib.types.str;
-          description = "Pool name.";
-        };
-
-        size = lib.mkOption {
-          type = lib.types.int;
-          default = 3;
-          description = "Replication size.";
-        };
-
-        minSize = lib.mkOption {
-          type = lib.types.nullOr lib.types.int;
-          default = null;
-          description = "Minimum replication size.";
-        };
-
-        pgNum = lib.mkOption {
-          type = lib.types.nullOr lib.types.int;
-          default = null;
-          description = "PG count.";
-        };
+  cephfsPoolModule = lib.types.submodule (_: {
+    options = {
+      name = lib.mkOption {
+        type = lib.types.str;
+        description = "Pool name.";
       };
-    }
-  );
+
+      size = lib.mkOption {
+        type = lib.types.int;
+        default = 3;
+        description = "Replication size.";
+      };
+
+      minSize = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "Minimum replication size.";
+      };
+
+      pgNum = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = "PG count.";
+      };
+    };
+  });
   dedupPools =
     pools:
     (builtins.foldl'
@@ -250,9 +246,9 @@ let
       map (name: {
         inherit name;
         application = "rgw";
-        size = poolSettings.size;
-        minSize = poolSettings.minSize;
-        pgNum = poolSettings.pgNum;
+        inherit (poolSettings) size;
+        inherit (poolSettings) minSize;
+        inherit (poolSettings) pgNum;
       }) poolNames
     else
       [ ];
@@ -419,41 +415,38 @@ in
 
     pools = lib.mkOption {
       type = lib.types.listOf (
-        lib.types.submodule (
-          { ... }:
-          {
-            options = {
-              name = lib.mkOption {
-                type = lib.types.str;
-                description = "Pool name.";
-              };
-
-              application = lib.mkOption {
-                type = lib.types.str;
-                default = "rbd";
-                description = "Ceph application for the pool (e.g. rbd, cephfs, rgw).";
-              };
-
-              size = lib.mkOption {
-                type = lib.types.int;
-                default = 3;
-                description = "Replication size.";
-              };
-
-              minSize = lib.mkOption {
-                type = lib.types.nullOr lib.types.int;
-                default = null;
-                description = "Minimum replication size.";
-              };
-
-              pgNum = lib.mkOption {
-                type = lib.types.nullOr lib.types.int;
-                default = null;
-                description = "PG count.";
-              };
+        lib.types.submodule (_: {
+          options = {
+            name = lib.mkOption {
+              type = lib.types.str;
+              description = "Pool name.";
             };
-          }
-        )
+
+            application = lib.mkOption {
+              type = lib.types.str;
+              default = "rbd";
+              description = "Ceph application for the pool (e.g. rbd, cephfs, rgw).";
+            };
+
+            size = lib.mkOption {
+              type = lib.types.int;
+              default = 3;
+              description = "Replication size.";
+            };
+
+            minSize = lib.mkOption {
+              type = lib.types.nullOr lib.types.int;
+              default = null;
+              description = "Minimum replication size.";
+            };
+
+            pgNum = lib.mkOption {
+              type = lib.types.nullOr lib.types.int;
+              default = null;
+              description = "PG count.";
+            };
+          };
+        })
       );
       default = [ ];
       description = "Ceph pools to create and configure.";
@@ -461,54 +454,51 @@ in
 
     cephfs = lib.mkOption {
       type = lib.types.listOf (
-        lib.types.submodule (
-          { ... }:
-          {
-            options = {
-              name = lib.mkOption {
-                type = lib.types.str;
-                description = "CephFS filesystem name.";
+        lib.types.submodule (_: {
+          options = {
+            name = lib.mkOption {
+              type = lib.types.str;
+              description = "CephFS filesystem name.";
+            };
+
+            metadataPool = lib.mkOption {
+              type = cephfsPoolModule;
+              description = "Metadata pool configuration (application forced to cephfs).";
+            };
+
+            dataPools = lib.mkOption {
+              type = lib.types.listOf cephfsPoolModule;
+              default = [ ];
+              description = "Data pool configurations (first entry becomes the primary data pool).";
+            };
+
+            mds = {
+              enable = lib.mkOption {
+                type = lib.types.bool;
+                default = true;
+                description = "Manage MDS placement for this filesystem.";
               };
 
-              metadataPool = lib.mkOption {
-                type = cephfsPoolModule;
-                description = "Metadata pool configuration (application forced to cephfs).";
+              count = lib.mkOption {
+                type = lib.types.int;
+                default = 1;
+                description = "Number of active MDS daemons (also sets max_mds).";
               };
 
-              dataPools = lib.mkOption {
-                type = lib.types.listOf cephfsPoolModule;
-                default = [ ];
-                description = "Data pool configurations (first entry becomes the primary data pool).";
+              standbyCount = lib.mkOption {
+                type = lib.types.nullOr lib.types.int;
+                default = null;
+                description = "Desired standby MDS count (standby_count_wanted).";
               };
 
-              mds = {
-                enable = lib.mkOption {
-                  type = lib.types.bool;
-                  default = true;
-                  description = "Manage MDS placement for this filesystem.";
-                };
-
-                count = lib.mkOption {
-                  type = lib.types.int;
-                  default = 1;
-                  description = "Number of active MDS daemons (also sets max_mds).";
-                };
-
-                standbyCount = lib.mkOption {
-                  type = lib.types.nullOr lib.types.int;
-                  default = null;
-                  description = "Desired standby MDS count (standby_count_wanted).";
-                };
-
-                placement = lib.mkOption {
-                  type = lib.types.nullOr lib.types.str;
-                  default = null;
-                  description = "Ceph orchestrator placement string for MDS daemons (overrides count when set).";
-                };
+              placement = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                description = "Ceph orchestrator placement string for MDS daemons (overrides count when set).";
               };
             };
-          }
-        )
+          };
+        })
       );
       default = [ ];
       description = "CephFS filesystems to create and configure.";
@@ -605,41 +595,38 @@ in
 
       users = lib.mkOption {
         type = lib.types.listOf (
-          lib.types.submodule (
-            { ... }:
-            {
-              options = {
-                name = lib.mkOption {
-                  type = lib.types.str;
-                  description = "RGW user ID.";
-                };
-
-                displayName = lib.mkOption {
-                  type = lib.types.nullOr lib.types.str;
-                  default = null;
-                  description = "Human-friendly RGW user display name.";
-                };
-
-                accessKeyFile = lib.mkOption {
-                  type = lib.types.nullOr lib.types.str;
-                  default = null;
-                  description = "SOPS secret file containing the RGW access key.";
-                };
-
-                secretKeyFile = lib.mkOption {
-                  type = lib.types.nullOr lib.types.str;
-                  default = null;
-                  description = "SOPS secret file containing the RGW secret key.";
-                };
-
-                caps = lib.mkOption {
-                  type = lib.types.listOf lib.types.str;
-                  default = [ ];
-                  description = "Optional RGW caps to apply to this user.";
-                };
+          lib.types.submodule (_: {
+            options = {
+              name = lib.mkOption {
+                type = lib.types.str;
+                description = "RGW user ID.";
               };
-            }
-          )
+
+              displayName = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                description = "Human-friendly RGW user display name.";
+              };
+
+              accessKeyFile = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                description = "SOPS secret file containing the RGW access key.";
+              };
+
+              secretKeyFile = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                description = "SOPS secret file containing the RGW secret key.";
+              };
+
+              caps = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                description = "Optional RGW caps to apply to this user.";
+              };
+            };
+          })
         );
         default = [ ];
         description = "RGW users to create with fixed credentials.";
@@ -647,22 +634,19 @@ in
 
       buckets = lib.mkOption {
         type = lib.types.listOf (
-          lib.types.submodule (
-            { ... }:
-            {
-              options = {
-                name = lib.mkOption {
-                  type = lib.types.str;
-                  description = "Bucket short name (prefix applied if configured).";
-                };
-
-                user = lib.mkOption {
-                  type = lib.types.str;
-                  description = "RGW user ID that owns the bucket.";
-                };
+          lib.types.submodule (_: {
+            options = {
+              name = lib.mkOption {
+                type = lib.types.str;
+                description = "Bucket short name (prefix applied if configured).";
               };
-            }
-          )
+
+              user = lib.mkOption {
+                type = lib.types.str;
+                description = "RGW user ID that owns the bucket.";
+              };
+            };
+          })
         );
         default = [ ];
         description = "RGW buckets to create.";
@@ -978,11 +962,11 @@ in
       virtualisation.podman.enable = true;
 
       users.groups.ceph = {
-        gid = cfg.user.gid;
+        inherit (cfg.user) gid;
       };
       users.users.ceph = {
         isSystemUser = true;
-        uid = cfg.user.uid;
+        inherit (cfg.user) uid;
         group = "ceph";
         home = "/var/lib/ceph";
         shell = "${pkgs.shadow}/bin/nologin";
@@ -1309,11 +1293,11 @@ in
           RemainAfterExit = true;
           ExecStart =
             let
-              publicNetwork = cfg.bootstrap.publicNetwork;
+              inherit (cfg.bootstrap) publicNetwork;
               targetAddr = if cfg.monUpdate.address != null then cfg.monUpdate.address else cfg.bootstrap.monIp;
               legacyAddr = cfg.monUpdate.legacyAddress;
-              v1Port = cfg.monUpdate.v1Port;
-              v2Port = cfg.monUpdate.v2Port;
+              inherit (cfg.monUpdate) v1Port;
+              inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-public-network" ''
               set -euo pipefail
@@ -1394,8 +1378,8 @@ in
                       ++ cfg.monHosts;
                     in
                     lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-                  v1Port = cfg.monUpdate.v1Port;
-                  v2Port = cfg.monUpdate.v2Port;
+                  inherit (cfg.monUpdate) v1Port;
+                  inherit (cfg.monUpdate) v2Port;
                 in
                 pkgs.writeShellScript "cephadm-osd-provision" ''
                               set -euo pipefail
@@ -1915,12 +1899,7 @@ in
         script =
           let
             warnExit = if cfg.healthCheck.warnIsFailure then "1" else "0";
-            outputFile = cfg.healthCheck.outputFile;
-            poolFilter =
-              if cfg.healthCheck.libvirtPools == [ ] then
-                ""
-              else
-                lib.concatMapStringsSep " " (p: "--pool ${p}") cfg.healthCheck.libvirtPools;
+            inherit (cfg.healthCheck) outputFile;
           in
           ''
             set -euo pipefail
@@ -2112,8 +2091,8 @@ in
                   ++ cfg.monHosts;
                 in
                 lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-              v1Port = cfg.monUpdate.v1Port;
-              v2Port = cfg.monUpdate.v2Port;
+              inherit (cfg.monUpdate) v1Port;
+              inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-pools" ''
               set -euo pipefail
@@ -2259,13 +2238,13 @@ in
                 ++ cfg.monHosts;
               in
               lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-            v1Port = cfg.monUpdate.v1Port;
-            v2Port = cfg.monUpdate.v2Port;
+            inherit (cfg.monUpdate) v1Port;
+            inherit (cfg.monUpdate) v2Port;
             hasMds = lib.any (fs: fs.mds.enable) cfg.cephfs;
             fsCommands = lib.concatMapStringsSep "\n" (
               fs:
               let
-                dataPools = fs.dataPools;
+                inherit (fs) dataPools;
                 primaryDataPool = if dataPools == [ ] then null else builtins.head dataPools;
                 extraDataPools = if dataPools == [ ] then [ ] else lib.drop 1 dataPools;
                 primaryDataPoolName = if primaryDataPool == null then "" else primaryDataPool.name;
@@ -2449,8 +2428,8 @@ in
                 ++ cfg.monHosts;
               in
               lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-            v1Port = cfg.monUpdate.v1Port;
-            v2Port = cfg.monUpdate.v2Port;
+            inherit (cfg.monUpdate) v1Port;
+            inherit (cfg.monUpdate) v2Port;
             endpointArg = lib.optionalString (
               cfg.rgw.endpoint != null && cfg.rgw.endpoint != ""
             ) "--endpoints ${lib.escapeShellArg cfg.rgw.endpoint}";
@@ -2731,8 +2710,8 @@ in
               monName = cfg.monUpdate.name;
               legacyAddr = cfg.monUpdate.legacyAddress;
               legacyPrefix = cfg.monUpdate.legacyPrefixLength;
-              v1Port = cfg.monUpdate.v1Port;
-              v2Port = cfg.monUpdate.v2Port;
+              inherit (cfg.monUpdate) v1Port;
+              inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-mon-update" ''
               set -euo pipefail
@@ -2864,8 +2843,8 @@ in
                   ++ cfg.monHosts;
                 in
                 lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-              v1Port = cfg.monUpdate.v1Port;
-              v2Port = cfg.monUpdate.v2Port;
+              inherit (cfg.monUpdate) v1Port;
+              inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-cephadm-path" ''
               set -euo pipefail

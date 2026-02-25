@@ -13,7 +13,6 @@ let
     mkIf
     mkOption
     types
-    optionalString
     ;
 
   primaryRoot = secrets.primary or secrets.root or null;

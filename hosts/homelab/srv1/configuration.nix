@@ -135,27 +135,27 @@ in
   networking.interfaces.eno1.useDHCP = lib.mkForce false;
   networking.vlans = {
     "eno1.20" = {
-      id = nets.vlans.server.id;
+      inherit (nets.vlans.server) id;
       interface = "eno1";
     };
     "eno1.40" = {
-      id = nets.vlans.storage.id;
+      inherit (nets.vlans.storage) id;
       interface = "eno1";
     };
     "eno1.10" = {
-      id = nets.vlans.lan.id;
+      inherit (nets.vlans.lan) id;
       interface = "eno1";
     };
     "eno1.12" = {
-      id = nets.vlans.iot.id;
+      inherit (nets.vlans.iot) id;
       interface = "eno1";
     };
     "eno1.13" = {
-      id = nets.vlans.windows.id;
+      inherit (nets.vlans.windows) id;
       interface = "eno1";
     };
     "eno1.50" = {
-      id = nets.vlans.lab.id;
+      inherit (nets.vlans.lab) id;
       interface = "eno1";
     };
   };
@@ -294,12 +294,12 @@ in
     monPort = cephCluster.monPort or 3300;
     bootstrap = {
       enable = hasRole "bootstrap";
-      fsid = cephCluster.fsid;
-      monIp = cephCluster.monIp;
-      publicNetwork = cephCluster.publicNetwork;
-      singleHostDefaults = cephCluster.bootstrap.singleHostDefaults;
-      skipDashboard = cephCluster.bootstrap.skipDashboard;
-      extraArgs = cephCluster.bootstrap.extraArgs;
+      inherit (cephCluster) fsid;
+      inherit (cephCluster) monIp;
+      inherit (cephCluster) publicNetwork;
+      inherit (cephCluster.bootstrap) singleHostDefaults;
+      inherit (cephCluster.bootstrap) skipDashboard;
+      inherit (cephCluster.bootstrap) extraArgs;
     };
     pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
     cephfs = lib.optionals (hasRole "bootstrap") (cephCluster.cephfs or [ ]);

@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 {
   home.file.".bash/alias-completions.sh" = {
     source = ./alias-completions.sh;

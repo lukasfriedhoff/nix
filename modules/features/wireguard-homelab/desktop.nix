@@ -81,7 +81,7 @@ in
 
     lukasf.wireguard.homelab = {
       enable = true;
-      address = cfg.address;
+      inherit (cfg) address;
       privateKeyFile = config.sops.secrets."wireguard-homelab-priv".path;
       dnsDomainFile = config.sops.secrets."wireguard-domain".path;
       endpointFile = config.sops.secrets."wireguard-endpoint".path;
