@@ -10,6 +10,7 @@
 - Run `nix fmt` (nixfmt) before committing any `.nix` changes.
 - Prefer `./scripts/checks.sh` to validate formatting + `nix flake check`.
 - If `./scripts/checks.sh` reformats files (treefmt `--fail-on-change`), keep those changes, re-stage, and re-run the checks.
+- Always run a minimal runtime test when adding or modifying a module (e.g., build the package, launch the binary, or verify the service starts).
 - If the git hook reformats files, re-stage the changes and re-run the commit.
 - Build reusable modules first; use host-specific config only when it cannot be generalized.
 - Use Conventional Commits for all commit messages.
