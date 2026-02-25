@@ -58,9 +58,9 @@ in
             enable = true;
             ssh = {
               enable = true;
-              port = cfg.port;
+              inherit (cfg) port;
               authorizedKeys = [ authorizedKey ];
-              hostKeys = cfg.hostKeys;
+              inherit (cfg) hostKeys;
             };
           };
 

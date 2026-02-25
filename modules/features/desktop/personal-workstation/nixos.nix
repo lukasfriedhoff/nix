@@ -20,7 +20,7 @@ let
 
   hasWireguardKey = wireguardKeyFile != null && builtins.pathExists wireguardKeyFile;
 
-  cephClientName = cfg.cephClientName;
+  inherit (cfg) cephClientName;
 
   cephKeyringFile =
     if cephClientName != null && primaryRoot != null then

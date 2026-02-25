@@ -146,9 +146,9 @@ in
 
       services.nix-serve = mkIf enableServe {
         enable = true;
-        bindAddress = cfg.bindAddress;
-        port = cfg.port;
-        openFirewall = cfg.openFirewall;
+        inherit (cfg) bindAddress;
+        inherit (cfg) port;
+        inherit (cfg) openFirewall;
         secretKeyFile = config.sops.secrets."nix-cache-signing-key".path;
         extraParams = lib.concatStringsSep " " (map lib.escapeShellArg cfg.extraParams);
       };

@@ -25,11 +25,11 @@ let
 
   dataPackage = pkgs.stdenvNoCC.mkDerivation {
     pname = "icarus-mod-manager-data";
-    version = cfg.version;
+    inherit (cfg) version;
     src = pkgs.fetchzip {
       url = sourceUrl;
       stripRoot = false;
-      hash = cfg.hash;
+      inherit (cfg) hash;
     };
     installPhase = ''
       runHook preInstall

@@ -30,7 +30,7 @@
     dir:
     let
       entries = builtins.readDir dir;
-      dirs = lib.filterAttrs (name: type: type == "directory") entries;
+      dirs = lib.filterAttrs (_name: type: type == "directory") entries;
       hasDefault = name: builtins.pathExists (dir + "/${name}/default.nix");
       validDirs = lib.filterAttrs (name: _: hasDefault name) dirs;
     in
@@ -52,7 +52,7 @@
       ) entries;
 
       # Subdirectories with default.nix
-      dirs = lib.filterAttrs (name: type: type == "directory") entries;
+      dirs = lib.filterAttrs (_name: type: type == "directory") entries;
       hasDefault = name: builtins.pathExists (dir + "/${name}/default.nix");
       validDirs = lib.filterAttrs (name: _: hasDefault name) dirs;
     in
@@ -71,7 +71,7 @@
         let
           entries = builtins.readDir current;
           matchingFiles = lib.filterAttrs (name: type: type == "regular" && name == fileName) entries;
-          dirs = lib.filterAttrs (name: type: type == "directory") entries;
+          dirs = lib.filterAttrs (_name: type: type == "directory") entries;
           filesHere = map (name: current + "/${name}") (builtins.attrNames matchingFiles);
           filesInDirs = lib.concatMap (name: recurse (current + "/${name}")) (builtins.attrNames dirs);
         in

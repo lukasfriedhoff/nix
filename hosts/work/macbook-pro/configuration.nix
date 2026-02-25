@@ -1,9 +1,4 @@
-{
-  pkgs,
-  macUser,
-  ...
-}:
-{
+_: {
   networking.hostName = "macbook-pro";
 
   # host-specific homebrew casks
