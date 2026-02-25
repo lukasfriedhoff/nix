@@ -13,7 +13,7 @@ let
       pkgs.ollama-cuda
     else if cfg.acceleration == "rocm" then
       pkgs.ollama-rocm
-    else if cfg.acceleration == null || !cfg.acceleration then
+    else if cfg.acceleration == null || builtins.elem cfg.acceleration [ false ] then
       pkgs.ollama-cpu
     else
       cfg.package;
