@@ -14,7 +14,7 @@ fi
 
 if [ -n "$nix_files" ]; then
   # Use nixfmt on explicit files to avoid generated directories.
-  nix fmt -- --check $nix_files
+  nix fmt -- --fail-on-change $nix_files
 else
   echo "No .nix files found for formatting check."
 fi
