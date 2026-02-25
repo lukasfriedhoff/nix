@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create a new libvirt/QEMU VM (cloud image or ISO install).
+# Create a new libvirt/QEMU VM (cloud image, ISO install, or netboot kernel+initrd).
 
 set -euo pipefail
 
@@ -19,14 +19,16 @@ Defaults:
 Modes:
   cloud  Import a cloud image and attach a cloud-init seed ISO.
   iso    Boot from an installer ISO.
+  netboot  Boot installer kernel+initrd with explicit kernel args.
 
 Required per mode:
   cloud: --image <path-or-url>
   iso:   --iso <path-or-url>
+  netboot: --kernel <path-or-url> --initrd <path-or-url> --kernel-args '<cmdline>'
 
 General options:
   --name <name>                 VM/domain name (required)
-  --mode cloud|iso              Create flow (default: cloud)
+  --mode cloud|iso|netboot      Create flow (default: cloud)
   --memory <MiB>                Memory in MiB (default: 4096)
   --vcpus <count>               vCPU count (default: 2)
   --disk-size <GiB>             Disk size in GiB (default: 40)
@@ -61,6 +63,12 @@ Cloud mode options:
 ISO mode options:
   --iso <path-or-url>           Installer ISO path or URL
 
+Netboot mode options:
+  --kernel <path-or-url>        Installer kernel path or URL
+  --initrd <path-or-url>        Installer initrd path or URL
+  --kernel-args <string>        Kernel command line (required for netboot mode)
+  --cmdline <string>            Alias for --kernel-args
+
 Behavior options:
   --autostart                   Enable libvirt autostart
   --no-start                    Define VM but do not start it
@@ -83,6 +91,13 @@ Examples:
     --iso https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso
 
   scripts/vms/new-qemu-vm.sh \
+    --name ubuntu-netboot-01 \
+    --mode netboot \
+    --kernel https://releases.ubuntu.com/24.04/netboot/amd64/linux \
+    --initrd https://releases.ubuntu.com/24.04/netboot/amd64/initrd \
+    --kernel-args "ip=dhcp url=https://releases.ubuntu.com/24.04/ubuntu-24.04.3-live-server-amd64.iso autoinstall ds=nocloud-net;s=http://10.0.0.1/cloud-init/"
+
+  scripts/vms/new-qemu-vm.sh \
     --remote root@srv1.lab.h4xx.io \
     --name ubuntu-ci-01 \
     --mode cloud \
@@ -103,10 +118,19 @@ is_url() {
   [[ "$1" =~ ^https?:// ]]
 }
 
+escape_install_value() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//,/\\,}"
+  printf '%s\n' "$value"
+}
+
 print_cmd() {
-  printf '>> '
-  printf '%q ' "$@"
-  printf '\n'
+  {
+    printf '>> '
+    printf '%q ' "$@"
+    printf '\n'
+  } >&2
 }
 
 run_cmd() {
@@ -119,7 +143,7 @@ run_cmd() {
 
 run_remote() {
   local remote_cmd="$1"
-  echo ">> ssh ${remote_ssh_target} ${remote_cmd}"
+  echo ">> ssh ${remote_ssh_target} ${remote_cmd}" >&2
   if [[ "$dry_run" == true ]]; then
     return 0
   fi
@@ -291,6 +315,9 @@ disk_serial=""
 seed_path=""
 image_source=""
 iso_source=""
+kernel_source=""
+initrd_source=""
+kernel_args=""
 user_data=""
 meta_data=""
 network_config=""
@@ -362,6 +389,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --iso)
       iso_source="$2"
+      shift 2
+      ;;
+    --kernel)
+      kernel_source="$2"
+      shift 2
+      ;;
+    --initrd)
+      initrd_source="$2"
+      shift 2
+      ;;
+    --kernel-args|--cmdline)
+      kernel_args="$2"
       shift 2
       ;;
     --user-data)
@@ -452,8 +491,8 @@ done
 
 [[ -n "$name" ]] || die "--name is required"
 case "$mode" in
-  cloud|iso) ;;
-  *) die "--mode must be cloud or iso" ;;
+  cloud|iso|netboot) ;;
+  *) die "--mode must be cloud, iso, or netboot" ;;
 esac
 case "$disk_format" in
   qcow2|raw) ;;
@@ -503,6 +542,14 @@ if [[ "$mode" == "cloud" ]]; then
 fi
 if [[ "$mode" == "iso" ]]; then
   [[ -n "$iso_source" ]] || die "iso mode requires --iso"
+  if is_url "$iso_source" && [[ ! "$iso_source" =~ \.iso([?#].*)?$ ]]; then
+    die "iso mode expects an ISO URL; netboot tarballs are not supported by this script"
+  fi
+fi
+if [[ "$mode" == "netboot" ]]; then
+  [[ -n "$kernel_source" ]] || die "netboot mode requires --kernel"
+  [[ -n "$initrd_source" ]] || die "netboot mode requires --initrd"
+  [[ -n "$kernel_args" ]] || die "netboot mode requires --kernel-args (or --cmdline)"
 fi
 
 if [[ -z "$disk_path" ]]; then
@@ -532,6 +579,7 @@ fi
 
 local_cache_dir="${TMPDIR:-/tmp}/new-qemu-vm-cache"
 remote_cache_dir="/var/lib/libvirt/images/cache"
+libvirt_boot_dir="/var/lib/libvirt/boot"
 
 if [[ "$verbose" == true ]]; then
   cat <<SETTINGS
@@ -566,10 +614,20 @@ if [[ "$remote_mode" == true ]]; then
   if [[ "$mode" == "cloud" ]]; then
     run_remote "mkdir -p $(printf '%q' "$(dirname "$seed_path")")"
   fi
+  if [[ "$mode" == "netboot" ]]; then
+    if ! run_remote "mkdir -p $(printf '%q' "$libvirt_boot_dir")"; then
+      die "failed to create ${libvirt_boot_dir} on remote host; required for netboot kernel/initrd staging"
+    fi
+  fi
 else
   run_cmd mkdir -p "$(dirname "$disk_path")"
   if [[ "$mode" == "cloud" ]]; then
     run_cmd mkdir -p "$(dirname "$seed_path")"
+  fi
+  if [[ "$mode" == "netboot" ]]; then
+    if ! run_cmd mkdir -p "$libvirt_boot_dir"; then
+      die "failed to create ${libvirt_boot_dir}; required for netboot kernel/initrd staging"
+    fi
   fi
 fi
 
@@ -606,10 +664,10 @@ else
 fi
 
 if [[ -n "$network_name" ]]; then
-  if ! virsh --connect "$connect_uri" net-info "$network_name" >/dev/null 2>&1; then
+  if ! net_info="$(virsh --connect "$connect_uri" net-info "$network_name" 2>/dev/null)"; then
     die "libvirt network not found: ${network_name}"
   fi
-  if [[ "$dry_run" == false ]] && ! virsh --connect "$connect_uri" net-info "$network_name" | grep -q "Active:.*yes"; then
+  if [[ "$dry_run" == false ]] && [[ ! "$net_info" =~ Active:[[:space:]]+yes ]]; then
     run_cmd virsh --connect "$connect_uri" net-start "$network_name"
   fi
 fi
@@ -617,6 +675,9 @@ fi
 disk_source=""
 seed_iso_local=""
 iso_path=""
+kernel_path=""
+initrd_path=""
+install_kernel_args=""
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "${tmp_dir}"' EXIT
 
@@ -666,7 +727,13 @@ META
     run_cmd qemu-img create -f qcow2 -F qcow2 -b "$disk_source" "$disk_path" "${disk_size_gib}G"
   fi
 else
-  iso_path="$(resolve_media_path "$iso_source" "$remote_cache_dir" "$local_cache_dir")"
+  if [[ "$mode" == "iso" ]]; then
+    iso_path="$(resolve_media_path "$iso_source" "$remote_cache_dir" "$local_cache_dir")"
+  else
+    kernel_path="$(resolve_media_path "$kernel_source" "$remote_cache_dir" "$local_cache_dir")"
+    initrd_path="$(resolve_media_path "$initrd_source" "$remote_cache_dir" "$local_cache_dir")"
+    install_kernel_args="$(escape_install_value "$kernel_args")"
+  fi
   if [[ "$remote_mode" == true ]]; then
     run_remote "qemu-img create -f $(printf '%q' "$disk_format") $(printf '%q' "$disk_path") ${disk_size_gib}G"
   else
@@ -706,14 +773,30 @@ if [[ "$mode" == "cloud" ]]; then
     --import
     --disk "path=${seed_path},device=cdrom"
   )
-else
+elif [[ "$mode" == "iso" ]]; then
   virt_args+=(--cdrom "$iso_path")
+else
+  virt_args+=(--install "kernel=${kernel_path},initrd=${initrd_path},kernel_args=${install_kernel_args}")
 fi
 
 tmp_xml="${tmp_dir}/${name}.xml"
+tmp_xml_raw="${tmp_dir}/${name}.xml.raw"
 print_cmd "${virt_args[@]}"
 if [[ "$dry_run" == false ]]; then
-  "${virt_args[@]}" > "$tmp_xml"
+  "${virt_args[@]}" > "$tmp_xml_raw"
+
+  # virt-install may emit multiple domain XML documents (install + post-install).
+  # virsh define accepts exactly one, so take the first complete <domain>...</domain>.
+  awk '
+    /<domain[[:space:]>]/ { if (!in_doc) in_doc = 1 }
+    in_doc { print }
+    in_doc && /<\/domain>/ { exit }
+  ' "$tmp_xml_raw" > "$tmp_xml"
+
+  if [[ ! -s "$tmp_xml" ]]; then
+    die "failed to extract domain XML from virt-install output"
+  fi
+
   run_cmd virsh --connect "$connect_uri" define "$tmp_xml"
 
   if [[ "$autostart" == true ]]; then
@@ -736,9 +819,15 @@ if [[ "$mode" == "cloud" ]]; then
   cat <<SUMMARY2
   Seed ISO:   ${seed_path}
 SUMMARY2
-else
+elif [[ "$mode" == "iso" ]]; then
   cat <<SUMMARY2
   ISO:        ${iso_path}
+SUMMARY2
+else
+  cat <<SUMMARY2
+  Kernel:     ${kernel_path}
+  Initrd:     ${initrd_path}
+  Cmdline:    ${kernel_args}
 SUMMARY2
 fi
 
