@@ -33,5 +33,12 @@
 
   desktop.gaming.defaultRenderer = "nvidia";
 
+  lukasf.kvm.enable = true;
+
+  users.users.lukasf.extraGroups = lib.mkAfter [
+    "libvirtd"
+    "kvm"
+  ];
+
   users.users.lukasf.hashedPassword = "$6$yzoypuzQDaJPoH3Q$jMjF9ciENiSRMMDfkeJJdGb9jMK1W35kNLvO3gH4B58rhWj285gYBI6n8.i8ry8jG5f7Ll3VxNbdvX5Sp2aGs0";
 }
