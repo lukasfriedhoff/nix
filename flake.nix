@@ -66,11 +66,15 @@
           _module.args.pkgs = import nixpkgs {
             inherit system;
             overlays = [ ];
-            config.allowUnfree = false;
+            config = {
+              allowUnfree = false;
+              allowUnfreePredicate = pkg: lib.getName pkg == "shadow-client";
+            };
           };
 
           packages = lib.optionalAttrs pkgs.stdenv.isLinux {
             ceph-wrapped = pkgs.callPackage ./pkgs/ceph-wrapped { };
+            shadow-client = pkgs.callPackage ./pkgs/shadow-client { };
             tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
           };
 
