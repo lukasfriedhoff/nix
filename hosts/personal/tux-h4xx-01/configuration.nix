@@ -30,7 +30,8 @@
   lukasf.tuxedoControlCenter.enable = true;
 
   # Power management
-  powerManagement.powertop.enable = true;
+  powerManagement.powertop.enable = false;
+  services.tlp.enable = false;
   networking.networkmanager.wifi.powersave = true;
 
   services.pipewire.extraConfig = {
