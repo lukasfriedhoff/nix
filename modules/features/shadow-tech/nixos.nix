@@ -7,6 +7,10 @@
 
 let
   cfg = config.lukasf.shadowTech;
+
+  defaultPackage = pkgs.callPackage ../../../pkgs/shadow-client-appimage { };
+  selectedPackage = cfg.package or defaultPackage;
+  sandboxSource = "${selectedPackage}/opt/shadow-appimage/chrome-sandbox";
 in
 {
   options.lukasf.shadowTech = {
@@ -14,19 +18,19 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.callPackage ../../../pkgs/shadow-client { };
-      defaultText = lib.literalExpression "pkgs.callPackage ../../../pkgs/shadow-client { }";
+      default = defaultPackage;
+      defaultText = lib.literalExpression "pkgs.callPackage ../../../pkgs/shadow-client-appimage { }";
       description = "Shadow PC client package to install.";
     };
   };
 
   config = lib.mkIf cfg.enable {
-    environment.systemPackages = [ cfg.package ];
+    environment.systemPackages = [ selectedPackage ];
 
     security.chromiumSuidSandbox.enable = lib.mkDefault true;
 
     security.wrappers.shadow-chrome-sandbox = {
-      source = "${cfg.package}/share/shadow-prod/chrome-sandbox";
+      source = sandboxSource;
       owner = "root";
       group = "root";
       setuid = true;

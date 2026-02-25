@@ -68,13 +68,13 @@
             overlays = [ ];
             config = {
               allowUnfree = false;
-              allowUnfreePredicate = pkg: lib.getName pkg == "shadow-client";
+              allowUnfreePredicate = pkg: lib.getName pkg == "shadow-client-appimage";
             };
           };
 
           packages = lib.optionalAttrs pkgs.stdenv.isLinux {
             ceph-wrapped = pkgs.callPackage ./pkgs/ceph-wrapped { };
-            shadow-client = pkgs.callPackage ./pkgs/shadow-client { };
+            shadow-client-appimage = pkgs.callPackage ./pkgs/shadow-client-appimage { };
             tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
           };
 

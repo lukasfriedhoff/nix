@@ -30,6 +30,12 @@
   lukasf.tuxedoControlCenter.enable = true;
   lukasf.shadowTech.enable = true;
 
+  users.users.lukasf.extraGroups = lib.mkAfter [ "input" ];
+  boot.kernelModules = [ "uinput" ];
+  services.udev.extraRules = ''
+    KERNEL=="uinput", MODE="0660", GROUP="input"
+  '';
+
   # Power management
   powerManagement.powertop.enable = false;
   services.tlp.enable = false;

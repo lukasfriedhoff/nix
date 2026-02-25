@@ -72,7 +72,7 @@
       };
 
       shadowClientTest = pkgs.testers.nixosTest {
-        name = "shadow-client";
+        name = "shadow-client-appimage";
         nodes.machine =
           { ... }:
           {
@@ -85,7 +85,7 @@
         testScript = ''
           machine.wait_for_unit("multi-user.target")
           machine.succeed("test -x /run/current-system/sw/bin/shadow")
-          machine.succeed("test -f /run/current-system/sw/share/applications/shadow-client-prod.desktop")
+          machine.succeed("test -f /run/current-system/sw/share/applications/shadow-client-appimage.desktop")
           machine.succeed("test -u /run/wrappers/bin/chrome-sandbox || test -u /run/wrappers/bin/shadow-chrome-sandbox")
         '';
       };
@@ -95,7 +95,7 @@
         pipewire-stack = pipewireTest;
         nix-gc-roots-cleaner = gcRootsCleanerTest;
         nix-registry = nixRegistryTest;
-        shadow-client = shadowClientTest;
+        shadow-client-appimage = shadowClientTest;
       }
       // collectAndMerge extractIntegrationTests;
     };
