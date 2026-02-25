@@ -114,6 +114,7 @@ material into the correct secret directories.
 | Ceph module | [`docs/services/ceph.md`](docs/services/ceph.md) |
 | Backup procedures | [`docs/services/backup.md`](docs/services/backup.md) |
 | Remote deployment | [`docs/deployment/remote-servers.md`](docs/deployment/remote-servers.md) |
+| QEMU VM bootstrap | [`docs/deployment/qemu-vm-bootstrap.md`](docs/deployment/qemu-vm-bootstrap.md) |
 | Architecture decisions | [`docs/architecture/`](docs/architecture/) |
 
 ### Architecture Documents
