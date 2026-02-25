@@ -20,7 +20,7 @@ in
     # Power management
     powerManagement = {
       enable = true;
-      powertop.enable = true;
+      powertop.enable = lib.mkDefault true;
     };
 
     # TLP for advanced power management (alternative to auto-cpufreq)
