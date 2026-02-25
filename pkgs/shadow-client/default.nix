@@ -85,7 +85,6 @@ stdenv.mkDerivation rec {
 
     install -d $out/bin
     makeWrapper $out/share/shadow-prod/shadow-launcher $out/bin/shadow \
-      --add-flags "--no-sandbox" \
       --set-default ELECTRON_DISABLE_SANDBOX 1
     ln -s $out/bin/shadow $out/bin/shadow-prod
 
