@@ -70,12 +70,31 @@
           machine.succeed("test -s /etc/nix/registry.json")
         '';
       };
+
+      shadowClientTest = pkgs.testers.nixosTest {
+        name = "shadow-client";
+        nodes.machine =
+          { ... }:
+          {
+            imports = [
+              ../modules/features/shadow-tech/nixos.nix
+            ];
+            lukasf.shadowTech.enable = true;
+            system.stateVersion = "25.05";
+          };
+        testScript = ''
+          machine.wait_for_unit("multi-user.target")
+          machine.succeed("test -x /run/current-system/sw/bin/shadow")
+          machine.succeed("test -f /run/current-system/sw/share/applications/shadow-client-prod.desktop")
+        '';
+      };
     in
     {
       checks = {
         pipewire-stack = pipewireTest;
         nix-gc-roots-cleaner = gcRootsCleanerTest;
         nix-registry = nixRegistryTest;
+        shadow-client = shadowClientTest;
       }
       // collectAndMerge extractIntegrationTests;
     };
