@@ -18,7 +18,6 @@
   libvdpau,
   libxcb,
   libxkbcommon,
-  makeWrapper,
   mesa,
   nspr,
   nss,
@@ -39,7 +38,6 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     autoPatchelfHook
     dpkg
-    makeWrapper
   ];
 
   buildInputs = [
@@ -84,8 +82,17 @@ stdenv.mkDerivation rec {
     rm -rf usr
 
     install -d $out/bin
-    makeWrapper $out/share/shadow-prod/shadow-launcher $out/bin/shadow \
-      --set-default ELECTRON_DISABLE_SANDBOX 1
+    cat > $out/bin/shadow <<EOF
+    #!${stdenv.shell}
+    if [ -x /run/wrappers/bin/shadow-chrome-sandbox ]; then
+      export CHROME_DEVEL_SANDBOX=/run/wrappers/bin/shadow-chrome-sandbox
+      unset ELECTRON_DISABLE_SANDBOX
+    else
+      export ELECTRON_DISABLE_SANDBOX=''${ELECTRON_DISABLE_SANDBOX:-1}
+    fi
+    exec "$out/share/shadow-prod/shadow-launcher" "\$@"
+    EOF
+    chmod +x $out/bin/shadow
     ln -s $out/bin/shadow $out/bin/shadow-prod
 
     substituteInPlace $out/share/applications/shadow-client-prod.desktop \
