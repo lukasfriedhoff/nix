@@ -28,6 +28,7 @@
   desktop.gaming.defaultRenderer = "nvidia";
 
   lukasf.tuxedoControlCenter.enable = true;
+  lukasf.shadowTech.enable = true;
 
   # Power management
   powerManagement.powertop.enable = false;
