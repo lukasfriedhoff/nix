@@ -86,7 +86,7 @@
           machine.wait_for_unit("multi-user.target")
           machine.succeed("test -x /run/current-system/sw/bin/shadow")
           machine.succeed("test -f /run/current-system/sw/share/applications/shadow-client-prod.desktop")
-          machine.succeed("test -u /run/wrappers/bin/shadow-chrome-sandbox")
+          machine.succeed("test -u /run/wrappers/bin/chrome-sandbox || test -u /run/wrappers/bin/shadow-chrome-sandbox")
         '';
       };
     in

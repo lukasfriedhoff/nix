@@ -23,6 +23,8 @@ in
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [ cfg.package ];
 
+    security.chromiumSuidSandbox.enable = lib.mkDefault true;
+
     security.wrappers.shadow-chrome-sandbox = {
       source = "${cfg.package}/share/shadow-prod/chrome-sandbox";
       owner = "root";

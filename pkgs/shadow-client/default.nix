@@ -84,9 +84,12 @@ stdenv.mkDerivation rec {
     install -d $out/bin
     cat > $out/bin/shadow <<EOF
     #!${stdenv.shell}
-    if [ -x /run/wrappers/bin/shadow-chrome-sandbox ]; then
+    if [ -x /run/wrappers/bin/chrome-sandbox ]; then
+      export CHROME_DEVEL_SANDBOX=/run/wrappers/bin/chrome-sandbox
+      export ELECTRON_DISABLE_SANDBOX=0
+    elif [ -x /run/wrappers/bin/shadow-chrome-sandbox ]; then
       export CHROME_DEVEL_SANDBOX=/run/wrappers/bin/shadow-chrome-sandbox
-      unset ELECTRON_DISABLE_SANDBOX
+      export ELECTRON_DISABLE_SANDBOX=0
     else
       export ELECTRON_DISABLE_SANDBOX=''${ELECTRON_DISABLE_SANDBOX:-1}
     fi
