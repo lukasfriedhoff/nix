@@ -2712,9 +2712,9 @@ in
           RemainAfterExit = true;
           ExecStart =
             let
-              targetAddr = cfg.monUpdate.address;
-              monName = cfg.monUpdate.name;
-              legacyAddr = cfg.monUpdate.legacyAddress;
+              targetAddr = if cfg.monUpdate.address != null then cfg.monUpdate.address else "";
+              monName = if cfg.monUpdate.name != null then cfg.monUpdate.name else "";
+              legacyAddr = if cfg.monUpdate.legacyAddress != null then cfg.monUpdate.legacyAddress else "";
               legacyPrefix = cfg.monUpdate.legacyPrefixLength;
               inherit (cfg.monUpdate) v1Port;
               inherit (cfg.monUpdate) v2Port;
