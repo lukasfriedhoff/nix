@@ -53,10 +53,9 @@ in
   systemd.services.srv3-swap-prepare = {
     description = "Initialize srv3 swap disk if missing swap signature";
     before = [
-      "swap.target"
       "dev-disk-by\\x2did-virtio\\x2dsrv3\\x2dswap.swap"
     ];
-    wantedBy = [ "swap.target" ];
+    requiredBy = [ "dev-disk-by\\x2did-virtio\\x2dsrv3\\x2dswap.swap" ];
     serviceConfig.Type = "oneshot";
     path = [ pkgs.util-linux ];
     script = ''

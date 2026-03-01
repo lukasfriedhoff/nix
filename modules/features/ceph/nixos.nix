@@ -1133,7 +1133,10 @@ in
       systemd.services."ceph-mon@" = {
         unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
         serviceConfig = {
-          ExecStart = lib.mkForce "${cephPkg}/bin/ceph-mon -f --id %i --setuser ceph --setgroup ceph";
+          ExecStart = lib.mkForce [
+            ""
+            "${cephPkg}/bin/ceph-mon -f --id %i --setuser ceph --setgroup ceph"
+          ];
           ExecStartPre = [
             "${pkgs.coreutils}/bin/mkdir -p /run/ceph"
             "${pkgs.coreutils}/bin/chown ceph:ceph /run/ceph"
@@ -1172,7 +1175,10 @@ in
           PYTHONPATH = "${pythonWithCephadmDeps}/${pythonSite}";
         };
         serviceConfig = {
-          ExecStart = lib.mkForce "${cephPkg}/bin/ceph-mgr -f --id %i --setuser ceph --setgroup ceph";
+          ExecStart = lib.mkForce [
+            ""
+            "${cephPkg}/bin/ceph-mgr -f --id %i --setuser ceph --setgroup ceph"
+          ];
           ExecStartPre = [
             (pkgs.writeShellScript "ceph-mgr-prepare-paths" ''
               set -euo pipefail
