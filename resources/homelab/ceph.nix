@@ -156,7 +156,7 @@
       fsid = "5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c";
       # Local libvirt lease IP for srv3 (update if lease changes).
       monIp = "192.168.122.243";
-      monHosts = [ "192.168.122.243" ];
+      monHosts = [ "srv3.lab.h4xx.io" ];
       monPort = 3300;
       publicNetwork = "192.168.122.0/24";
       backup = {
@@ -243,7 +243,7 @@
           secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "192.168.122.243";
+          monHost = "srv3.lab.h4xx.io";
           monPort = 3300;
         }
         {
@@ -253,7 +253,7 @@
           secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "192.168.122.243";
+          monHost = "srv3.lab.h4xx.io";
           monPort = 3300;
         }
       ];

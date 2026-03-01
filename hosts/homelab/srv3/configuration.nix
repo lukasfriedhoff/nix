@@ -112,7 +112,11 @@ in
     lib.mkForce (pkgs.qemu_kvm.override { cephSupport = true; })
   );
 
-  networking.extraHosts = ''
-    # srv3 srv3.lab.h4xx.io
-  '';
+  networking.extraHosts =
+    let
+      cephHostAliases = lib.unique ([ hostName ] ++ (cephCluster.monHosts or [ ]));
+    in
+    ''
+      ${cephCluster.monIp} ${lib.concatStringsSep " " cephHostAliases}
+    '';
 }
