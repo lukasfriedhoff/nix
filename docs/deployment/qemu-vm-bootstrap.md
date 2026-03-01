@@ -146,68 +146,105 @@ scripts/vms/new-qemu-vm.sh \
   --vcpus 4
 ```
 
-## Example 2: NixOS minimal installer VM, then provision with repo scripts
+## Example 2: Local srv3-style VM bootstrap (tested flow)
 
-1. Create host files/secrets in this repo first (example host `srv3`):
+This is the runbook to reuse when creating a local homelab VM with a root disk,
+dedicated swap disk, and additional Ceph data disks.
+
+1. Create/update host files in this repo first:
 
 ```bash
 scripts/homelab/new-host.sh \
   --host srv3 \
   --fqdn srv3.lab.h4xx.io \
   --root-disk-id virtio-srv3-root \
+  --allow-existing \
   --update-flake
 ```
 
-2. Boot a NixOS minimal installer VM:
+2. Boot the VM from your prebuilt ISO with management key baked in
+   (`artifacts/iso/nixos-minimal-ci-ssh.iso` in this repo):
 
 ```bash
 scripts/vms/new-qemu-vm.sh \
   --name srv3 \
   --mode iso \
-  --iso https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso \
-  --memory 4096 \
-  --vcpus 4 \
-  --disk-size 80 \
-  --disk-serial srv3-root
+  --iso artifacts/iso/nixos-minimal-ci-ssh.iso \
+  --memory 16384 \
+  --vcpus 6 \
+  --disk-size 100 \
+  --disk-serial srv3-root \
+  --extra-disk 20:srv3-swap \
+  --extra-disk 50:srv3-ceph1 \
+  --extra-disk 50:srv3-ceph2 \
+  --extra-disk 50:srv3-ceph3 \
+  --wait 0
 ```
 
-3. In the installer, set console passwords:
+3. Get installer IP from local libvirt:
 
 ```bash
-passwd root
-passwd nixos
+virsh --connect qemu:///system domifaddr srv3 --source lease
 ```
 
-4. Add the generated management key to installer `authorized_keys`:
-
-```bash
-installer_ip="<installer-ip>"
-pub="secrets/profiles/personal/servers/srv3/ssh/srv3-personal-mgmt.pub"
-
-scp "$pub" root@"$installer_ip":/tmp/mgmt.pub
-ssh root@"$installer_ip" "mkdir -p /root/.ssh && cat /tmp/mgmt.pub >> /root/.ssh/authorized_keys"
-```
-
-5. Run unattended install with your existing wrapper:
+4. Deploy with the wrapper (defaults to `--phases disko,install,reboot`,
+   so no kexec IP switch during install):
 
 ```bash
 scripts/servers/deploy-from-iso.sh \
   srv3 \
   root@<installer-ip> \
+  --identity ~/.ssh/personal/srv3-personal-mgmt \
+  --ssh-option IdentitiesOnly=yes \
   --luks-secret secrets/profiles/personal/shared/luks/srv3.txt
 ```
 
-6. Verify first boot and comin pull-mode:
+5. First boot after install will wait for LUKS unlock (initrd SSH on `:2222`):
 
 ```bash
-ssh srv3
-sudo systemctl status comin.service
+scripts/homelab/unlock.sh srv3
 ```
+
+If `unlock-srv3` DNS is not resolvable yet, `unlock.sh` falls back to the local
+libvirt lease IP for `srv3` automatically. Manual fallback is also possible:
+
+```bash
+scripts/homelab/unlock.sh srv3 \
+  --target root@192.168.122.30 \
+  --port 2222 \
+  --identity ~/.ssh/personal/srv3-personal-mgmt \
+  --ssh-option IdentitiesOnly=yes \
+  --ssh-option StrictHostKeyChecking=no \
+  --ssh-option UserKnownHostsFile=/dev/null
+```
+
+6. Verify disk layout and services:
+
+```bash
+ssh srv3 'lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,SERIAL'
+ssh srv3 'cat /proc/swaps'
+ssh srv3 'systemctl is-system-running || true'
+ssh srv3 'systemctl --failed --no-pager'
+```
+
+Expected disk shape for this example:
+- `vda` root 100G (`serial=srv3-root`)
+- `vdb` swap 20G (`serial=srv3-swap`)
+- `vdc/vdd/vde` Ceph disks 50G each (`serial=srv3-ceph1..3`)
 
 ## Notes
 
 - `--force` will undefine/recreate an existing domain and overwrite disk/seed files.
+- To fully clean a VM and leftover pool volumes, use `scripts/vms/remove-qemu-vm.sh --name <vm-name>`.
 - In `cloud` mode, `--disk-format qcow2` is required (overlay disk from base image).
+- `--extra-disk` lets you create/attach additional disks in one call so serial+format stay correct.
+- In `iso` mode, the script defines boot order as `hd` first then `cdrom` (installer still boots on first run, but post-install reboot will prefer disk).
+- If an older VM keeps rebooting into the installer ISO, eject media and reboot:
+  ```bash
+  virsh --connect qemu:///system change-media <name> sda --eject --live --config
+  virsh --connect qemu:///system reboot <name>
+  ```
 - In `netboot` mode on `qemu:///system`, libvirt stages kernel/initrd under `/var/lib/libvirt/boot`.
   If that directory is missing, create it on the libvirt host (for example `sudo mkdir -p /var/lib/libvirt/boot`).
 - If you use `--bridge`, it is used instead of `--network`.
+- If Ceph units fail with “cluster with the same fsid already exists”, the Ceph disks still contain old cluster state and must be reprovisioned per `docs/services/ceph.md`.

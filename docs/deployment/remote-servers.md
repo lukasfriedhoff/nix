@@ -68,7 +68,8 @@ Use the helper wrapper (it sets `--flake` and the target) while the ISO is up:
 
 ```bash
 # Example: deploy docker-host-01 to 10.7.5.5
-scripts/servers/deploy-from-iso.sh docker-host-01 root@10.7.5.5 --kexec
+scripts/servers/deploy-from-iso.sh docker-host-01 root@10.7.5.5 \
+  --identity ~/.ssh/docker-host-01-mgmt
 ```
 
 Pass any additional nixos-anywhere flags (disk layout, extra-files, etc.) after
@@ -78,6 +79,10 @@ the `<target>` argument. The tool will:
 2. Partition + format disks via `disko` (if the host module imports it)
 3. Build the target configuration (`nixosConfigurations.<host>`)
 4. Activate the system and reboot into it
+
+`deploy-from-iso.sh` defaults to `--phases disko,install,reboot` (no kexec), which avoids
+DHCP/IP churn on machines already running a NixOS installer. If you intentionally want
+the kexec phase, add `--with-kexec`.
 
 ### 4. Bootstrap secrets + comin
 

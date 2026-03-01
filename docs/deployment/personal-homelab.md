@@ -66,8 +66,11 @@ unless you flip `usePasswordAuth`).
 6. Deploy from the installer with nixos-anywhere
    ```bash
    scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
+     --identity ~/.ssh/personal/${host}-personal-mgmt \
      --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt"
    ```
+   This wrapper defaults to `--phases disko,install,reboot` (no kexec). Add
+   `--with-kexec` only when you explicitly need that phase.
 7. After the first boot, change the default password and confirm the management
    key works:
    ```bash
@@ -127,10 +130,17 @@ with that recipient.
   `ssh/hostnames-private.conf` (decrypted to `~/.ssh/config.d/15-hostnames-private`).
 - Store the LUKS passphrase in personal shared secrets, e.g.
   `secrets/profiles/personal/shared/luks/${host}.txt` (encrypted via SOPS).
-  To unlock from your desktop:
+  To unlock from your desktop, use:
   ```bash
-  pass=$(sops -d secrets/profiles/personal/shared/luks/${host}.txt)
-  ssh unlock-${host} "echo -n \"$pass\" | cryptsetup open /dev/disk/by-uuid/<root-luks-uuid> cryptroot"
+  scripts/homelab/unlock.sh ${host}
   ```
-  (Adjust the device/mapper name to your layout.) The target does not need an
-  Age key for this; only the desktop needs it to decrypt the passphrase.
+  If DNS is not ready yet in a local libvirt flow, `unlock.sh` can target the
+  installer/guest IP directly:
+  ```bash
+  scripts/homelab/unlock.sh ${host} \
+    --target root@192.168.122.30 \
+    --port 2222 \
+    --identity ~/.ssh/personal/${host}-personal-mgmt
+  ```
+  The target does not need an Age key for this; only the desktop needs it to
+  decrypt the passphrase.
