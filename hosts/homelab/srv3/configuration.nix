@@ -15,6 +15,7 @@ let
   hasRole = role: lib.elem role cephRoles;
   cephDiskEntries = lib.filterAttrs (_: v: v.host == hostName && v.purpose == "ceph") homelabDisks;
   cephDisks = map (diskId: "/dev/disk/by-id/${diskId}") (lib.attrNames cephDiskEntries);
+  swapDevice = "/dev/disk/by-id/virtio-srv3-swap";
 in
 {
   imports = [
@@ -44,10 +45,34 @@ in
 
   swapDevices = lib.mkForce [
     {
-      device = "/dev/disk/by-label/swap";
-      label = "swap";
+      device = lib.mkForce swapDevice;
+      label = "srv3-swap";
     }
   ];
+
+  systemd.services.srv3-swap-prepare = {
+    description = "Initialize srv3 swap disk if missing swap signature";
+    before = [
+      "swap.target"
+      "dev-disk-by\\x2did-virtio\\x2dsrv3\\x2dswap.swap"
+    ];
+    wantedBy = [ "swap.target" ];
+    serviceConfig.Type = "oneshot";
+    path = [ pkgs.util-linux ];
+    script = ''
+      set -euo pipefail
+      dev="${swapDevice}"
+      if [ ! -b "$dev" ]; then
+        echo "swap device $dev not present, skipping"
+        exit 0
+      fi
+
+      fs_type="$(${pkgs.util-linux}/bin/blkid -o value -s TYPE "$dev" 2>/dev/null || true)"
+      if [ "$fs_type" != "swap" ]; then
+        ${pkgs.util-linux}/bin/mkswap -L swap "$dev"
+      fi
+    '';
+  };
 
   lukasf.ceph = {
     enable = true;
