@@ -36,6 +36,7 @@ General options:
   --disk-format qcow2|raw       Disk format (default: qcow2)
   --disk-bus virtio|scsi|sata   Disk bus (default: virtio)
   --disk-serial <serial>        Disk serial (default: <name>-root)
+  --extra-disk <spec>           Add extra disk (repeatable). Spec: <size-gib>:<serial>[:<format>[:<bus>]]
   --osinfo <id>                 virt-install osinfo (default: generic)
   --wait <seconds>              virt-install --wait value (default: 0)
 
@@ -70,6 +71,8 @@ Netboot mode options:
   --cmdline <string>            Alias for --kernel-args
 
 Behavior options:
+  --on-reboot restart|destroy|preserve|rename-restart
+                                Domain action on reboot (default: restart)
   --autostart                   Enable libvirt autostart
   --no-start                    Define VM but do not start it
   --force                       Undefine existing domain and overwrite disk/seed files
@@ -88,6 +91,11 @@ Examples:
   scripts/vms/new-qemu-vm.sh \
     --name srv3-installer \
     --mode iso \
+    --disk-size 100 \
+    --extra-disk 20:srv3-swap \
+    --extra-disk 50:srv3-ceph1 \
+    --extra-disk 50:srv3-ceph2 \
+    --extra-disk 50:srv3-ceph3 \
     --iso https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso
 
   scripts/vms/new-qemu-vm.sh \
@@ -139,6 +147,25 @@ run_cmd() {
     return 0
   fi
   "$@"
+}
+
+set_iso_boot_order() {
+  local xml_path="$1"
+  local tmp_boot_xml
+  tmp_boot_xml="$(mktemp)"
+  awk '
+    /<os[[:space:]>]/ { in_os = 1; print; next }
+    in_os && /<\/os>/ {
+      print "    <boot dev='\''hd'\''/>"
+      print "    <boot dev='\''cdrom'\''/>"
+      in_os = 0
+      print
+      next
+    }
+    in_os && /<boot[[:space:]]+dev=/ { next }
+    { print }
+  ' "$xml_path" > "$tmp_boot_xml"
+  mv "$tmp_boot_xml" "$xml_path"
 }
 
 run_remote() {
@@ -242,7 +269,24 @@ create_plain_disk_local() {
   if is_local_system_connection; then
     if pool="$(local_pool_for_path "$path")"; then
       vol="$(basename "$path")"
-      run_cmd virsh --connect "$connect_uri" vol-create-as "$pool" "$vol" "${size_gib}G" --format "$format"
+      run_cmd virsh --connect "$connect_uri" vol-create-as "$pool" "$vol" --capacity "${size_gib}G" --allocation 0 --format "$format"
+      if [[ "$dry_run" == true ]]; then
+        return
+      fi
+      local actual_bytes=""
+      local expected_bytes=""
+      actual_bytes="$(
+        virsh --connect "$connect_uri" vol-info "$vol" "$pool" --bytes 2>/dev/null | awk '/^Capacity:/ { print $2 }'
+      )"
+      expected_bytes="$(
+        awk -v size="$size_gib" 'BEGIN { printf "%.0f\n", (size + 0) * 1024 * 1024 * 1024 }'
+      )"
+      if [[ -z "$actual_bytes" || -z "$expected_bytes" ]]; then
+        die "failed to validate capacity for ${path} in pool ${pool}"
+      fi
+      if ! awk -v actual="$actual_bytes" -v expected="$expected_bytes" 'BEGIN { exit !(actual + 0 >= expected * 0.95) }'; then
+        die "unexpected volume capacity for ${path}: got ${actual_bytes} bytes, expected about ${expected_bytes} bytes"
+      fi
       return
     fi
   fi
@@ -420,6 +464,12 @@ disk_path=""
 disk_format="qcow2"
 disk_bus="virtio"
 disk_serial=""
+extra_disk_specs=()
+extra_disk_sizes=()
+extra_disk_serials=()
+extra_disk_formats=()
+extra_disk_buses=()
+extra_disk_paths=()
 seed_path=""
 image_source=""
 iso_source=""
@@ -443,6 +493,7 @@ machine_type="q35"
 use_efi=true
 
 graphics="none"
+on_reboot_action="restart"
 autostart=false
 start_now=true
 force=false
@@ -485,6 +536,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --disk-serial)
       disk_serial="$2"
+      shift 2
+      ;;
+    --extra-disk)
+      extra_disk_specs+=("$2")
       shift 2
       ;;
     --seed-path)
@@ -567,6 +622,10 @@ while [[ $# -gt 0 ]]; do
       graphics="$2"
       shift 2
       ;;
+    --on-reboot)
+      on_reboot_action="$2"
+      shift 2
+      ;;
     --autostart)
       autostart=true
       shift
@@ -613,6 +672,10 @@ esac
 case "$graphics" in
   none|vnc|spice) ;;
   *) die "--graphics must be none, vnc, or spice" ;;
+esac
+case "$on_reboot_action" in
+  restart|destroy|preserve|rename-restart) ;;
+  *) die "--on-reboot must be restart, destroy, preserve, or rename-restart" ;;
 esac
 
 if [[ -n "$bridge_name" && -n "$network_name" && "$network_name" != "default" ]]; then
@@ -666,6 +729,51 @@ fi
 if [[ -z "$disk_serial" ]]; then
   disk_serial="${name}-root"
 fi
+
+for spec in "${extra_disk_specs[@]}"; do
+  IFS=':' read -r extra_size extra_serial extra_format extra_bus extra_rest <<< "$spec"
+  if [[ -z "$extra_size" || -z "$extra_serial" || -n "${extra_rest:-}" ]]; then
+    die "invalid --extra-disk spec '${spec}' (expected <size-gib>:<serial>[:<format>[:<bus>]])"
+  fi
+
+  if ! awk -v size="$extra_size" 'BEGIN { exit !((size + 0) > 0) }'; then
+    die "invalid extra disk size in spec '${spec}'"
+  fi
+
+  extra_format="${extra_format:-$disk_format}"
+  extra_bus="${extra_bus:-$disk_bus}"
+
+  case "$extra_format" in
+    qcow2|raw) ;;
+    *) die "extra disk format must be qcow2 or raw in spec '${spec}'" ;;
+  esac
+  case "$extra_bus" in
+    virtio|scsi|sata) ;;
+    *) die "extra disk bus must be virtio, scsi, or sata in spec '${spec}'" ;;
+  esac
+
+  if [[ "$extra_serial" == "$disk_serial" ]]; then
+    die "extra disk serial conflicts with primary disk serial: ${extra_serial}"
+  fi
+
+  for used_serial in "${extra_disk_serials[@]}"; do
+    if [[ "$extra_serial" == "$used_serial" ]]; then
+      die "duplicate extra disk serial: ${extra_serial}"
+    fi
+  done
+
+  extra_path="/var/lib/libvirt/images/${extra_serial}.${extra_format}"
+  if [[ "$extra_path" == "$disk_path" ]]; then
+    die "extra disk path conflicts with primary disk path: ${extra_path}"
+  fi
+
+  extra_disk_sizes+=("$extra_size")
+  extra_disk_serials+=("$extra_serial")
+  extra_disk_formats+=("$extra_format")
+  extra_disk_buses+=("$extra_bus")
+  extra_disk_paths+=("$extra_path")
+done
+
 if [[ -z "$seed_path" ]]; then
   seed_path="/var/lib/libvirt/images/${name}-seed.iso"
 fi
@@ -719,6 +827,9 @@ fi
 
 if [[ "$remote_mode" == true ]]; then
   run_remote "mkdir -p $(printf '%q' "$(dirname "$disk_path")")"
+  for extra_path in "${extra_disk_paths[@]}"; do
+    run_remote "mkdir -p $(printf '%q' "$(dirname "$extra_path")")"
+  done
   if [[ "$mode" == "cloud" ]]; then
     run_remote "mkdir -p $(printf '%q' "$(dirname "$seed_path")")"
   fi
@@ -729,6 +840,9 @@ if [[ "$remote_mode" == true ]]; then
   fi
 else
   run_cmd mkdir -p "$(dirname "$disk_path")"
+  for extra_path in "${extra_disk_paths[@]}"; do
+    run_cmd mkdir -p "$(dirname "$extra_path")"
+  done
   if [[ "$mode" == "cloud" ]]; then
     run_cmd mkdir -p "$(dirname "$seed_path")"
   fi
@@ -754,6 +868,17 @@ if [[ "$remote_mode" == true ]]; then
       die "seed ISO path already exists on remote host: ${seed_path}"
     fi
   fi
+  if [[ "$dry_run" == false ]]; then
+    for extra_path in "${extra_disk_paths[@]}"; do
+      if remote_has_file "$extra_path"; then
+        if [[ "$force" == true ]]; then
+          remote_remove_file "$extra_path"
+        else
+          die "extra disk path already exists on remote host: ${extra_path}"
+        fi
+      fi
+    done
+  fi
 else
   if local_path_exists "$disk_path"; then
     if [[ "$force" == true ]]; then
@@ -769,6 +894,15 @@ else
       die "seed ISO path already exists: ${seed_path}"
     fi
   fi
+  for extra_path in "${extra_disk_paths[@]}"; do
+    if local_path_exists "$extra_path"; then
+      if [[ "$force" == true ]]; then
+        local_remove_file "$extra_path"
+      else
+        die "extra disk path already exists: ${extra_path}"
+      fi
+    fi
+  done
 fi
 
 if [[ -n "$network_name" ]]; then
@@ -849,6 +983,17 @@ else
   fi
 fi
 
+for i in "${!extra_disk_paths[@]}"; do
+  extra_path="${extra_disk_paths[$i]}"
+  extra_format="${extra_disk_formats[$i]}"
+  extra_size="${extra_disk_sizes[$i]}"
+  if [[ "$remote_mode" == true ]]; then
+    run_remote "qemu-img create -f $(printf '%q' "$extra_format") $(printf '%q' "$extra_path") ${extra_size}G"
+  else
+    create_plain_disk_local "$extra_format" "$extra_path" "$extra_size"
+  fi
+done
+
 virt_args=(
   virt-install
   --connect "$connect_uri"
@@ -866,8 +1011,18 @@ virt_args=(
   --print-xml
 )
 
+for i in "${!extra_disk_paths[@]}"; do
+  virt_args+=(
+    --disk "path=${extra_disk_paths[$i]},format=${extra_disk_formats[$i]},bus=${extra_disk_buses[$i]},serial=${extra_disk_serials[$i]}"
+  )
+done
+
 if [[ "$use_efi" == true ]]; then
-  virt_args+=(--boot uefi)
+  # Force non-secure UEFI firmware by default; most installer flows here do not
+  # provision signed boot artifacts and would otherwise fail to boot post-install.
+  virt_args+=(
+    --boot "uefi,firmware.feature0.name=secure-boot,firmware.feature0.enabled=no,firmware.feature1.name=enrolled-keys,firmware.feature1.enabled=no"
+  )
 fi
 
 if [[ -n "$bridge_name" ]]; then
@@ -905,6 +1060,11 @@ if [[ "$dry_run" == false ]]; then
     die "failed to extract domain XML from virt-install output"
   fi
 
+  sed -i -E "s#<on_reboot>[^<]+</on_reboot>#<on_reboot>${on_reboot_action}</on_reboot>#" "$tmp_xml"
+  if [[ "$mode" == "iso" ]]; then
+    set_iso_boot_order "$tmp_xml"
+  fi
+
   run_cmd virsh --connect "$connect_uri" define "$tmp_xml"
 
   if [[ "$autostart" == true ]]; then
@@ -922,7 +1082,15 @@ VM definition complete.
   Name:       ${name}
   Connect URI:${connect_uri}
   Disk:       ${disk_path}
+  On reboot:  ${on_reboot_action}
 SUMMARY
+if [[ "${#extra_disk_paths[@]}" -gt 0 ]]; then
+  for i in "${!extra_disk_paths[@]}"; do
+    cat <<EXTRA
+  Extra disk: ${extra_disk_paths[$i]} (${extra_disk_sizes[$i]} GiB, serial=${extra_disk_serials[$i]})
+EXTRA
+  done
+fi
 if [[ "$mode" == "cloud" ]]; then
   cat <<SUMMARY2
   Seed ISO:   ${seed_path}

@@ -5,7 +5,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/homelab/probe-installer.sh --target root@IP [--host <name>] [--write-hw <path>]
+Usage: scripts/homelab/probe-installer.sh --target root@IP [options]
 
 Queries a running NixOS installer (or live system) for details needed to fill the homelab template:
   - hardware-configuration.nix from nixos-generate-config
@@ -13,6 +13,13 @@ Queries a running NixOS installer (or live system) for details needed to fill th
   - network interfaces
 
 Nothing is written unless --write-hw is provided; results are printed to stdout.
+
+Options:
+  --target root@IP          SSH target (required)
+  --host <name>             Hostname hint for suggested edits
+  --write-hw <path>         Write sanitized hardware config to this path
+  --identity <keyfile>      SSH identity file (passed as -i)
+  --ssh-option <opt>        Additional SSH option (repeatable, passed as -o)
 
 Examples:
   scripts/homelab/probe-installer.sh --target root@10.1.30.12 --host srv1 \
@@ -26,18 +33,25 @@ die() { echo "error: $*" >&2; exit 1; }
 target=""
 host=""
 write_hw=""
+identity_file=""
+ssh_extra_opts=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) target="$2"; shift 2;;
     --host) host="$2"; shift 2;;
     --write-hw) write_hw="$2"; shift 2;;
+    --identity) identity_file="$2"; shift 2;;
+    --ssh-option) ssh_extra_opts+=("$2"); shift 2;;
     -h|--help) usage; exit 0;;
     *) die "unknown arg: $1";;
   esac
 done
 
 [[ -n "$target" ]] || die "--target root@IP is required"
+if [[ -n "$identity_file" && ! -f "$identity_file" ]]; then
+  die "identity file not found: ${identity_file}"
+fi
 
 ssh_opts=(
   -o StrictHostKeyChecking=no
@@ -47,6 +61,12 @@ ssh_opts=(
   -o ControlPath="/tmp/nh-probe-%r@%h:%p"
   -o ControlPersist=60
 )
+if [[ -n "$identity_file" ]]; then
+  ssh_opts+=(-i "$identity_file")
+fi
+for opt in "${ssh_extra_opts[@]}"; do
+  ssh_opts+=(-o "$opt")
+done
 
 cmd=$(
   cat <<'EOF'

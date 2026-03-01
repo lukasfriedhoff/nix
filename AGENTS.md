@@ -51,6 +51,11 @@
 - Prefer `keyName = "<host>-<scope>-mgmt"` in SSH host entries so Home Manager expands to `~/.ssh/personal/<keyName>`.
 - Add `secretsByProfile` and `nixosConfigurations` entries in `flake.nix`.
 - Deploy with `scripts/servers/deploy-from-iso.sh` (nixos-anywhere wrapper).
+- For local libvirt bootstrap runbooks (including srv3-style multi-disk VMs), start at `docs/deployment/qemu-vm-bootstrap.md`.
+- Local VM bootstrap defaults:
+  - Use `scripts/vms/new-qemu-vm.sh` with `--extra-disk` for swap/data disks.
+  - Use `scripts/servers/deploy-from-iso.sh --identity <key> --luks-secret <secret>` (defaults to `disko,install,reboot` phases).
+  - Use `scripts/homelab/unlock.sh <host>` for first post-install boot; if DNS is not ready, it now falls back to local libvirt lease IP automatically.
 - During ISO install, copy the management `.pub` key to `/root/.ssh/authorized_keys` before deploy.
 - After first boot, verify pull-mode updates with `systemctl status comin.service` and `journalctl -u comin.service`.
 - For initrd unlock, store the LUKS secret under `secrets/profiles/personal/shared/luks/<host>.txt`.

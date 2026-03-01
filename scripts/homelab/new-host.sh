@@ -423,7 +423,7 @@ if nidx == -1:
 
 nixos_entry = f'''
             {host} = mkNixosHost "{host}" (
-              personalHomelabServerModules ++ [
+              homelabServerModules ++ [
                 ./hosts/homelab/{host}/configuration.nix
               ]
             );
