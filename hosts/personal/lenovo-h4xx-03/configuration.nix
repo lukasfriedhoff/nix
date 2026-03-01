@@ -29,14 +29,23 @@
     cephClientName = "lenovo";
   };
 
+  # Match tux-h4xx-01 behavior: start homelab WireGuard from the user session.
+  lukasf.wireguard.homelab.userUnit.enable = true;
+
   desktop.gaming.defaultRenderer = "nvidia";
 
   lukasf.kvm.enable = true;
 
   users.users.lukasf.extraGroups = lib.mkAfter [
+    "input"
     "libvirtd"
     "kvm"
   ];
+
+  boot.kernelModules = [ "uinput" ];
+  services.udev.extraRules = ''
+    KERNEL=="uinput", MODE="0660", GROUP="input"
+  '';
 
   users.users.lukasf.hashedPassword = "$6$yzoypuzQDaJPoH3Q$jMjF9ciENiSRMMDfkeJJdGb9jMK1W35kNLvO3gH4B58rhWj285gYBI6n8.i8ry8jG5f7Ll3VxNbdvX5Sp2aGs0";
 }
