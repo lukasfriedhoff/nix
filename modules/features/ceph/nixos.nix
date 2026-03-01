@@ -1131,6 +1131,7 @@ in
       };
       # Ensure /run/ceph exists and is writable by the ceph user before mon starts.
       systemd.services."ceph-mon@" = {
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
         serviceConfig = {
           ExecStart = lib.mkForce "${cephPkg}/bin/ceph-mon -f --id %i --setuser ceph --setgroup ceph";
           ExecStartPre = [
@@ -1166,6 +1167,7 @@ in
       };
       # Ensure manager state directory exists and is writable.
       systemd.services."ceph-mgr@" = {
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
         environment = {
           PYTHONPATH = "${pythonWithCephadmDeps}/${pythonSite}";
         };
@@ -1257,24 +1259,53 @@ in
           Type = "oneshot";
           RemainAfterExit = true;
           BindPaths = [ "/run/systemd/system:/etc/systemd/system" ];
-          ExecStart = lib.concatStringsSep " " (
-            [
-              cephadm
-              "bootstrap"
-              "--mon-ip"
-              cfg.bootstrap.monIp
-              "--allow-fqdn-hostname"
-              "--allow-overwrite"
-            ]
-            ++ lib.optional (cfg.bootstrap.publicNetwork != null) "--skip-mon-network"
-            ++ lib.optional cfg.bootstrap.singleHostDefaults "--single-host-defaults"
-            ++ lib.optional cfg.bootstrap.skipDashboard "--skip-dashboard"
-            ++ lib.optional (cfg.bootstrap.fsid != null) "--fsid"
-            ++ lib.optional (cfg.bootstrap.fsid != null) cfg.bootstrap.fsid
-            ++ lib.optional (cfg.bootstrap.clusterNetwork != null) "--cluster-network"
-            ++ lib.optional (cfg.bootstrap.clusterNetwork != null) cfg.bootstrap.clusterNetwork
-            ++ cfg.bootstrap.extraArgs
-          );
+          ExecStart =
+            let
+              bootstrapCmd = lib.concatStringsSep " " (
+                [
+                  cephadm
+                  "bootstrap"
+                  "--mon-ip"
+                  cfg.bootstrap.monIp
+                  "--allow-fqdn-hostname"
+                  "--allow-overwrite"
+                ]
+                ++ lib.optional (cfg.bootstrap.publicNetwork != null) "--skip-mon-network"
+                ++ lib.optional cfg.bootstrap.singleHostDefaults "--single-host-defaults"
+                ++ lib.optional cfg.bootstrap.skipDashboard "--skip-dashboard"
+                ++ lib.optional (cfg.bootstrap.fsid != null) "--fsid"
+                ++ lib.optional (cfg.bootstrap.fsid != null) cfg.bootstrap.fsid
+                ++ lib.optional (cfg.bootstrap.clusterNetwork != null) "--cluster-network"
+                ++ lib.optional (cfg.bootstrap.clusterNetwork != null) cfg.bootstrap.clusterNetwork
+                ++ cfg.bootstrap.extraArgs
+              );
+              fsid = if cfg.bootstrap.fsid != null then cfg.bootstrap.fsid else "";
+              zapDevicesFlag = lib.boolToString cfg.osd.zapDevices;
+            in
+            pkgs.writeShellScript "cephadm-bootstrap" ''
+              set -euo pipefail
+
+              run_bootstrap() {
+                ${bootstrapCmd}
+              }
+
+              if run_bootstrap; then
+                exit 0
+              fi
+
+              if [ "${zapDevicesFlag}" = "true" ] && [ -n "${fsid}" ] && [ ! -s /etc/ceph/ceph.client.admin.keyring ]; then
+                stale_root="/var/lib/ceph/${fsid}"
+                if [ -d "$stale_root" ]; then
+                  echo "cephadm-bootstrap: detected stale fsid state at $stale_root; cleaning and retrying once" >&2
+                  ${pkgs.systemd}/bin/systemctl stop "ceph-mon@${hostName}.service" "ceph-mgr@${hostName}.service" >/dev/null 2>&1 || true
+                  rm -rf -- "$stale_root" "/var/lib/ceph/mon/ceph-${hostName}" "/var/lib/ceph/mgr/ceph-${hostName}"
+                  run_bootstrap
+                  exit 0
+                fi
+              fi
+
+              exit 1
+            '';
         };
       };
 
