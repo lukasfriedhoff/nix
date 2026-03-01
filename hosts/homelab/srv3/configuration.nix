@@ -50,28 +50,19 @@ in
     }
   ];
 
-  systemd.services.srv3-swap-prepare = {
-    description = "Initialize srv3 swap disk if missing swap signature";
-    before = [
-      "dev-disk-by\\x2did-virtio\\x2dsrv3\\x2dswap.swap"
-    ];
-    requiredBy = [ "dev-disk-by\\x2did-virtio\\x2dsrv3\\x2dswap.swap" ];
-    serviceConfig.Type = "oneshot";
-    path = [ pkgs.util-linux ];
-    script = ''
-      set -euo pipefail
-      dev="${swapDevice}"
-      if [ ! -b "$dev" ]; then
-        echo "swap device $dev not present, skipping"
-        exit 0
-      fi
+  system.activationScripts.srv3SwapPrepare.text = ''
+    set -euo pipefail
+    dev="${swapDevice}"
+    if [ ! -b "$dev" ]; then
+      echo "swap device $dev not present, skipping"
+      exit 0
+    fi
 
-      fs_type="$(${pkgs.util-linux}/bin/blkid -o value -s TYPE "$dev" 2>/dev/null || true)"
-      if [ "$fs_type" != "swap" ]; then
-        ${pkgs.util-linux}/bin/mkswap -L swap "$dev"
-      fi
-    '';
-  };
+    fs_type="$(${pkgs.util-linux}/bin/blkid -o value -s TYPE "$dev" 2>/dev/null || true)"
+    if [ "$fs_type" != "swap" ]; then
+      ${pkgs.util-linux}/bin/mkswap -L srv3-swap "$dev" >/dev/null
+    fi
+  '';
 
   lukasf.ceph = {
     enable = true;
