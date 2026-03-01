@@ -154,9 +154,9 @@
 
     testing = {
       fsid = "5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c";
-      # Set this to the srv3 management IP from probe-installer output before deploy.
-      monIp = "192.168.122.41";
-      monHosts = [ "srv3.lab.h4xx.io" ];
+      # Local libvirt lease IP for srv3 (update if lease changes).
+      monIp = "192.168.122.243";
+      monHosts = [ "192.168.122.243" ];
       monPort = 3300;
       publicNetwork = "192.168.122.0/24";
       backup = {
@@ -243,7 +243,7 @@
           secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "srv3.lab.h4xx.io";
+          monHost = "192.168.122.243";
           monPort = 3300;
         }
         {
@@ -253,7 +253,7 @@
           secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "srv3.lab.h4xx.io";
+          monHost = "192.168.122.243";
           monPort = 3300;
         }
       ];
