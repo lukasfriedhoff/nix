@@ -77,7 +77,9 @@ in
       provisioner = "ceph-volume";
       encrypted = true;
       autoProvision = hasRole "osd";
-      zapDevices = false;
+      # One-time destructive wipe for reprovisioning; the Ceph module now guards
+      # with a marker file so this does not repeat every boot.
+      zapDevices = true;
     };
     monUpdate = {
       enable = hasRole "bootstrap";

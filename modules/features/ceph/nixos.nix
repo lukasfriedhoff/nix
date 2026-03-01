@@ -1466,13 +1466,29 @@ in
 
                               deviceList="$resolved_devices"
 
+                              should_zap="false"
+                              zap_marker="/var/lib/ceph/.osd-zap-cephadm.done"
+                              zapped_any="false"
                               if [ "${zapDevicesFlag}" = "true" ]; then
+                                if [ -f "$zap_marker" ]; then
+                                  echo "zapDevices=true but marker exists ($zap_marker); skipping destructive zap." >&2
+                                else
+                                  should_zap="true"
+                                fi
+                              fi
+
+                              if [ "$should_zap" = "true" ]; then
                                 for dev in $deviceList; do
                                   wipefs --all --force "$dev" || true
                                   sgdisk --zap-all "$dev" || true
                                   partprobe "$dev" || true
                                   ceph_cmd orch device zap "${osdHost}" "$dev" --force || true
+                                  zapped_any="true"
                                 done
+                                if [ "$zapped_any" = "true" ]; then
+                                  install -d -m 0755 /var/lib/ceph
+                                  : > "$zap_marker"
+                                fi
                               fi
 
                               devices_json="$(ceph_cmd orch device ls --format json 2>/dev/null || true)"
@@ -1576,7 +1592,18 @@ in
                     chmod 0600 "${bootstrapKeyring}"
                   fi
 
-                  if [ "${zapDevicesFlag}" = "true" ] && [ -s "${adminKeyring}" ]; then
+                  should_zap="false"
+                  zap_marker="/var/lib/ceph/.osd-zap-ceph-volume.done"
+                  zapped_any="false"
+                  if [ "${zapDevicesFlag}" = "true" ]; then
+                    if [ -f "$zap_marker" ]; then
+                      echo "zapDevices=true but marker exists ($zap_marker); skipping destructive zap." >&2
+                    else
+                      should_zap="true"
+                    fi
+                  fi
+
+                  if [ "$should_zap" = "true" ] && [ -s "${adminKeyring}" ]; then
                     fsid="$("${cephBin}" -n client.admin -k "${adminKeyring}" fsid 2>/dev/null || true)"
                     if [ -n "$fsid" ]; then
                       ${pkgs.systemd}/bin/systemctl list-units --type=service --no-legend "ceph-$fsid@osd.*" \
@@ -1616,7 +1643,7 @@ in
                       echo "OSD already present on $resolved, skipping."
                       continue
                     fi
-                    if [ "${zapDevicesFlag}" = "true" ]; then
+                    if [ "$should_zap" = "true" ]; then
                       ${cephVolume} lvm zap --destroy "$resolved" || true
                       ${cephVolume} raw zap --destroy "$resolved" || true
                       wipefs --all --force "$resolved" || true
@@ -1624,9 +1651,15 @@ in
                       partprobe "$resolved" || true
                       blockdev --flushbufs "$resolved" || true
                       udevadm settle --timeout=10 || true
+                      zapped_any="true"
                     fi
                     ${cephVolume} lvm create --data "$resolved" --no-systemd ${dmcryptFlag}
                   done
+
+                  if [ "$should_zap" = "true" ] && [ "$zapped_any" = "true" ]; then
+                    install -d -m 0755 /var/lib/ceph
+                    : > "$zap_marker"
+                  fi
                 '';
             };
           };

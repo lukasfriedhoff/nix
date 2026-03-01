@@ -18,6 +18,11 @@ defined in the flake. The target is the SSH destination of the temporary install
 
 Options:
   --luks-secret <sops-file>  Decrypt and pass LUKS key via --disk-encryption-keys.
+  --age-key-secret <sops-file>
+                             Decrypt and include host Age key at
+                             /var/lib/sops-nix/age/keys.txt via
+                             nixos-anywhere --extra-files. If omitted, defaults to
+                             secrets/profiles/personal/servers/<host>/age.key when present.
   --identity <private-key>   SSH identity file for both preflight SSH and nixos-anywhere.
   --ssh-option <opt>         Extra SSH option (repeatable), e.g. --ssh-option IdentitiesOnly=yes
   --with-kexec               Include the kexec phase (default behavior skips kexec for ISO installs).
@@ -31,6 +36,7 @@ fi
 
 config="$1"; target="$2"; shift 2
 luks_secret=""
+age_key_secret=""
 identity_file=""
 with_kexec=false
 user_ssh_options=()
@@ -40,6 +46,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --luks-secret)
       luks_secret="$2"
+      shift 2
+      ;;
+    --age-key-secret)
+      age_key_secret="$2"
       shift 2
       ;;
     --identity)
@@ -67,7 +77,13 @@ done
 flake=".#${config}"
 
 tmp_key=""
-cleanup() { [[ -n "$tmp_key" && -f "$tmp_key" ]] && rm -f "$tmp_key"; }
+tmp_age_key=""
+tmp_extra_files=""
+cleanup() {
+  [[ -n "$tmp_key" && -f "$tmp_key" ]] && rm -f "$tmp_key"
+  [[ -n "$tmp_age_key" && -f "$tmp_age_key" ]] && rm -f "$tmp_age_key"
+  [[ -n "$tmp_extra_files" && -d "$tmp_extra_files" ]] && rm -rf "$tmp_extra_files"
+}
 trap cleanup EXIT
 
 if [[ -n "$identity_file" ]] && [[ ! -f "$identity_file" ]]; then
@@ -96,6 +112,36 @@ has_option_prefix() {
   done
   return 1
 }
+
+if [[ -z "$age_key_secret" ]]; then
+  default_age_key_secret="secrets/profiles/personal/servers/${config}/age.key"
+  if [[ -f "$default_age_key_secret" ]]; then
+    age_key_secret="$default_age_key_secret"
+  fi
+fi
+
+if [[ -n "$age_key_secret" ]]; then
+  if [[ ! -f "$age_key_secret" ]]; then
+    echo "error: age key secret not found: ${age_key_secret}" >&2
+    exit 7
+  fi
+  if ! command -v sops >/dev/null 2>&1; then
+    echo "error: sops not found but --age-key-secret was provided/detected" >&2
+    exit 8
+  fi
+  if has_option_prefix "--extra-files" "${extra_args[@]}"; then
+    echo ">> Skipping auto Age key bootstrap because --extra-files is already set." >&2
+    echo ">> Include /var/lib/sops-nix/age/keys.txt in your custom --extra-files payload." >&2
+  else
+    tmp_age_key="$(mktemp)"
+    tmp_extra_files="$(mktemp -d)"
+    SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "$age_key_secret" > "$tmp_age_key"
+    install -d -m 0700 "$tmp_extra_files/var/lib/sops-nix/age"
+    install -m 0600 "$tmp_age_key" "$tmp_extra_files/var/lib/sops-nix/age/keys.txt"
+    extra_args+=(--extra-files "$tmp_extra_files")
+    echo ">> Including decrypted Age key from ${age_key_secret} via --extra-files"
+  fi
+fi
 
 resolve_hardware_config_path() {
   local cfg_name="$1"
