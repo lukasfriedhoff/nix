@@ -32,7 +32,7 @@
     };
     mtu = lib.mkOption {
       type = lib.types.ints.u16;
-      default = 1384;
+      default = 1476;
       description = "WireGuard MTU to use on the client interface.";
     };
   };
