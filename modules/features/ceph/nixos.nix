@@ -1201,9 +1201,9 @@ in
             };
             wantedBy = [ "multi-user.target" ];
           };
-      # Explicitly enable the mon/mgr instances on the current host so they
-      # start after reboot without cephadm managing them.
-      systemd.services."ceph-mon@${hostName}" = {
+      # Only enable native mon/mgr instances when not using cephadm bootstrap.
+      # Bootstrap hosts are managed via ceph-<fsid>@*.service units from cephadm.
+      systemd.services."ceph-mon@${hostName}" = lib.mkIf (!cfg.bootstrap.enable) {
         enable = lib.mkDefault true;
         wantedBy = lib.mkDefault [ "multi-user.target" ];
         after = [
@@ -1215,7 +1215,7 @@ in
           "ceph-user-sync.service"
         ];
       };
-      systemd.services."ceph-mgr@${hostName}" = {
+      systemd.services."ceph-mgr@${hostName}" = lib.mkIf (!cfg.bootstrap.enable) {
         enable = lib.mkDefault true;
         wantedBy = lib.mkDefault [ "multi-user.target" ];
         after = [
@@ -2459,8 +2459,8 @@ in
                 ceph_cmd config set mgr mgr/orchestrator/orchestrator cephadm >/dev/null 2>&1 || true
               fi
               if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
-                echo "cephadm-cephfs: orchestrator commands unavailable; check cephadm_path permissions" >&2
-                exit 1
+                echo "cephadm-cephfs: orchestrator commands unavailable; skipping MDS orchestration this run" >&2
+                exit 0
               fi
             fi
 
@@ -2983,12 +2983,19 @@ in
               fi
               ceph_cmd config set mgr mgr/cephadm/mode root >/dev/null 2>&1 || true
 
-              ceph_cmd mgr module disable cephadm >/dev/null 2>&1 || true
               ceph_cmd mgr module enable cephadm >/dev/null 2>&1 || true
               ceph_cmd config set mgr mgr/orchestrator/orchestrator cephadm >/dev/null 2>&1 || true
-              if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
-                echo "cephadm path: ceph orch unavailable after updating cephadm_path" >&2
-                exit 1
+              orch_ready=0
+              for _ in $(seq 1 6); do
+                if ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
+                  orch_ready=1
+                  break
+                fi
+                sleep 2
+              done
+              if [ "$orch_ready" -ne 1 ]; then
+                echo "cephadm path: ceph orch unavailable after updating cephadm_path; leaving path configured and continuing" >&2
+                exit 0
               fi
             '';
         };
