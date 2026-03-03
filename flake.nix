@@ -354,6 +354,7 @@
                 ./hosts/personal/tab-h4xx-02/configuration.nix
                 (mkDesktopHome "tab" [
                   stylix.homeModules.stylix
+                  ./hosts/personal/tab-h4xx-02/home.nix
                 ])
               ]
             );
