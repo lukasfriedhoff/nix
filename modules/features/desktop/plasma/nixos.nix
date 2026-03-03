@@ -24,7 +24,7 @@ in
         xkb = {
           layout = "us,de";
           variant = ",nodeadkeys";
-          options = "grp:alt_shift_toggle";
+          options = "grp:win_space_toggle";
         };
       };
       displayManager.sddm.enable = true;
