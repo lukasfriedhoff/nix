@@ -65,12 +65,18 @@ unless you flip `usePasswordAuth`).
      ```
 6. Deploy from the installer with nixos-anywhere
    ```bash
-   scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
-     --identity ~/.ssh/personal/${host}-personal-mgmt \
-     --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt"
-   ```
+  scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
+    --identity ~/.ssh/personal/${host}-personal-mgmt \
+    --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt"
+  ```
    This wrapper defaults to `--phases disko,install,reboot` (no kexec). Add
    `--with-kexec` only when you explicitly need that phase.
+   For additional encrypted volumes, pass extra key files explicitly:
+   ```bash
+   scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
+     --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt" \
+     --disk-secret /tmp/luks-mdraid.key "secrets/profiles/personal/shared/luks/${host}-mdraid.txt"
+   ```
 7. After the first boot, change the default password and confirm the management
    key works:
    ```bash

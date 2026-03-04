@@ -45,6 +45,8 @@ customer-facing servers.
 |------|------|---------|-------------|
 | tux-h4xx-01 | Desktop | GNOME | TUXEDO InfinityBook Pro 16 Gen8 (gaming) |
 | tab-h4xx-02 | Desktop | GNOME | ASUS Vivobook T3300 (tablet) |
+| lenovo-h4xx-03 | Desktop | GNOME | Lenovo ThinkPad P15 Gen 2i |
+| lenovo-h4xx-04 | Desktop | GNOME | Lenovo ThinkPad P15 Gen 2i (clone) |
 | srv4-vm-01 | Desktop | Plasma | Virtual machine |
 | srv1 | Server | Homelab | Personal homelab (Ceph, k3s) |
 | srv2 | Server | Homelab | Personal homelab node |

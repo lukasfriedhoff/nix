@@ -41,6 +41,13 @@ in
         pass="$(sops -d "$HOME/git/lukasfriedhoff/nix/secrets/profiles/personal/shared/luks/srv1.txt")"
         echo -n "$pass" | ssh unlock-srv1 'umask 077; install -m 600 /dev/stdin /crypt-ramfs/passphrase'
       }
+
+      # Unlock srv2 LUKS in one go
+      unlock-srv2-passphrase() {
+        local pass
+        pass="$(sops -d "$HOME/git/lukasfriedhoff/nix/secrets/profiles/personal/shared/luks/srv2.txt")"
+        echo -n "$pass" | ssh unlock-srv2 'umask 077; install -m 600 /dev/stdin /crypt-ramfs/passphrase'
+      }
     '';
 
     # set some aliases, feel free to add more or remove some

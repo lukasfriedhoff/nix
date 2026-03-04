@@ -11,6 +11,9 @@ Examples:
   scripts/servers/deploy-from-iso.sh docker-host-01 root@10.7.5.5
   scripts/servers/deploy-from-iso.sh my-homelab-node root@192.168.42.15 --with-kexec
   scripts/servers/deploy-from-iso.sh srv1 root@10.1.30.12 --luks-secret secrets/profiles/personal/shared/luks/srv1.txt
+  scripts/servers/deploy-from-iso.sh srv2 root@10.1.30.22 \
+    --luks-secret secrets/profiles/personal/shared/luks/srv2.txt \
+    --disk-secret /tmp/luks-mdraid.key secrets/profiles/personal/shared/luks/srv2-mdraid.txt
   scripts/servers/deploy-from-iso.sh srv3 root@192.168.122.56 --identity ~/.ssh/srv3-personal-mgmt
 
 This is a thin wrapper around nixos-anywhere. The first argument must match a nixosConfigurations.<name>
@@ -18,6 +21,8 @@ defined in the flake. The target is the SSH destination of the temporary install
 
 Options:
   --luks-secret <sops-file>  Decrypt and pass LUKS key via --disk-encryption-keys.
+  --disk-secret <remote-path> <sops-file>
+                             Decrypt and pass additional disk key via --disk-encryption-keys.
   --age-key-secret <sops-file>
                              Decrypt and include host Age key at
                              /var/lib/sops-nix/age/keys.txt via
@@ -40,6 +45,8 @@ age_key_secret=""
 identity_file=""
 with_kexec=false
 user_ssh_options=()
+disk_secret_paths=()
+disk_secret_files=()
 extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -47,6 +54,15 @@ while [[ $# -gt 0 ]]; do
     --luks-secret)
       luks_secret="$2"
       shift 2
+      ;;
+    --disk-secret)
+      if [[ $# -lt 3 ]]; then
+        echo "error: --disk-secret expects <remote-path> <sops-file>" >&2
+        exit 1
+      fi
+      disk_secret_paths+=("$2")
+      disk_secret_files+=("$3")
+      shift 3
       ;;
     --age-key-secret)
       age_key_secret="$2"
@@ -65,7 +81,8 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      usage; exit 0
+      usage
+      exit 0
       ;;
     *)
       extra_args+=("$1")
@@ -77,12 +94,22 @@ done
 flake=".#${config}"
 
 tmp_key=""
+tmp_keys=()
 tmp_age_key=""
 tmp_extra_files=""
 cleanup() {
-  [[ -n "$tmp_key" && -f "$tmp_key" ]] && rm -f "$tmp_key"
-  [[ -n "$tmp_age_key" && -f "$tmp_age_key" ]] && rm -f "$tmp_age_key"
-  [[ -n "$tmp_extra_files" && -d "$tmp_extra_files" ]] && rm -rf "$tmp_extra_files"
+  if [[ -n "$tmp_key" && -f "$tmp_key" ]]; then
+    rm -f "$tmp_key"
+  fi
+  for key in "${tmp_keys[@]}"; do
+    [[ -f "$key" ]] && rm -f "$key"
+  done
+  if [[ -n "$tmp_age_key" && -f "$tmp_age_key" ]]; then
+    rm -f "$tmp_age_key"
+  fi
+  if [[ -n "$tmp_extra_files" && -d "$tmp_extra_files" ]]; then
+    rm -rf "$tmp_extra_files"
+  fi
 }
 trap cleanup EXIT
 
@@ -91,11 +118,14 @@ if [[ -n "$identity_file" ]] && [[ ! -f "$identity_file" ]]; then
   exit 2
 fi
 
-if [[ -n "$luks_secret" ]]; then
+if [[ -n "$luks_secret" || ${#disk_secret_files[@]} -gt 0 ]]; then
   if ! command -v sops >/dev/null 2>&1; then
-    echo "error: sops not found but --luks-secret was provided" >&2
+    echo "error: sops not found but encrypted disk secrets were provided" >&2
     exit 3
   fi
+fi
+
+if [[ -n "$luks_secret" ]]; then
   tmp_key="$(mktemp)"
   SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "$luks_secret" > "$tmp_key"
   extra_args+=(--disk-encryption-keys /tmp/luks.key "$tmp_key")
@@ -198,6 +228,13 @@ ssh_options+=("${user_ssh_options[@]}")
 if [[ -n "$identity_file" ]] && ! has_option_prefix "IdentitiesOnly" "${ssh_options[@]}"; then
   ssh_options+=("IdentitiesOnly=yes")
 fi
+
+for i in "${!disk_secret_files[@]}"; do
+  tmp_disk_key="$(mktemp)"
+  SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "${disk_secret_files[$i]}" > "$tmp_disk_key"
+  tmp_keys+=("$tmp_disk_key")
+  extra_args+=(--disk-encryption-keys "${disk_secret_paths[$i]}" "$tmp_disk_key")
+done
 
 copy_host_keys=true
 for arg in "${extra_args[@]}"; do
