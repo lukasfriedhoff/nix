@@ -29,4 +29,18 @@
     lockboxKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/osd-lockbox/ata-T-FORCE_1TB_TPBF2209130010100025.key";
     type = "ssd";
   };
+  "ata-T-FORCE_1TB_TPBF2209020040602781" = {
+    host = "srv2";
+    purpose = "mdadm";
+    luksKeyFile = "luks/srv2-mdraid.txt";
+    luksPasswordFile = "/tmp/luks-mdraid.key";
+    type = "ssd";
+  };
+  "ata-CT1000BX500SSD1_2216E629C77B" = {
+    host = "srv2";
+    purpose = "mdadm";
+    luksKeyFile = "luks/srv2-mdraid.txt";
+    luksPasswordFile = "/tmp/luks-mdraid.key";
+    type = "ssd";
+  };
 }

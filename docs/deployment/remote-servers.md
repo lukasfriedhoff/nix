@@ -5,7 +5,7 @@ PXE, kexec). The workflow is optimised for two classes of machines:
 
 | Scope     | Managers that receive the private key | Secrets root                                           |
 |-----------|---------------------------------------|--------------------------------------------------------|
-| personal  | `tux-h4xx-01`, `tab-h4xx-02`, `lenovo-h4xx-03` | `secrets/profiles/personal/desktops/<manager>/ssh`     |
+| personal  | `tux-h4xx-01`, `tab-h4xx-02`, `lenovo-h4xx-03`, `lenovo-h4xx-04` | `secrets/profiles/personal/desktops/<manager>/ssh`     |
 | work      | `macbook-pro`                         | `secrets/profiles/work/desktops/macbook-pro/ssh`       |
 
 ### 0. Prerequisites

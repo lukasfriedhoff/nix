@@ -369,6 +369,16 @@
               ]
             );
 
+            lenovo-h4xx-04 = mkNixosHost "lenovo" (
+              gnomeDesktopModules
+              ++ [
+                ./hosts/personal/lenovo-h4xx-04/configuration.nix
+                (mkDesktopHome "lenovo" [
+                  stylix.homeModules.stylix
+                ])
+              ]
+            );
+
             docker-host-01 = mkNixosHost "docker-host-01" (
               baseServerModules
               ++ [

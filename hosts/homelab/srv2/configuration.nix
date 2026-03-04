@@ -1,6 +1,7 @@
 {
   inputs,
   lib,
+  pkgs,
   ...
 }:
 
@@ -18,6 +19,7 @@ in
   ];
 
   networking.hostName = "srv2";
+  boot.swraid.mdadmConf = "PROGRAM ${pkgs.coreutils}/bin/true";
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
@@ -102,7 +104,8 @@ in
   boot.initrd.network.udhcpc.enable = true;
   boot.initrd.network.udhcpc.extraArgs = [
     "-x"
-    "clientid:01:68:1d:ef:39:95:b2"
+    # DHCP option 61 (client identifier): 01 + MAC (no separators)
+    "0x3d:01681def3995b2"
     "-x"
     "hostname:srv2"
   ];
