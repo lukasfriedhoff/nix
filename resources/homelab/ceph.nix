@@ -152,6 +152,112 @@
       ];
     };
 
+    testing = {
+      fsid = "5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c";
+      # Set this to the srv3 management IP from probe-installer output before deploy.
+      monIp = "192.168.122.57";
+      monHosts = [ "srv3.lab.h4xx.io" ];
+      monPort = 3300;
+      publicNetwork = "192.168.122.0/24";
+      backup = {
+        enable = false;
+      };
+      bootstrap = {
+        singleHostDefaults = true;
+        skipDashboard = true;
+        extraArgs = [
+          "--log-to-file"
+          "--no-cleanup-on-failure"
+        ];
+      };
+      pools = [
+        {
+          name = "testing-images";
+          application = "rbd";
+          size = 1;
+          minSize = 1;
+        }
+        {
+          name = "testing-vmdisks";
+          application = "rbd";
+          size = 1;
+          minSize = 1;
+        }
+        {
+          name = "testing-k8s-ssd-1r";
+          application = "rbd";
+          size = 1;
+          minSize = 1;
+        }
+        {
+          name = "testing-k8s-ssd-2r";
+          application = "rbd";
+          size = 1;
+          minSize = 1;
+        }
+        {
+          name = "testing-k8s-ssd-3r";
+          application = "rbd";
+          size = 1;
+          minSize = 1;
+        }
+      ];
+      cephfs = [
+        {
+          name = "testing-ssd-cephfs";
+          metadataPool = {
+            name = "testing-ssd-cephfs-meta-1r";
+            size = 1;
+            minSize = 1;
+          };
+          dataPools = [
+            {
+              name = "testing-ssd-cephfs-1r";
+              size = 1;
+              minSize = 1;
+            }
+            {
+              name = "testing-ssd-cephfs-2r";
+              size = 1;
+              minSize = 1;
+            }
+            {
+              name = "testing-ssd-cephfs-3r";
+              size = 1;
+              minSize = 1;
+            }
+          ];
+          mds = {
+            count = 1;
+          };
+        }
+      ];
+      rgw = {
+        enable = false;
+      };
+      kvmPools = [
+        {
+          name = "testing-ceph-images";
+          pool = "testing-images";
+          user = "admin";
+          secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
+          keyringFile = "/etc/ceph/ceph.client.admin.keyring";
+          confFile = "/etc/ceph/ceph.conf";
+          monHost = "srv3.lab.h4xx.io";
+          monPort = 3300;
+        }
+        {
+          name = "testing-ceph-vmdisks";
+          pool = "testing-vmdisks";
+          user = "admin";
+          secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
+          keyringFile = "/etc/ceph/ceph.client.admin.keyring";
+          confFile = "/etc/ceph/ceph.conf";
+          monHost = "srv3.lab.h4xx.io";
+          monPort = 3300;
+        }
+      ];
+    };
   };
 
   hosts = {
@@ -164,5 +270,13 @@
       ];
     };
 
+    srv3 = {
+      cluster = "testing";
+      roles = [
+        "bootstrap"
+        "osd"
+        "kvm"
+      ];
+    };
   };
 }

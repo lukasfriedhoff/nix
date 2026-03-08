@@ -111,5 +111,20 @@
     user = "admin";
     keyName = "mikrotikrb5009";
   }
+  {
+    match = "srv3";
+    alias = "srv3";
+    hostName = "srv3.lab.h4xx.io";
+    user = "root";
+    keyName = "srv3-personal-mgmt";
+  }
+  {
+    match = "unlock-srv3";
+    alias = "unlock-srv3";
+    hostName = "srv3.lab.h4xx.io";
+    port = 2222;
+    user = "root";
+    keyName = "srv3-personal-mgmt";
+  }
 
 ]
