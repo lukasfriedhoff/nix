@@ -72,4 +72,8 @@
     path = ".ssh/personal/travelrouter";
   }
 
+  {
+    secret = "ssh/srv3-personal-mgmt.priv";
+    path = ".ssh/personal/srv3-personal-mgmt";
+  }
 ]
