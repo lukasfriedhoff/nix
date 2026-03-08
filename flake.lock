@@ -374,7 +374,8 @@
         "nixpkgs": "nixpkgs",
         "sops-nix": "sops-nix",
         "stylix": "stylix",
-        "treefmt-nix": "treefmt-nix"
+        "treefmt-nix": "treefmt-nix",
+        "witr": "witr"
       }
     },
     "sops-nix": {
@@ -545,6 +546,26 @@
       "original": {
         "owner": "numtide",
         "repo": "treefmt-nix",
+        "type": "github"
+      }
+    },
+    "witr": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1772772766,
+        "narHash": "sha256-yA658tB0KH3AXRetjTHbkfXRthn2iqXPFghUnYzPCco=",
+        "owner": "pranshuparmar",
+        "repo": "witr",
+        "rev": "fbe01bbfa8d0bcc0feb2b2ff6352ba96235f833a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pranshuparmar",
+        "repo": "witr",
         "type": "github"
       }
     }
