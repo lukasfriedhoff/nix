@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   profile ? null,
@@ -43,7 +44,10 @@ in
 
       programs.moonlight.enable = lib.mkDefault true;
 
-      home.packages = [ pkgs.gpodder ];
+      home.packages = [
+        pkgs.gpodder
+        inputs.witr.packages.${pkgs.system}.default
+      ];
     })
     (lib.mkIf isLinuxWorkstation {
       home.sessionVariables = {

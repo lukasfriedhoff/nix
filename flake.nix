@@ -28,6 +28,9 @@
     comin.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
+
+    witr.url = "github:pranshuparmar/witr";
+    witr.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
