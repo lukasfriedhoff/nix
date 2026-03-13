@@ -12,6 +12,8 @@ let
   iface = "wg-homelab";
   defaultUser = linuxUser;
   userServiceName = "wireguard-${iface}";
+  refreshServiceName = "${userServiceName}-refresh";
+  sleepServiceName = "${userServiceName}-sleep";
 in
 {
   options.lukasf.wireguard.homelab = {
@@ -115,31 +117,92 @@ in
           set -euo pipefail
           iface="$1"
           shift
-          ${pkgs.systemd}/bin/resolvectl dns "$iface" "$@"
+          for _ in $(seq 1 6); do
+            if ${pkgs.systemd}/bin/resolvectl dns "$iface" "$@"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "wg-homelab: failed to set DNS on $iface after retries" >&2
+          exit 1
         '';
 
         setDomainScript = pkgs.writeShellScript "wg-homelab-set-domain" ''
           set -euo pipefail
           iface="$1"
           domain_file="$2"
-          domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$domain_file")"
+          domain=""
+          for _ in $(seq 1 20); do
+            if [ -s "$domain_file" ]; then
+              domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$domain_file")"
+              [ -n "$domain" ] && break
+            fi
+            sleep 1
+          done
           if [ -z "$domain" ]; then
             echo "wg-homelab: domain file $domain_file is empty" >&2
             exit 1
           fi
-          ${pkgs.systemd}/bin/resolvectl domain "$iface" "~$domain"
+          for _ in $(seq 1 6); do
+            if ${pkgs.systemd}/bin/resolvectl domain "$iface" "~$domain"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "wg-homelab: failed to set domain on $iface after retries" >&2
+          exit 1
         '';
 
         setEndpointScript = pkgs.writeShellScript "wg-homelab-set-endpoint" ''
           set -euo pipefail
           iface="$1"
           endpoint_file="$2"
-          endpoint="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$endpoint_file")"
+          endpoint=""
+          for _ in $(seq 1 20); do
+            if [ -s "$endpoint_file" ]; then
+              endpoint="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$endpoint_file")"
+              [ -n "$endpoint" ] && break
+            fi
+            sleep 1
+          done
           if [ -z "$endpoint" ]; then
             echo "wg-homelab: endpoint file $endpoint_file is empty" >&2
             exit 1
           fi
           ${pkgs.wireguard-tools}/bin/wg set "$iface" peer ${cfg.peerPublicKey} persistent-keepalive ${toString cfg.persistentKeepalive} endpoint "$endpoint"
+        '';
+
+        refreshScript = pkgs.writeShellScript "wg-homelab-refresh" ''
+          set -euo pipefail
+
+          if ! ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          ${setEndpointScript} ${iface} ${cfg.endpointFile} || true
+          ${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns} || true
+          ${setDomainScript} ${iface} ${cfg.dnsDomainFile} || true
+        '';
+
+        sleepScript = pkgs.writeShellScript "wg-homelab-sleep" ''
+          set -euo pipefail
+          state_file="/run/${userServiceName}.was-active"
+          if ${pkgs.systemd}/bin/systemctl is-active --quiet ${userServiceName}.service; then
+            touch "$state_file"
+            ${pkgs.systemd}/bin/systemctl stop ${userServiceName}.service
+          else
+            rm -f "$state_file"
+          fi
+        '';
+
+        resumeScript = pkgs.writeShellScript "wg-homelab-resume" ''
+          set -euo pipefail
+          state_file="/run/${userServiceName}.was-active"
+          if [ -f "$state_file" ]; then
+            ${pkgs.systemd}/bin/systemctl start ${userServiceName}.service || true
+            ${pkgs.systemd}/bin/systemctl start ${refreshServiceName}.service || true
+          fi
+          rm -f "$state_file"
         '';
       in
       {
@@ -149,9 +212,9 @@ in
           listenPort = 0;
           inherit (cfg) mtu;
           postSetup = [
-            "${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns}"
-            "${setDomainScript} ${iface} ${cfg.dnsDomainFile}"
-            "${setEndpointScript} ${iface} ${cfg.endpointFile}"
+            "${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns} || true"
+            "${setDomainScript} ${iface} ${cfg.dnsDomainFile} || true"
+            "${setEndpointScript} ${iface} ${cfg.endpointFile} || true"
           ];
           peers = [
             {
@@ -161,16 +224,71 @@ in
           ];
         };
 
+        systemd.services.${userServiceName} = {
+          wants = [
+            "network-online.target"
+            "sops-nix.service"
+          ];
+          after = [
+            "network-online.target"
+            "sops-nix.service"
+          ];
+          unitConfig.StartLimitIntervalSec = 0;
+          serviceConfig = {
+            Restart = "on-failure";
+            RestartSec = "5s";
+          };
+        };
+
+        systemd.services.${refreshServiceName} = {
+          description = "Refresh homelab WireGuard endpoint/DNS settings";
+          wants = [
+            "${userServiceName}.service"
+            "network-online.target"
+          ];
+          after = [
+            "${userServiceName}.service"
+            "network-online.target"
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = refreshScript;
+          };
+        };
+
+        systemd.timers.${refreshServiceName} = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            Unit = "${refreshServiceName}.service";
+            OnBootSec = "2min";
+            OnUnitActiveSec = "3min";
+            AccuracySec = "30s";
+            RandomizedDelaySec = "20s";
+          };
+        };
+
+        systemd.services.${sleepServiceName} = {
+          description = "Homelab WireGuard suspend/resume handling";
+          before = [ "sleep.target" ];
+          wantedBy = [ "sleep.target" ];
+          unitConfig.StopWhenUnneeded = true;
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = sleepScript;
+            ExecStop = resumeScript;
+          };
+        };
+
         systemd.targets.${userServiceName} = lib.mkIf cfg.userUnit.enable {
           wantedBy = lib.mkForce [ ];
         };
 
         systemd.user.services.${userServiceName} = lib.mkIf cfg.userUnit.enable {
           description = "WireGuard Tunnel - ${iface} (user)";
-          after = [ "graphical-session.target" ];
-          wants = [ "graphical-session.target" ];
+          after = [ "default.target" ];
+          wants = [ ];
           wantedBy = [ "default.target" ];
-          partOf = [ "graphical-session.target" ];
           unitConfig.ConditionUser = cfg.userUnit.user;
           serviceConfig = {
             Type = "oneshot";
@@ -186,7 +304,7 @@ in
               if (action.id == "org.freedesktop.systemd1.manage-units" &&
                   subject.user == "${cfg.userUnit.user}" &&
                   action.lookup("unit") == "${userServiceName}.service" &&
-                  ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0) {
+                  ["start", "stop", "restart", "try-restart", "reload-or-restart", "reset-failed"].indexOf(action.lookup("verb")) >= 0) {
                 return polkit.Result.YES;
               }
             });
