@@ -272,7 +272,7 @@ alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
 print(''.join(secrets.choice(alphabet) for _ in range(48)))
 PY
 )"
-  printf "%s\n" "$pass" > "$luks_secret"
+  printf "%s" "$pass" > "$luks_secret"
   sops --encrypt --input-type binary --in-place "$luks_secret"
 fi
 
