@@ -15,6 +15,8 @@ Defaults:
   memory:      4096 MiB
   vcpus:       2
   disk-size:   40 GiB
+  serial:      2 ports (serial0 + serial1)
+  graphics:    vnc
 
 Modes:
   cloud  Import a cloud image and attach a cloud-init seed ISO.
@@ -39,6 +41,8 @@ General options:
   --extra-disk <spec>           Add extra disk (repeatable). Spec: <size-gib>:<serial>[:<format>[:<bus>]]
   --osinfo <id>                 virt-install osinfo (default: generic)
   --wait <seconds>              virt-install --wait value (default: 0)
+  --serial-ports <count>        Number of serial consoles (default: 2)
+  --graphics none|vnc|spice     Graphics backend (default: vnc)
 
 Connection options:
   --connect <uri>               Libvirt URI (default: qemu:///system)
@@ -71,6 +75,7 @@ Netboot mode options:
   --cmdline <string>            Alias for --kernel-args
 
 Behavior options:
+  --libosinfo-os-id <id>        Inject libosinfo metadata with OS id (for example http://nixos.org/nixos/unstable)
   --on-reboot restart|destroy|preserve|rename-restart
                                 Domain action on reboot (default: restart)
   --autostart                   Enable libvirt autostart
@@ -91,6 +96,7 @@ Examples:
   scripts/vms/new-qemu-vm.sh \
     --name srv3-installer \
     --mode iso \
+    --libosinfo-os-id http://nixos.org/nixos/unstable \
     --disk-size 100 \
     --extra-disk 20:srv3-swap \
     --extra-disk 50:srv3-ceph1 \
@@ -166,6 +172,31 @@ set_iso_boot_order() {
     { print }
   ' "$xml_path" > "$tmp_boot_xml"
   mv "$tmp_boot_xml" "$xml_path"
+}
+
+inject_libosinfo_metadata() {
+  local xml_path="$1"
+  local os_id="$2"
+  local tmp_xml
+
+  if grep -q "<libosinfo:os id=" "$xml_path"; then
+    sed -i -E "s#(<libosinfo:os id=\")[^\"]*(\"/>)#\1${os_id}\2#" "$xml_path"
+    return
+  fi
+
+  tmp_xml="$(mktemp)"
+  awk -v os_id="$os_id" '
+    /<\/domain>/ && !inserted {
+      print "  <metadata>"
+      print "    <libosinfo:libosinfo xmlns:libosinfo=\"http://libosinfo.org/xmlns/libvirt/domain/1.0\">"
+      print "      <libosinfo:os id=\"" os_id "\"/>"
+      print "    </libosinfo:libosinfo>"
+      print "  </metadata>"
+      inserted=1
+    }
+    { print }
+  ' "$xml_path" > "$tmp_xml"
+  mv "$tmp_xml" "$xml_path"
 }
 
 run_remote() {
@@ -492,7 +523,9 @@ bridge_name=""
 machine_type="q35"
 use_efi=true
 
-graphics="none"
+graphics="vnc"
+serial_ports="2"
+libosinfo_os_id=""
 on_reboot_action="restart"
 autostart=false
 start_now=true
@@ -622,6 +655,14 @@ while [[ $# -gt 0 ]]; do
       graphics="$2"
       shift 2
       ;;
+    --serial-ports)
+      serial_ports="$2"
+      shift 2
+      ;;
+    --libosinfo-os-id)
+      libosinfo_os_id="$2"
+      shift 2
+      ;;
     --on-reboot)
       on_reboot_action="$2"
       shift 2
@@ -673,6 +714,12 @@ case "$graphics" in
   none|vnc|spice) ;;
   *) die "--graphics must be none, vnc, or spice" ;;
 esac
+if ! [[ "$serial_ports" =~ ^[0-9]+$ ]]; then
+  die "--serial-ports must be an integer"
+fi
+if (( serial_ports < 1 || serial_ports > 4 )); then
+  die "--serial-ports must be between 1 and 4"
+fi
 case "$on_reboot_action" in
   restart|destroy|preserve|rename-restart) ;;
   *) die "--on-reboot must be restart, destroy, preserve, or rename-restart" ;;
@@ -813,6 +860,9 @@ Resolved settings:
   disk format:   ${disk_format}
   disk bus:      ${disk_bus}
   disk serial:   ${disk_serial}
+  serial ports:  ${serial_ports}
+  graphics:      ${graphics}
+  libosinfo os:  ${libosinfo_os_id:-<none>}
 SETTINGS
 fi
 
@@ -1005,11 +1055,16 @@ virt_args=(
   --disk "path=${disk_path},format=${disk_format},bus=${disk_bus},serial=${disk_serial}"
   --rng /dev/urandom
   --graphics "$graphics"
-  --console pty,target_type=serial
   --noautoconsole
   --wait "$wait_seconds"
   --print-xml
 )
+
+for (( serial_port=0; serial_port<serial_ports; serial_port++ )); do
+  virt_args+=(
+    --console "pty,target.type=serial,target.port=${serial_port}"
+  )
+done
 
 for i in "${!extra_disk_paths[@]}"; do
   virt_args+=(
@@ -1064,6 +1119,9 @@ if [[ "$dry_run" == false ]]; then
   if [[ "$mode" == "iso" ]]; then
     set_iso_boot_order "$tmp_xml"
   fi
+  if [[ -n "$libosinfo_os_id" ]]; then
+    inject_libosinfo_metadata "$tmp_xml" "$libosinfo_os_id"
+  fi
 
   run_cmd virsh --connect "$connect_uri" define "$tmp_xml"
 
@@ -1082,6 +1140,9 @@ VM definition complete.
   Name:       ${name}
   Connect URI:${connect_uri}
   Disk:       ${disk_path}
+  Serial:     ${serial_ports} port(s)
+  Graphics:   ${graphics}
+  Libosinfo:  ${libosinfo_os_id:-<none>}
   On reboot:  ${on_reboot_action}
 SUMMARY
 if [[ "${#extra_disk_paths[@]}" -gt 0 ]]; then
@@ -1112,8 +1173,18 @@ if [[ "$start_now" == true ]]; then
 
 Next commands:
   virsh --connect ${connect_uri} dominfo ${name}
-  virsh --connect ${connect_uri} console ${name}
+  virsh --connect ${connect_uri} console ${name} --devname serial0
 NEXT
+  if (( serial_ports > 1 )); then
+    cat <<NEXT2
+  virsh --connect ${connect_uri} console ${name} --devname serial1
+NEXT2
+  fi
+  if [[ "$graphics" != "none" ]]; then
+    cat <<NEXT3
+  virsh --connect ${connect_uri} domdisplay ${name}
+NEXT3
+  fi
 else
   cat <<NEXT
 
