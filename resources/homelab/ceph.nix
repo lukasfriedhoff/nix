@@ -154,11 +154,10 @@
 
     testing = {
       fsid = "5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c";
-      # Set this to the srv3 management IP from probe-installer output before deploy.
-      monIp = "192.168.122.57";
+      monIp = "10.1.30.25";
       monHosts = [ "srv3.lab.h4xx.io" ];
       monPort = 3300;
-      publicNetwork = "192.168.122.0/24";
+      publicNetwork = "10.1.30.0/24";
       backup = {
         enable = false;
       };
