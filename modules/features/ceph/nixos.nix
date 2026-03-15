@@ -1325,6 +1325,28 @@ in
                 ${bootstrapCmd}
               }
 
+              cleanup_stale_state() {
+                if [ -z "${fsid}" ]; then
+                  return 0
+                fi
+
+                echo "cephadm-bootstrap: cleaning stale state for fsid ${fsid}" >&2
+                ${pkgs.systemd}/bin/systemctl stop "ceph.target" "ceph-mon@${hostName}.service" "ceph-mgr@${hostName}.service" >/dev/null 2>&1 || true
+                ${cephadm} rm-cluster --force --fsid "${fsid}" >/dev/null 2>&1 || true
+                if [ "${zapDevicesFlag}" = "true" ]; then
+                  ${cephadm} rm-cluster --force --zap-osds --fsid "${fsid}" >/dev/null 2>&1 || true
+                fi
+                rm -f /run/systemd/system/ceph.target
+                rm -rf /run/systemd/system/ceph.target.wants
+                rm -rf -- "/var/lib/ceph/${fsid}" "/var/lib/ceph/mon/ceph-${hostName}" "/var/lib/ceph/mgr/ceph-${hostName}"
+                rm -f /etc/ceph/ceph.conf /etc/ceph/ceph.client.admin.keyring
+              }
+
+              retry_bootstrap_from_clean_state() {
+                cleanup_stale_state
+                run_bootstrap 2> >(tee "$bootstrap_err" >&2)
+              }
+
               bootstrap_err="$(mktemp)"
               if run_bootstrap 2> >(tee "$bootstrap_err" >&2); then
                 rm -f "$bootstrap_err"
@@ -1336,10 +1358,16 @@ in
                   echo "cephadm-bootstrap: cluster fsid ${fsid} already exists; treating bootstrap as converged" >&2
                   if [ ! -s /etc/ceph/ceph.client.admin.keyring ]; then
                     echo "cephadm-bootstrap: admin keyring missing, attempting recovery from existing cluster" >&2
-                    if ${cephadm} shell --fsid "${fsid}" -- ceph auth get client.admin -o /etc/ceph/ceph.client.admin.keyring >/dev/null 2>&1; then
+                    if timeout 45 ${cephadm} shell --fsid "${fsid}" -- ceph auth get client.admin -o /etc/ceph/ceph.client.admin.keyring >/dev/null 2>&1; then
                       chmod 0600 /etc/ceph/ceph.client.admin.keyring || true
                     else
-                      echo "cephadm-bootstrap: unable to recover admin keyring from cluster ${fsid}" >&2
+                      echo "cephadm-bootstrap: unable to recover admin keyring from cluster ${fsid}; retrying bootstrap from clean state" >&2
+                      if retry_bootstrap_from_clean_state; then
+                        rm -f "$bootstrap_err"
+                        exit 0
+                      fi
+                      rm -f "$bootstrap_err"
+                      exit 1
                     fi
                   fi
                   rm -f "$bootstrap_err"
@@ -1348,9 +1376,8 @@ in
 
                 stale_root="/var/lib/ceph/${fsid}"
                 echo "cephadm-bootstrap: stale fsid marker for ${fsid}; cleaning state and retrying bootstrap" >&2
-                ${pkgs.systemd}/bin/systemctl stop "ceph-mon@${hostName}.service" "ceph-mgr@${hostName}.service" >/dev/null 2>&1 || true
-                rm -rf -- "$stale_root" "/var/lib/ceph/mon/ceph-${hostName}" "/var/lib/ceph/mgr/ceph-${hostName}"
-                run_bootstrap 2> >(tee "$bootstrap_err" >&2)
+                rm -rf -- "$stale_root"
+                retry_bootstrap_from_clean_state
                 rm -f "$bootstrap_err"
                 exit 0
               fi
@@ -1359,9 +1386,8 @@ in
                 stale_root="/var/lib/ceph/${fsid}"
                 if [ -d "$stale_root" ]; then
                   echo "cephadm-bootstrap: detected stale fsid state at $stale_root; cleaning and retrying once" >&2
-                  ${pkgs.systemd}/bin/systemctl stop "ceph-mon@${hostName}.service" "ceph-mgr@${hostName}.service" >/dev/null 2>&1 || true
-                  rm -rf -- "$stale_root" "/var/lib/ceph/mon/ceph-${hostName}" "/var/lib/ceph/mgr/ceph-${hostName}"
-                  run_bootstrap 2> >(tee "$bootstrap_err" >&2)
+                  rm -rf -- "$stale_root"
+                  retry_bootstrap_from_clean_state
                   rm -f "$bootstrap_err"
                   exit 0
                 fi
