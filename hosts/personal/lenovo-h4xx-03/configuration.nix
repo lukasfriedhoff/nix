@@ -14,6 +14,19 @@
 
   networking.hostName = "lenovo-h4xx-03";
 
+  # Keep the system decryption key on the root filesystem so setupSecrets does
+  # not depend on /home being mounted during early boot.
+  sops.age.keyFile = "/var/lib/sops-nix/age/keys.txt";
+
+  system.activationScripts.bootstrapSopsAgeKey = {
+    text = ''
+      if [ ! -s /var/lib/sops-nix/age/keys.txt ] && [ -s /home/lukasf/.config/sops/age/keys.txt ]; then
+        install -d -m 0700 /var/lib/sops-nix/age
+        install -m 0600 /home/lukasf/.config/sops/age/keys.txt /var/lib/sops-nix/age/keys.txt
+      fi
+    '';
+  };
+
   hardwareProfiles.lenovo.thinkpadP15Gen2i.enable = true;
 
   boot.loader.systemd-boot.enable = true;

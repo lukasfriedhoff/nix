@@ -40,6 +40,9 @@ in
       "modesetting"
     ];
 
+    # ThinkPad P15 Gen2i touchpad tuning: prefer Synaptics intertouch path.
+    boot.kernelParams = lib.mkAfter [ "psmouse.synaptics_intertouch=1" ];
+
     boot.blacklistedKernelModules = [ "nouveau" ];
   };
 }
