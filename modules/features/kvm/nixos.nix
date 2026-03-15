@@ -194,18 +194,14 @@ in
             map (pool: ''
                             export CEPH_CONF="${pool.confFile}"
                             if [ ! -r "${pool.keyringFile}" ]; then
-                              echo "Missing Ceph keyring: ${pool.keyringFile}" >&2
-                              exit 1
-                            fi
-
-                            key="$(awk -F ' = ' '/key[[:space:]]*=/{print $2; exit}' "${pool.keyringFile}")"
-                            if [ -z "$key" ]; then
-                              echo "Failed to read key from ${pool.keyringFile}" >&2
-                              exit 1
-                            fi
-
-                            if ! virsh secret-lookup-by-uuid "${pool.secretUuid}" >/dev/null 2>&1; then
-                              cat >"/run/libvirt-ceph-secret-${pool.name}.xml" <<'XML'
+                              echo "Missing Ceph keyring: ${pool.keyringFile} (skipping pool ${pool.name})" >&2
+                            else
+                              key="$(awk -F ' = ' '/key[[:space:]]*=/{print $2; exit}' "${pool.keyringFile}")"
+                              if [ -z "$key" ]; then
+                                echo "Failed to read key from ${pool.keyringFile} (skipping pool ${pool.name})" >&2
+                              else
+                                if ! virsh secret-lookup-by-uuid "${pool.secretUuid}" >/dev/null 2>&1; then
+                                  cat >"/run/libvirt-ceph-secret-${pool.name}.xml" <<'XML'
               <secret ephemeral='no' private='yes'>
                 <uuid>${pool.secretUuid}</uuid>
                 <usage type='ceph'>
@@ -213,49 +209,51 @@ in
                 </usage>
               </secret>
               XML
-                              virsh secret-define --file "/run/libvirt-ceph-secret-${pool.name}.xml"
+                                  virsh secret-define --file "/run/libvirt-ceph-secret-${pool.name}.xml"
+                                fi
+                                # Ceph keyring stores base64; libvirt wants raw bytes.
+                                virsh secret-set-value --secret "${pool.secretUuid}" --base64 "$key"
+
+                                mon_host="${toString pool.monHost}"
+                                mon_port="${toString pool.monPort}"
+                                host_xml=""
+                                if [ -n "$mon_host" ] && [ "$mon_host" != "null" ]; then
+                                  host_xml="<host name='${pool.monHost}' port='${toString pool.monPort}'/>"
+                                fi
+
+                                pool_xml="/run/libvirt-ceph-pool-${pool.name}.xml"
+                                printf '%s\n' \
+                                  "<pool type='rbd'>" \
+                                  "  <name>${pool.name}</name>" \
+                                  "  <source>" \
+                                  "    <name>${pool.pool}</name>" \
+                                  > "$pool_xml"
+                                if [ -n "$host_xml" ]; then
+                                  printf '    %s\n' "$host_xml" >> "$pool_xml"
+                                fi
+                                printf '%s\n' \
+                                  "    <auth type='ceph' username='${pool.user}'>" \
+                                  "      <secret uuid='${pool.secretUuid}'/>" \
+                                  "    </auth>" \
+                                  "  </source>" \
+                                  "</pool>" \
+                                  >> "$pool_xml"
+
+                                if virsh pool-info "${pool.name}" >/dev/null 2>&1; then
+                                  current_sum="$(virsh pool-dumpxml "${pool.name}" | sha256sum | awk '{print $1}')"
+                                  desired_sum="$(sha256sum "$pool_xml" | awk '{print $1}')"
+                                  if [ "$current_sum" != "$desired_sum" ]; then
+                                    virsh pool-destroy "${pool.name}" || true
+                                    virsh pool-undefine "${pool.name}" || true
+                                    virsh pool-define --file "$pool_xml"
+                                  fi
+                                else
+                                  virsh pool-define --file "$pool_xml"
+                                fi
+                                virsh pool-autostart "${pool.name}"
+                                virsh pool-start "${pool.name}" || true
+                              fi
                             fi
-                            # Ceph keyring stores base64; libvirt wants raw bytes.
-                            virsh secret-set-value --secret "${pool.secretUuid}" --base64 "$key"
-
-                            mon_host="${toString pool.monHost}"
-                            mon_port="${toString pool.monPort}"
-                            host_xml=""
-                            if [ -n "$mon_host" ] && [ "$mon_host" != "null" ]; then
-                              host_xml="<host name='${pool.monHost}' port='${toString pool.monPort}'/>"
-                            fi
-
-                                          pool_xml="/run/libvirt-ceph-pool-${pool.name}.xml"
-                                          printf '%s\n' \
-                                            "<pool type='rbd'>" \
-                                            "  <name>${pool.name}</name>" \
-                                            "  <source>" \
-                                            "    <name>${pool.pool}</name>" \
-                                            > "$pool_xml"
-                                          if [ -n "$host_xml" ]; then
-                                            printf '    %s\n' "$host_xml" >> "$pool_xml"
-                                          fi
-                                          printf '%s\n' \
-                                            "    <auth type='ceph' username='${pool.user}'>" \
-                                            "      <secret uuid='${pool.secretUuid}'/>" \
-                                            "    </auth>" \
-                                            "  </source>" \
-                                            "</pool>" \
-                                            >> "$pool_xml"
-
-                                          if virsh pool-info "${pool.name}" >/dev/null 2>&1; then
-                                            current_sum="$(virsh pool-dumpxml "${pool.name}" | sha256sum | awk '{print $1}')"
-                                            desired_sum="$(sha256sum "$pool_xml" | awk '{print $1}')"
-                                            if [ "$current_sum" != "$desired_sum" ]; then
-                                              virsh pool-destroy "${pool.name}" || true
-                                              virsh pool-undefine "${pool.name}" || true
-                                              virsh pool-define --file "$pool_xml"
-                                            fi
-                                          else
-                                            virsh pool-define --file "$pool_xml"
-                                          fi
-                            virsh pool-autostart "${pool.name}"
-                            virsh pool-start "${pool.name}" || true
             '') cephPools
           )}
         '';

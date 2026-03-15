@@ -1295,7 +1295,23 @@ in
                 ${bootstrapCmd}
               }
 
-              if run_bootstrap; then
+              bootstrap_err="$(mktemp)"
+              if run_bootstrap 2> >(tee "$bootstrap_err" >&2); then
+                rm -f "$bootstrap_err"
+                exit 0
+              fi
+
+              if [ -n "${fsid}" ] && grep -q "same fsid '${fsid}' already exists" "$bootstrap_err"; then
+                echo "cephadm-bootstrap: cluster fsid ${fsid} already exists; treating bootstrap as converged" >&2
+                if [ ! -s /etc/ceph/ceph.client.admin.keyring ]; then
+                  echo "cephadm-bootstrap: admin keyring missing, attempting recovery from existing cluster" >&2
+                  if ${cephadm} shell --fsid "${fsid}" -- ceph auth get client.admin -o /etc/ceph/ceph.client.admin.keyring >/dev/null 2>&1; then
+                    chmod 0600 /etc/ceph/ceph.client.admin.keyring || true
+                  else
+                    echo "cephadm-bootstrap: unable to recover admin keyring from cluster ${fsid}" >&2
+                  fi
+                fi
+                rm -f "$bootstrap_err"
                 exit 0
               fi
 
@@ -1305,11 +1321,13 @@ in
                   echo "cephadm-bootstrap: detected stale fsid state at $stale_root; cleaning and retrying once" >&2
                   ${pkgs.systemd}/bin/systemctl stop "ceph-mon@${hostName}.service" "ceph-mgr@${hostName}.service" >/dev/null 2>&1 || true
                   rm -rf -- "$stale_root" "/var/lib/ceph/mon/ceph-${hostName}" "/var/lib/ceph/mgr/ceph-${hostName}"
-                  run_bootstrap
+                  run_bootstrap 2> >(tee "$bootstrap_err" >&2)
+                  rm -f "$bootstrap_err"
                   exit 0
                 fi
               fi
 
+              rm -f "$bootstrap_err"
               exit 1
             '';
         };
