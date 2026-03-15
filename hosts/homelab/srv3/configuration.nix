@@ -1,4 +1,5 @@
 {
+  config,
   inputs,
   lib,
   pkgs,
@@ -145,10 +146,16 @@ in
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
       branch = "develop";
       path = "./overlays/homelab";
-      sopsAgeKeyFile = "/var/lib/sops-nix/age/keys.txt";
+      sopsAgeKeyFile = config.sops.secrets."flux-sops-age-key".path;
       sourceName = "flux-cluster";
       kustomizationName = "testing";
     };
+  };
+
+  sops.secrets."flux-sops-age-key" = {
+    sopsFile = ../../../secrets/profiles/personal/servers/srv3/flux-sops-age.key;
+    mode = "0400";
+    owner = "root";
   };
 
   # Needed by cephadm to satisfy asyncssh dependency for health checks.
