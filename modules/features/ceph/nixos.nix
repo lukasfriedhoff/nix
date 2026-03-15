@@ -1316,6 +1316,41 @@ in
                 )
               }"
 
+              # cephadm expects mutable systemd unit state on NixOS where /etc/systemd/system
+              # is immutable and runtime units may already exist. Use a tolerant wrapper only
+              # for this bootstrap flow.
+              bootstrap_bin_dir="$(mktemp -d)"
+              cat >"''${bootstrap_bin_dir}/systemctl" <<'EOF'
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              cmd="''${1:-}"
+              if [ -z "$cmd" ]; then
+                exec ${pkgs.systemd}/bin/systemctl
+              fi
+              shift
+
+              if [ "$cmd" = "enable" ] || [ "$cmd" = "reenable" ] || [ "$cmd" = "disable" ]; then
+                err_file="$(mktemp)"
+                if ${pkgs.systemd}/bin/systemctl --runtime "$cmd" "$@" 2>"$err_file"; then
+                  rm -f "$err_file"
+                  exit 0
+                fi
+                if grep -q "File '/run/systemd/system/ceph.target' already exists" "$err_file" || grep -q "Read-only file system" "$err_file"; then
+                  echo "cephadm-bootstrap: ignoring systemctl $cmd error: $(cat "$err_file")" >&2
+                  rm -f "$err_file"
+                  exit 0
+                fi
+                cat "$err_file" >&2
+                rm -f "$err_file"
+                exit 1
+              fi
+
+              exec ${pkgs.systemd}/bin/systemctl "$cmd" "$@"
+              EOF
+              chmod 0755 "''${bootstrap_bin_dir}/systemctl"
+              export PATH="''${bootstrap_bin_dir}:$PATH"
+
               # Clean stale runtime ceph target links left behind by previous attempts.
               rm -f /run/systemd/system/ceph.target
               rm -rf /run/systemd/system/ceph.target.wants
