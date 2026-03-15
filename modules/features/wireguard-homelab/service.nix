@@ -12,6 +12,9 @@ let
   iface = "wg-homelab";
   defaultUser = linuxUser;
   userServiceName = "wireguard-${iface}";
+  peerServiceName = "wireguard-${iface}-peer-${
+    lib.replaceStrings [ "/" "=" ] [ "-" "\\x3d" ] cfg.peerPublicKey
+  }";
   refreshServiceName = "${userServiceName}-refresh";
   sleepServiceName = "${userServiceName}-sleep";
 in
@@ -233,10 +236,15 @@ in
             "network-online.target"
             "sops-nix.service"
           ];
-          unitConfig.StartLimitIntervalSec = 0;
+          wantedBy = lib.mkIf cfg.userUnit.enable (lib.mkForce [ ]);
+          unitConfig = {
+            ConditionPathExists = cfg.privateKeyFile;
+            StartLimitBurst = 6;
+            StartLimitIntervalSec = "5min";
+          };
           serviceConfig = {
             Restart = "on-failure";
-            RestartSec = "5s";
+            RestartSec = "30s";
           };
         };
 
@@ -255,6 +263,10 @@ in
             ExecStart = refreshScript;
           };
         };
+
+        # When the base interface is skipped (e.g. missing secret during activation),
+        # skip peer application as well to avoid a failing switch transaction.
+        systemd.services.${peerServiceName}.unitConfig.ConditionPathExists = "/sys/class/net/${iface}";
 
         systemd.timers.${refreshServiceName} = {
           wantedBy = [ "timers.target" ];

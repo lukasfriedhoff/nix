@@ -10,6 +10,7 @@ let
 
   primaryRoot = secrets.primary or secrets.root or null;
   sharedRoot = secrets.profileShared or secrets.shared or null;
+  wireguardSecretsDir = "/var/lib/sops-nix/wireguard-homelab";
 
   resolveSecret =
     root: file:
@@ -65,19 +66,29 @@ in
       sopsFile = privateKeyPath;
       owner = "root";
       format = "binary";
+      mode = "0400";
+      path = "${wireguardSecretsDir}/private-key";
     };
 
     sops.secrets."wireguard-domain" = {
       sopsFile = domainPath;
       owner = "root";
       format = "binary";
+      mode = "0400";
+      path = "${wireguardSecretsDir}/domain";
     };
 
     sops.secrets."wireguard-endpoint" = {
       sopsFile = endpointPath;
       owner = "root";
       format = "binary";
+      mode = "0400";
+      path = "${wireguardSecretsDir}/endpoint";
     };
+
+    systemd.tmpfiles.rules = [
+      "d ${wireguardSecretsDir} 0700 root root -"
+    ];
 
     lukasf.wireguard.homelab = {
       enable = true;

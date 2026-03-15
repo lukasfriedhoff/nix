@@ -17,6 +17,7 @@
     "ahci"
     "xhci_pci"
     "virtio_pci"
+    "virtio_net"
     "virtio_blk"
     "virtio_scsi"
     "sr_mod"
