@@ -145,6 +145,7 @@ in
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
       branch = "develop";
       path = "./overlays/homelab";
+      sopsAgeKeyFile = "/var/lib/sops-nix/age/keys.txt";
       sourceName = "flux-cluster";
       kustomizationName = "testing";
     };

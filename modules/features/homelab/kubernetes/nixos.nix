@@ -75,6 +75,11 @@ in
         default = null;
         description = "Path to a file containing GitHub PAT for HTTPS authentication.";
       };
+      sopsAgeKeyFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Path to an Age private key file used to create/update flux-system/sops-age.";
+      };
       username = mkOption {
         type = types.str;
         default = "git";
@@ -162,6 +167,14 @@ in
           if ! ${kubectlBin} --kubeconfig ${kubeconfig} get namespace flux-system >/dev/null 2>&1; then
             ${fluxBin} install --namespace flux-system
           fi
+
+          ${lib.optionalString (cfg.gitops.sopsAgeKeyFile != null) ''
+            ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
+              create secret generic sops-age \
+              --from-file=age.agekey=${resolveSecret cfg.gitops.sopsAgeKeyFile} \
+              --dry-run=client -o yaml \
+              | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+          ''}
 
           if ! ${fluxBin} --namespace flux-system get sources git ${cfg.gitops.sourceName} >/dev/null 2>&1; then
             ${fluxBin} create source git ${cfg.gitops.sourceName} \
