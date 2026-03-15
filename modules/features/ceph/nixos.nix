@@ -1264,7 +1264,7 @@ in
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
-          BindPaths = [ "/run/systemd/system:/etc/systemd/system" ];
+          BindPaths = [ "/run/systemd/system:/etc/static/systemd/system" ];
           ExecStart =
             let
               bootstrapArgs = lib.escapeShellArgs (
