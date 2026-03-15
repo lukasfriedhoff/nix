@@ -70,6 +70,7 @@ in
 
   lukasf.ceph = {
     enable = true;
+    cephadm.unitDir = "/etc/systemd/system";
     monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
     monPort = cephCluster.monPort or 3300;
     bootstrap = {
