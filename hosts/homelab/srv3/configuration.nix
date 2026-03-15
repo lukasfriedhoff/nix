@@ -154,6 +154,8 @@ in
 
   sops.secrets."flux-sops-age-key" = {
     sopsFile = ../../../secrets/profiles/personal/servers/srv3/flux-sops-age.key;
+    format = "json";
+    key = "data";
     mode = "0400";
     owner = "root";
   };
