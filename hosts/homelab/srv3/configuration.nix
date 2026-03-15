@@ -145,7 +145,7 @@ in
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
       branch = "develop";
       path = "./overlays/homelab";
-      sourceName = "flux-cluster-testing";
+      sourceName = "flux-cluster";
       kustomizationName = "testing";
     };
   };
