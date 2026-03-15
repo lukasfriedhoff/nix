@@ -2,6 +2,9 @@
 
 This repo now includes `scripts/vms/new-qemu-vm.sh` to create libvirt/QEMU VMs.
 
+For the full `srv4` multi-VLAN, multi-pool `srv3` walkthrough, use:
+- `docs/deployment/srv3-demo-vm.md`
+
 ## What the script does
 
 - Creates and defines a VM using `virt-install` + `virsh`.
@@ -170,6 +173,7 @@ scripts/vms/new-qemu-vm.sh \
   --name srv3 \
   --mode iso \
   --iso artifacts/iso/nixos-minimal-ci-ssh.iso \
+  --libosinfo-os-id http://nixos.org/nixos/unstable \
   --memory 16384 \
   --vcpus 6 \
   --disk-size 100 \
@@ -179,6 +183,18 @@ scripts/vms/new-qemu-vm.sh \
   --extra-disk 50:srv3-ceph2 \
   --extra-disk 50:srv3-ceph3 \
   --wait 0
+```
+
+By default, `new-qemu-vm.sh` now defines:
+- 2 serial consoles (`serial0`, `serial1`)
+- VNC graphics (`--graphics vnc`)
+
+Use all three views during recovery:
+
+```bash
+virsh --connect qemu:///system console srv3 --devname serial0
+virsh --connect qemu:///system console srv3 --devname serial1
+virsh --connect qemu:///system domdisplay srv3
 ```
 
 3. Get installer IP from local libvirt:

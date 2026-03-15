@@ -27,6 +27,7 @@
   boot.kernelParams = [
     "console=tty0"
     "console=ttyS0,115200n8"
+    "console=ttyS1,115200n8"
   ];
 
   homelab.initrdSsh = {
@@ -36,6 +37,8 @@
 
   boot.initrd.network.udhcpc.enable = true;
   boot.initrd.network.udhcpc.extraArgs = [
+    "-t"
+    "10"
     "-x"
     # DHCP option 61 (client identifier): 01 + mgmt MAC (52:54:00:0a:dd:ea)
     "0x3d:015254000addea"
