@@ -1267,9 +1267,8 @@ in
           BindPaths = [ "/run/systemd/system:/etc/systemd/system" ];
           ExecStart =
             let
-              bootstrapCmd = lib.concatStringsSep " " (
+              bootstrapArgs = lib.escapeShellArgs (
                 [
-                  cephadm
                   "bootstrap"
                   "--mon-ip"
                   cfg.bootstrap.monIp
@@ -1321,8 +1320,12 @@ in
               rm -f /run/systemd/system/ceph.target
               rm -rf /run/systemd/system/ceph.target.wants
 
+              run_cephadm() {
+                ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
+              }
+
               run_bootstrap() {
-                ${bootstrapCmd}
+                run_cephadm ${bootstrapArgs}
               }
 
               cleanup_stale_state() {
@@ -1332,9 +1335,9 @@ in
 
                 echo "cephadm-bootstrap: cleaning stale state for fsid ${fsid}" >&2
                 ${pkgs.systemd}/bin/systemctl stop "ceph.target" "ceph-mon@${hostName}.service" "ceph-mgr@${hostName}.service" >/dev/null 2>&1 || true
-                ${cephadm} rm-cluster --force --fsid "${fsid}" >/dev/null 2>&1 || true
+                run_cephadm rm-cluster --force --fsid "${fsid}" >/dev/null 2>&1 || true
                 if [ "${zapDevicesFlag}" = "true" ]; then
-                  ${cephadm} rm-cluster --force --zap-osds --fsid "${fsid}" >/dev/null 2>&1 || true
+                  run_cephadm rm-cluster --force --zap-osds --fsid "${fsid}" >/dev/null 2>&1 || true
                 fi
                 rm -f /run/systemd/system/ceph.target
                 rm -rf /run/systemd/system/ceph.target.wants
@@ -1354,11 +1357,11 @@ in
               fi
 
               if [ -n "${fsid}" ] && grep -q "same fsid '${fsid}' already exists" "$bootstrap_err"; then
-                if ${cephadm} ls | jq -e --arg fsid "${fsid}" '.[] | select(.fsid == $fsid)' >/dev/null 2>&1; then
+                if run_cephadm ls | jq -e --arg fsid "${fsid}" '.[] | select(.fsid == $fsid)' >/dev/null 2>&1; then
                   echo "cephadm-bootstrap: cluster fsid ${fsid} already exists; treating bootstrap as converged" >&2
                   if [ ! -s /etc/ceph/ceph.client.admin.keyring ]; then
                     echo "cephadm-bootstrap: admin keyring missing, attempting recovery from existing cluster" >&2
-                    if timeout 45 ${cephadm} shell --fsid "${fsid}" -- ceph auth get client.admin -o /etc/ceph/ceph.client.admin.keyring >/dev/null 2>&1; then
+                    if timeout 45 run_cephadm shell --fsid "${fsid}" -- ceph auth get client.admin -o /etc/ceph/ceph.client.admin.keyring >/dev/null 2>&1; then
                       chmod 0600 /etc/ceph/ceph.client.admin.keyring || true
                     else
                       echo "cephadm-bootstrap: unable to recover admin keyring from cluster ${fsid}; retrying bootstrap from clean state" >&2
