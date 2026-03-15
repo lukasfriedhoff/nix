@@ -235,7 +235,7 @@ build_ssh_cmd() {
 unlock_once() {
   local err_file="$1"
   build_ssh_cmd
-  if sops -d "$secret" | "${ssh_cmd[@]}" "$target" "umask 077; install -m 600 /dev/stdin '${remote_path}'" 2>"$err_file"; then
+  if sops -d "$secret" | tr -d '\r\n' | "${ssh_cmd[@]}" "$target" "umask 077; install -m 600 /dev/stdin '${remote_path}'" 2>"$err_file"; then
     return 0
   fi
   cat "$err_file" >&2

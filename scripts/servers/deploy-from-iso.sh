@@ -127,7 +127,7 @@ fi
 
 if [[ -n "$luks_secret" ]]; then
   tmp_key="$(mktemp)"
-  SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "$luks_secret" > "$tmp_key"
+  SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "$luks_secret" | tr -d '\r\n' > "$tmp_key"
   extra_args+=(--disk-encryption-keys /tmp/luks.key "$tmp_key")
 fi
 
@@ -231,7 +231,7 @@ fi
 
 for i in "${!disk_secret_files[@]}"; do
   tmp_disk_key="$(mktemp)"
-  SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "${disk_secret_files[$i]}" > "$tmp_disk_key"
+  SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "${disk_secret_files[$i]}" | tr -d '\r\n' > "$tmp_disk_key"
   tmp_keys+=("$tmp_disk_key")
   extra_args+=(--disk-encryption-keys "${disk_secret_paths[$i]}" "$tmp_disk_key")
 done
