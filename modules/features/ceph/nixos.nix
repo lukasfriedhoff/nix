@@ -1291,6 +1291,36 @@ in
             pkgs.writeShellScript "cephadm-bootstrap" ''
               set -euo pipefail
 
+              # cephadm must manage persistent systemd units during bootstrap.
+              # Use real systemctl here (not the runtime shim from cephadmPath).
+              export PATH="${
+                lib.makeBinPath (
+                  with pkgs;
+                  [
+                    systemd
+                    bash
+                    coreutils
+                    cryptsetup
+                    findutils
+                    gawk
+                    gptfdisk
+                    gnugrep
+                    gnused
+                    iproute2
+                    iputils
+                    jq
+                    lvm2
+                    parted
+                    podman
+                    util-linux
+                  ]
+                )
+              }"
+
+              # Clean stale runtime ceph target links left behind by previous attempts.
+              rm -f /run/systemd/system/ceph.target
+              rm -rf /run/systemd/system/ceph.target.wants
+
               run_bootstrap() {
                 ${bootstrapCmd}
               }
