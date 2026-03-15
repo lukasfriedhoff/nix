@@ -1711,6 +1711,7 @@ in
         lib.mkIf (cfg.osd.autoProvision && cfg.osd.provisioner == "ceph-volume")
           {
             description = "Ceph OSD provisioning (ceph-volume)";
+            before = [ "ceph-volume-osd-activate.service" ];
             after = [
               "network-online.target"
               "cephadm-bootstrap.service"
@@ -1828,8 +1829,12 @@ in
         after = [
           "network-online.target"
           "cephadm-bootstrap.service"
-        ];
-        wants = [ "network-online.target" ];
+        ]
+        ++ lib.optional cfg.osd.autoProvision "ceph-volume-osd-create.service";
+        wants = [
+          "network-online.target"
+        ]
+        ++ lib.optional cfg.osd.autoProvision "ceph-volume-osd-create.service";
         wantedBy = [ "multi-user.target" ];
         path = cephVolumePath;
         unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
