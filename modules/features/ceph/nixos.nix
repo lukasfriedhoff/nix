@@ -2496,7 +2496,9 @@ in
                   if [ -z "$placement_arg" ]; then
                     placement_arg="$mds_count"
                   fi
-                  if [ -n "$placement_arg" ]; then
+                  if [ "$orchestrator_ready" -ne 1 ]; then
+                    echo "cephfs: orchestrator unavailable; skipping MDS placement for $fs_name this run" >&2
+                  elif [ -n "$placement_arg" ]; then
                     if ! ceph_cmd orch apply mds "$fs_name" --placement "$placement_arg"; then
                       echo "cephfs: unable to apply MDS placement for $fs_name; check cephadm/orchestrator health" >&2
                       exit 1
@@ -2586,6 +2588,7 @@ in
             PY
             }
 
+            orchestrator_ready=1
             if [ "${lib.boolToString hasMds}" = "true" ]; then
               if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
                 ceph_cmd mgr module enable cephadm >/dev/null 2>&1 || true
@@ -2593,7 +2596,7 @@ in
               fi
               if ! ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
                 echo "cephadm-cephfs: orchestrator commands unavailable; skipping MDS orchestration this run" >&2
-                exit 0
+                orchestrator_ready=0
               fi
             fi
 
