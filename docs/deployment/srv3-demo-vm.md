@@ -1,27 +1,22 @@
-# srv3 Demo VM
+# srv3 Demo VM Runbook
 
-This runbook recreates `srv3` as a multi-disk libvirt VM on `srv4`, deploys NixOS from ISO, unlocks LUKS over initrd SSH, and verifies pull-based rollout (`comin`) plus Kubernetes/Flux status.
+This runbook recreates `srv3` as a demo VM, deploys NixOS from ISO, and verifies Ceph + k3s + Flux on first rollout.
 
-## 1. Cleanup (safe repeatable start)
+## 1. Clean up old VM artifacts
 
-From your local repo:
-
-```bash
-scripts/vms/remove-qemu-vm.sh --name srv3 --pool nvmepool --pool ssdpool --pool images --dry-run
-scripts/vms/remove-qemu-vm.sh --name srv3 --pool nvmepool --pool ssdpool --pool images
-```
-
-On `srv4`, confirm no leftovers:
+Local libvirt:
 
 ```bash
-ssh srv4 '
-virsh --connect qemu:///system list --all | grep -E "srv3|Name" || true
-virsh --connect qemu:///system vol-list nvmepool | grep srv3 || true
-virsh --connect qemu:///system vol-list ssdpool | grep srv3 || true
-'
+scripts/vms/remove-qemu-vm.sh --name srv3 --pool default --pool tmp
 ```
 
-## 2. Prepare host config + resources
+Remote libvirt host (`srv4`) example:
+
+```bash
+ssh srv4 'virsh --connect qemu:///system destroy srv3 || true; virsh --connect qemu:///system undefine srv3 --nvram || true; virsh --connect qemu:///system undefine srv3 || true'
+```
+
+## 2. Create/refresh host config in this repo
 
 ```bash
 scripts/homelab/new-host.sh \
@@ -35,192 +30,120 @@ scripts/homelab/add-testing-resources.sh \
   --host srv3 \
   --fqdn srv3.lab.h4xx.io \
   --cluster testing \
-  --mon-ip 10.1.30.25 \
+  --mon-ip 192.168.122.57 \
   --root-disk-id virtio-srv3-root \
   --swap-disk-id virtio-srv3-swap \
   --ceph-disk-ids virtio-srv3-ceph1,virtio-srv3-ceph2,virtio-srv3-ceph3
+
+nix fmt
 ```
 
-## 3. Create disks and VM on srv4
+## 3. Create the VM
 
-This keeps:
-- root/swap on `nvmepool`
-- ceph disks on `ssdpool`
-- 3 NICs on VLAN 30/20/40 bridges
-- VNC + 2 serial consoles
-- libosinfo metadata for NixOS unstable
+Local helper script (single host libvirt):
 
 ```bash
-ssh srv4 'bash -seuo pipefail' <<'EOF'
-# Create/replace logical volumes used by libvirt pools
-for spec in srv3-root:100G srv3-swap:20G; do
-  name="${spec%:*}"; size="${spec#*:}"
-  virsh --connect qemu:///system vol-delete "${name}" nvmepool >/dev/null 2>&1 || true
-  virsh --connect qemu:///system vol-create-as nvmepool "${name}" "${size}" --format raw
-done
-for spec in srv3-ceph1:50G srv3-ceph2:50G srv3-ceph3:50G; do
-  name="${spec%:*}"; size="${spec#*:}"
-  virsh --connect qemu:///system vol-delete "${name}" ssdpool >/dev/null 2>&1 || true
-  virsh --connect qemu:///system vol-create-as ssdpool "${name}" "${size}" --format raw
-done
-
-# Recreate domain XML
-virsh --connect qemu:///system destroy srv3 >/dev/null 2>&1 || true
-virsh --connect qemu:///system undefine srv3 --nvram >/dev/null 2>&1 || true
-virsh --connect qemu:///system undefine srv3 >/dev/null 2>&1 || true
-
-raw="$(mktemp)"
-xml="$(mktemp)"
-
-virt-install \
-  --connect qemu:///system \
+scripts/vms/new-qemu-vm.sh \
   --name srv3 \
-  --memory 4096 \
-  --vcpus 2 \
-  --machine q35 \
-  --osinfo generic \
-  --disk vol=nvmepool/srv3-root,bus=virtio,serial=srv3-root \
-  --disk vol=nvmepool/srv3-swap,bus=virtio,serial=srv3-swap \
-  --disk vol=ssdpool/srv3-ceph1,bus=virtio,serial=srv3-ceph1 \
-  --disk vol=ssdpool/srv3-ceph2,bus=virtio,serial=srv3-ceph2 \
-  --disk vol=ssdpool/srv3-ceph3,bus=virtio,serial=srv3-ceph3 \
-  --network bridge=br-vlan30,model=virtio,mac=52:54:00:0a:dd:ea \
-  --network bridge=br-vlan20,model=virtio,mac=52:54:00:ea:a2:2c \
-  --network bridge=br-vlan40,model=virtio,mac=52:54:00:a5:7a:cc \
-  --graphics vnc,listen=127.0.0.1 \
-  --console pty,target.type=serial,target.port=0 \
-  --console pty,target.type=serial,target.port=1 \
-  --boot uefi,firmware.feature0.name=secure-boot,firmware.feature0.enabled=no,firmware.feature1.name=enrolled-keys,firmware.feature1.enabled=no \
-  --cdrom /home/lukasf/images/nixos-minimal-ci-ssh.iso \
-  --noautoconsole \
-  --wait 0 \
-  --print-xml > "$raw"
-
-python3 - "$raw" "$xml" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-raw, out = sys.argv[1], sys.argv[2]
-root = ET.parse(raw).getroot()
-
-ns_uri = "http://libosinfo.org/xmlns/libvirt/domain/1.0"
-ET.register_namespace("libosinfo", ns_uri)
-
-for elem in list(root.findall("metadata")):
-    root.remove(elem)
-
-metadata = ET.Element("metadata")
-libosinfo = ET.SubElement(metadata, f"{{{ns_uri}}}libosinfo")
-ET.SubElement(libosinfo, f"{{{ns_uri}}}os", {"id": "http://nixos.org/nixos/unstable"})
-root.append(metadata)
-
-ET.ElementTree(root).write(out, encoding="unicode")
-PY
-
-virsh --connect qemu:///system define "$xml"
-virsh --connect qemu:///system start srv3
-virsh --connect qemu:///system domdisplay srv3
-virsh --connect qemu:///system dumpxml srv3 | sed -n '/<metadata>/,/<\/metadata>/p'
-EOF
+  --mode iso \
+  --disk-size 100 \
+  --disk-serial srv3-root \
+  --extra-disk 20:srv3-swap \
+  --extra-disk 50:srv3-ceph1 \
+  --extra-disk 50:srv3-ceph2 \
+  --extra-disk 50:srv3-ceph3 \
+  --iso https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso
 ```
 
-## 4. Find installer IP and deploy
+If you run on `srv4`, keep these requirements:
 
-Check VM lease/IP:
+- machine: `q35`, UEFI, secure boot disabled
+- NICs on all required VLAN bridges (mgmt/server/storage)
+- graphics enabled (VNC/SPICE) plus **two serial consoles** (`target.port=0` and `target.port=1`)
+- include libosinfo metadata:
+
+```xml
+<metadata>
+  <libosinfo:libosinfo xmlns:libosinfo="http://libosinfo.org/xmlns/libvirt/domain/1.0">
+    <libosinfo:os id="http://nixos.org/nixos/unstable"/>
+  </libosinfo:libosinfo>
+</metadata>
+```
+
+## 4. Get installer IP and deploy from ISO
 
 ```bash
-ssh srv4 'virsh --connect qemu:///system domifaddr srv3 --source lease || true'
+virsh --connect qemu:///system domifaddr srv3 --source lease
 ```
 
-Deploy from ISO (installer shell access via CI key):
+Deploy:
 
 ```bash
 scripts/servers/deploy-from-iso.sh \
-  srv3 \
-  root@<INSTALLER_IP> \
+  srv3 root@<INSTALLER_IP> \
   --identity ~/.ssh/personal/ci \
   --ssh-option IdentitiesOnly=yes \
   --luks-secret secrets/profiles/personal/shared/luks/srv3.txt
 ```
 
-Notes:
-- `deploy-from-iso.sh` now strips trailing CR/LF from decrypted LUKS secrets before passing them to disko.
-- `unlock.sh` now also strips trailing CR/LF before writing `/crypt-ramfs/passphrase`.
+If installer auth with management key fails initially, copy the public key into installer `authorized_keys` first, then rerun deploy.
 
-## 5. First boot unlock (initrd SSH)
-
-Normal path:
+## 5. First boot unlock and SSH validation
 
 ```bash
 scripts/homelab/unlock.sh srv3 --identity ~/.ssh/personal/srv3-personal-mgmt
+
+until ssh -i ~/.ssh/personal/srv3-personal-mgmt \
+  -o IdentitiesOnly=yes \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  root@<SRV3_IP> 'echo srv3-up'; do
+  sleep 3
+done
 ```
 
-If DNS is not ready, use explicit target/port:
+## 6. Trigger comin and verify rollout
 
 ```bash
-scripts/homelab/unlock.sh srv3 \
-  --target root@<INITRD_IP> \
-  --port 2222 \
-  --identity ~/.ssh/personal/srv3-personal-mgmt \
-  --ssh-option IdentitiesOnly=yes \
-  --ssh-option StrictHostKeyChecking=no \
-  --ssh-option UserKnownHostsFile=/dev/null
+ssh srv3 'comin fetch'
+ssh srv3 'journalctl -u comin.service -n 120 --no-pager -l'
+ssh srv3 'systemctl --failed --no-pager'
 ```
 
-## 6. Verify host and comin
+## 7. Validate Ceph, k3s, and Flux
 
 ```bash
-ssh -i ~/.ssh/personal/srv3-personal-mgmt -o IdentitiesOnly=yes root@10.1.30.25 '
-hostnamectl --static
-lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,SERIAL
-cat /proc/swaps
-systemctl --failed --no-pager
-systemctl status comin.service --no-pager -n 80
-journalctl -u comin.service --no-pager -n 120
-'
+ssh srv3 'ceph -s'
+ssh srv3 'ceph osd tree'
+ssh srv3 'k3s kubectl get nodes -o wide'
+ssh srv3 'k3s kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A'
 ```
 
-## 7. Kubernetes and Flux checks
+Expected after the fixes in this repo:
+
+- Ceph: `HEALTH_OK`, OSDs `3 up, 3 in`
+- k3s control plane: `Ready`
+- Flux bootstrap chain (`namespaces`, `secrets`, `repositories`) reaches `Ready=True`
+
+## 8. Known app-layer follow-up
+
+If app-level Flux Kustomizations are not all ready (for example `traefik-app` CRD ordering issues), investigate in `flux-cluster` manifests. The `nix` repo side is now wired so:
+
+- `flux-system/sops-age` is created automatically by bootstrap
+- `srv3` uses a dedicated encrypted Flux decryption key (`secrets/profiles/personal/servers/srv3/flux-sops-age.key`)
+- core bootstrap and Ceph/k3s rollout complete successfully
+
+## 9. Useful recovery commands
 
 ```bash
-ssh -i ~/.ssh/personal/srv3-personal-mgmt -o IdentitiesOnly=yes root@10.1.30.25 '
-systemctl status k3s.service --no-pager -n 120 || true
-kubectl get nodes -o wide || true
-kubectl get pods -A || true
-kubectl get kustomizations -A || true
-kubectl get helmreleases -A || true
-'
+# Force one more fetch/redeploy cycle
+ssh srv3 'comin fetch'
+
+# Reconcile Flux manually
+ssh srv3 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml; flux --namespace flux-system reconcile source git flux-cluster'
+ssh srv3 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml; flux --namespace flux-system reconcile kustomization testing --with-source'
+
+# Serial console (local libvirt)
+virsh --connect qemu:///system console srv3 --devname serial0
+virsh --connect qemu:///system console srv3 --devname serial1
 ```
-
-If Flux CRDs are not available yet, wait for bootstrap/rollout and re-run checks.
-
-## 8. Recovery commands
-
-Check console paths:
-
-```bash
-ssh srv4 '
-virsh --connect qemu:///system domdisplay srv3
-virsh --connect qemu:///system ttyconsole srv3
-virsh --connect qemu:///system dumpxml srv3 | sed -n "/<serial /,/<\\/serial>/p"
-'
-```
-
-Eject ISO after install and reboot:
-
-```bash
-ssh srv4 '
-virsh --connect qemu:///system change-media srv3 sda --eject --live --config || true
-virsh --connect qemu:///system reboot srv3
-'
-```
-
-Hard power cycle:
-
-```bash
-ssh srv4 '
-virsh --connect qemu:///system destroy srv3 || true
-sleep 2
-virsh --connect qemu:///system start srv3
-'
-```
-
