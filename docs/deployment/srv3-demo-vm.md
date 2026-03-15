@@ -124,6 +124,8 @@ Expected after the fixes in this repo:
 - Ceph: `HEALTH_OK`, OSDs `3 up, 3 in`
 - k3s control plane: `Ready`
 - Flux bootstrap chain (`namespaces`, `secrets`, `repositories`) reaches `Ready=True`
+- Ceph bootstrap daemons survive reboot on NixOS by re-installing runtime cephadm units (`/run/systemd/system`) on boot
+- Ceph helper units probe monitors via `v2` endpoint only (no stale `v1` fallback)
 
 ## 8. Known app-layer follow-up
 
@@ -146,4 +148,28 @@ ssh srv3 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml; flux --namespace flux-sys
 # Serial console (local libvirt)
 virsh --connect qemu:///system console srv3 --devname serial0
 virsh --connect qemu:///system console srv3 --devname serial1
+```
+
+If SSH authenticates but then hangs (no session channel), use this recovery path:
+
+1. On hypervisor, verify VM state and capture screen:
+
+```bash
+ssh srv4 'virsh --connect qemu:///system dominfo srv3'
+ssh srv4 'virsh --connect qemu:///system screenshot srv3 /tmp/srv3-screen.png'
+```
+
+2. If VM is stuck in shutdown/reboot loop, force-cycle it:
+
+```bash
+ssh srv4 'virsh --connect qemu:///system destroy srv3; sleep 2; virsh --connect qemu:///system start srv3'
+```
+
+3. Unlock first boot again when initrd SSH (`:2222`) comes up:
+
+```bash
+scripts/homelab/unlock.sh srv3 \
+  --target root@10.1.30.25 \
+  --port 2222 \
+  --identity ~/.ssh/personal/srv3-personal-mgmt
 ```
