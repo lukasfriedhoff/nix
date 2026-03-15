@@ -1461,14 +1461,13 @@ in
                 else
                   "";
               legacyAddr = if cfg.monUpdate.legacyAddress != null then cfg.monUpdate.legacyAddress else "";
-              inherit (cfg.monUpdate) v1Port;
               inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-public-network" ''
               set -euo pipefail
               fsid=""
               if [ -f /etc/ceph/ceph.conf ]; then
-                fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+                fsid="$(awk '/^[[:space:]]*fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
               fi
 
               keyring="/etc/ceph/ceph.client.admin.keyring"
@@ -1481,10 +1480,10 @@ in
                 local host="$1"
                 case "$host" in
                   (*[!0-9.:]*)
-                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                   (*)
-                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                 esac
               }
@@ -1543,7 +1542,6 @@ in
                       ++ cfg.monHosts;
                     in
                     lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-                  inherit (cfg.monUpdate) v1Port;
                   inherit (cfg.monUpdate) v2Port;
                 in
                 pkgs.writeShellScript "cephadm-osd-provision" ''
@@ -1560,10 +1558,10 @@ in
                                 local host="$1"
                                 case "$host" in
                                   (*[!0-9.:]*)
-                                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                                     ;;
                                   (*)
-                                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                                     ;;
                                 esac
                               }
@@ -1828,11 +1826,13 @@ in
         description = "Ceph OSD activation (ceph-volume)";
         after = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
           "cephadm-bootstrap.service"
         ]
         ++ lib.optional cfg.osd.autoProvision "ceph-volume-osd-create.service";
         wants = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
         ]
         ++ lib.optional cfg.osd.autoProvision "ceph-volume-osd-create.service";
         wantedBy = [ "multi-user.target" ];
@@ -2271,6 +2271,7 @@ in
         description = "Ceph pool setup";
         after = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
           "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
         ];
@@ -2294,7 +2295,6 @@ in
                   ++ cfg.monHosts;
                 in
                 lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-              inherit (cfg.monUpdate) v1Port;
               inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-pools" ''
@@ -2306,10 +2306,10 @@ in
                 local host="$1"
                 case "$host" in
                   (*[!0-9.:]*)
-                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                   (*)
-                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                 esac
               }
@@ -2415,12 +2415,14 @@ in
         description = "CephFS setup";
         after = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
           "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
           "cephadm-pools.service"
         ];
         wants = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
           "cephadm-pools.service"
         ];
         wantedBy = [ "multi-user.target" ];
@@ -2441,7 +2443,6 @@ in
                 ++ cfg.monHosts;
               in
               lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-            inherit (cfg.monUpdate) v1Port;
             inherit (cfg.monUpdate) v2Port;
             hasMds = lib.any (fs: fs.mds.enable) cfg.cephfs;
             fsCommands = lib.concatMapStringsSep "\n" (
@@ -2517,10 +2518,10 @@ in
               local host="$1"
               case "$host" in
                 (*[!0-9.:]*)
-                  printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  printf 'v2:%s:%s' "$host" "${toString v2Port}"
                   ;;
                 (*)
-                  printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  printf 'v2:%s:%s' "$host" "${toString v2Port}"
                   ;;
               esac
             }
@@ -2608,12 +2609,14 @@ in
         description = "Ceph RGW setup";
         after = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
           "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
           "cephadm-pools.service"
         ];
         wants = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
           "cephadm-pools.service"
         ];
         wantedBy = [ "multi-user.target" ];
@@ -2634,7 +2637,6 @@ in
                 ++ cfg.monHosts;
               in
               lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-            inherit (cfg.monUpdate) v1Port;
             inherit (cfg.monUpdate) v2Port;
             endpointArg = lib.optionalString (
               cfg.rgw.endpoint != null && cfg.rgw.endpoint != ""
@@ -2768,10 +2770,10 @@ in
               local host="$1"
               case "$host" in
                 (*[!0-9.:]*)
-                  printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  printf 'v2:%s:%s' "$host" "${toString v2Port}"
                   ;;
                 (*)
-                  printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                  printf 'v2:%s:%s' "$host" "${toString v2Port}"
                   ;;
               esac
             }
@@ -2900,6 +2902,7 @@ in
         description = "Ceph monitor address update";
         after = [
           "network-online.target"
+          "cephadm-runtime-daemons.service"
           "cephadm-cephadm-path.service"
           "cephadm-bootstrap.service"
         ];
@@ -2916,7 +2919,6 @@ in
               monName = if cfg.monUpdate.name != null then cfg.monUpdate.name else "";
               legacyAddr = if cfg.monUpdate.legacyAddress != null then cfg.monUpdate.legacyAddress else "";
               legacyPrefix = cfg.monUpdate.legacyPrefixLength;
-              inherit (cfg.monUpdate) v1Port;
               inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-mon-update" ''
@@ -2927,7 +2929,7 @@ in
               fi
               fsid=""
               if [ -f /etc/ceph/ceph.conf ]; then
-                fsid="$(awk '/^fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+                fsid="$(awk '/^[[:space:]]*fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
               fi
 
               keyring="/etc/ceph/ceph.client.admin.keyring"
@@ -2940,10 +2942,10 @@ in
                 local host="$1"
                 case "$host" in
                   (*[!0-9.:]*)
-                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                   (*)
-                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                 esac
               }
@@ -3023,13 +3025,91 @@ in
         };
       };
 
-      systemd.services.cephadm-cephadm-path = {
-        description = "Cephadm path configuration";
+      systemd.services.cephadm-runtime-daemons = lib.mkIf cfg.bootstrap.enable {
+        description = "Install/start cephadm runtime daemon units";
         after = [
           "network-online.target"
           "cephadm-bootstrap.service"
         ];
         wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
+        path = cephadmPath;
+        unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script =
+          let
+            monName = if cfg.monUpdate.name != null then cfg.monUpdate.name else hostName;
+          in
+          ''
+            set -euo pipefail
+            keyring="/etc/ceph/ceph.client.admin.keyring"
+            if [ ! -s "$keyring" ]; then
+              echo "cephadm-runtime-daemons: admin keyring missing; skipping" >&2
+              exit 0
+            fi
+
+            fsid="$(awk '/^[[:space:]]*fsid[[:space:]]*=/{print $3; exit}' /etc/ceph/ceph.conf || true)"
+            if [ -z "$fsid" ]; then
+              echo "cephadm-runtime-daemons: fsid not found in ceph.conf; skipping" >&2
+              exit 0
+            fi
+
+            shim_dir="/run/cephadm-systemctl-shim"
+            install -d -m 0755 "$shim_dir"
+            cat >"$shim_dir/systemctl" <<'SH'
+            #!/usr/bin/env bash
+            set -euo pipefail
+            real="${pkgs.systemd}/bin/systemctl"
+            cmd="${"1:-"}"
+            case "$cmd" in
+              enable|disable|preset|reenable|link)
+                exec "$real" --runtime "$@"
+                ;;
+              *)
+                exec "$real" "$@"
+                ;;
+            esac
+            SH
+            chmod 0755 "$shim_dir/systemctl"
+            export PATH="$shim_dir:${cephadmBinPath}:$PATH"
+
+            mon_name="${monName}"
+            mgr_name="$(
+              find "/var/lib/ceph/$fsid" -maxdepth 1 -type d -name "mgr.${hostName}.*" -printf '%f\n' \
+                | sed -e 's/^mgr\.//' \
+                | sort \
+                | head -n1
+            )"
+
+            ${cephPkg}/bin/cephadm --unit-dir /run/systemd/system unit-install --fsid "$fsid" --name "mon.$mon_name" >/dev/null
+            if [ -n "$mgr_name" ]; then
+              ${cephPkg}/bin/cephadm --unit-dir /run/systemd/system unit-install --fsid "$fsid" --name "mgr.$mgr_name" >/dev/null
+            else
+              echo "cephadm-runtime-daemons: no mgr.<host> data directory found; mon only" >&2
+            fi
+
+            systemctl daemon-reload
+            systemctl start "ceph-$fsid@mon.$mon_name.service" || true
+            if [ -n "$mgr_name" ]; then
+              systemctl start "ceph-$fsid@mgr.$mgr_name.service" || true
+            fi
+          '';
+      };
+
+      systemd.services.cephadm-cephadm-path = {
+        description = "Cephadm path configuration";
+        after = [
+          "network-online.target"
+          "cephadm-runtime-daemons.service"
+          "cephadm-bootstrap.service"
+        ];
+        wants = [
+          "network-online.target"
+          "cephadm-runtime-daemons.service"
+        ];
         wantedBy = [ "multi-user.target" ];
         path = cephadmPath;
         unitConfig.ConditionPathExists = "/etc/ceph/ceph.conf";
@@ -3049,7 +3129,6 @@ in
                   ++ cfg.monHosts;
                 in
                 lib.concatStringsSep " " (lib.filter (host: host != null && host != "") rawCandidates);
-              inherit (cfg.monUpdate) v1Port;
               inherit (cfg.monUpdate) v2Port;
             in
             pkgs.writeShellScript "cephadm-cephadm-path" ''
@@ -3061,10 +3140,10 @@ in
                 local host="$1"
                 case "$host" in
                   (*[!0-9.:]*)
-                    printf '%s:%s,%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                   (*)
-                    printf 'v2:%s:%s,v1:%s:%s' "$host" "${toString v2Port}" "$host" "${toString v1Port}"
+                    printf 'v2:%s:%s' "$host" "${toString v2Port}"
                     ;;
                 esac
               }
