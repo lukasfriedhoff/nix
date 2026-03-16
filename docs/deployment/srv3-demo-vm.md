@@ -102,6 +102,16 @@ until ssh -i ~/.ssh/personal/srv3-personal-mgmt \
 done
 ```
 
+Console password for `root`/`nixos` is persisted via SOPS at:
+
+`secrets/profiles/personal/servers/srv3/bootstrap-password.txt`
+
+Decrypt it on any personal desktop with:
+
+```bash
+sops -d secrets/profiles/personal/servers/srv3/bootstrap-password.txt
+```
+
 ## 6. Trigger comin and verify rollout
 
 ```bash
@@ -172,4 +182,89 @@ scripts/homelab/unlock.sh srv3 \
   --target root@10.1.30.25 \
   --port 2222 \
   --identity ~/.ssh/personal/srv3-personal-mgmt
+```
+
+## 10. Issues Seen In Practice And Workarounds
+
+### ISO / boot issues
+
+- Symptom: repeated `Failed unmounting /iso` and SquashFS read errors on console during shutdown/reboot.
+- Cause: installer media/boot order mismatch while switching from ISO to installed disk.
+- Workaround:
+
+```bash
+# On hypervisor
+virsh --connect qemu:///system change-media srv3 sda --eject --config --live || true
+virsh --connect qemu:///system reboot srv3
+virsh --connect qemu:///system dumpxml srv3 | rg "<boot dev=|device='cdrom'|<source file="
+```
+
+Ensure disk boot is preferred after install; keep ISO attached only while installer is needed.
+
+### SSH accepted key but session unhealthy
+
+- Symptom: SSH key is accepted but session hangs or exits unexpectedly.
+- Check:
+
+```bash
+ssh -vvv -i ~/.ssh/personal/srv3-personal-mgmt root@<SRV3_IP> 'echo ok'
+ssh root@<SRV3_IP> 'systemctl status sshd systemd-logind --no-pager -l'
+ssh root@<SRV3_IP> 'journalctl -b -u sshd -u systemd-logind --no-pager -l -n 200'
+```
+
+- Recovery path if normal SSH is blocked:
+  - Use libvirt serial console first.
+  - If required, stop VM, mount root disk on hypervisor, inject management key into `/root/.ssh/authorized_keys`, boot again.
+
+### Ceph OSD provisioning failed on recycled disks
+
+- Symptom: `ceph-volume-osd-create.service` fails with `RuntimeError: Device /dev/vdc has a filesystem`.
+- Cause: old signatures/LVM metadata on ceph data disks from prior runs.
+- Workaround:
+
+```bash
+ssh srv3 '
+for d in /dev/vdc /dev/vdd /dev/vde; do
+  sgdisk --zap-all "$d" || true
+  wipefs -a "$d" || true
+done
+systemctl restart ceph-volume-osd-create.service
+'
+```
+
+Only run disk zapping for explicit reprovisioning.
+
+### Flux bootstrap timing failure
+
+- Symptom: `flux-gitops.service` fails with `TLS handshake timeout` to `https://127.0.0.1:6443/api`.
+- Cause: k3s API not fully ready during first bootstrap attempt.
+- Workaround:
+
+```bash
+ssh srv3 'systemctl restart flux-gitops.service'
+ssh srv3 'comin fetch'
+ssh srv3 'journalctl -u flux-gitops.service -n 120 --no-pager -l'
+```
+
+### DNS not ready for unlock host alias
+
+- Symptom: `unlock-srv3` name does not resolve during first boot unlock.
+- Workaround: use lease fallback path already implemented in `scripts/homelab/unlock.sh`, or set explicit target:
+
+```bash
+scripts/homelab/unlock.sh srv3 \
+  --target root@<LEASE_IP> \
+  --port 2222 \
+  --identity ~/.ssh/personal/srv3-personal-mgmt
+```
+
+### Flake build misses newly created secret file
+
+- Symptom: build error `path .../bootstrap-password.txt does not exist`.
+- Cause: new secret file exists locally but is untracked, so it is not part of flake source copy.
+- Workaround:
+
+```bash
+git add secrets/profiles/personal/servers/srv3/bootstrap-password.txt
+nix build .#nixosConfigurations.srv3.config.system.build.toplevel
 ```
