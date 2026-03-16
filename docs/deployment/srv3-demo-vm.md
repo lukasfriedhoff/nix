@@ -234,6 +234,62 @@ systemctl restart ceph-volume-osd-create.service
 
 Only run disk zapping for explicit reprovisioning.
 
+### Ceph OSD starts but fails opening `block` with `Operation not permitted`
+
+- Symptom: `ceph-osd@1` fails with repeated:
+  - `bdev(... /var/lib/ceph/osd/ceph-1/block) open stat got: (1) Operation not permitted`
+  - `unable to mount object store`
+- Cause: OSD metadata exists in LVM, but `/var/lib/ceph/osd/ceph-1/block` symlink is missing or stale.
+- Workaround:
+
+```bash
+ssh srv3 '
+ceph-volume lvm activate --bluestore 1 d18bb6c5-56d3-465a-b693-53a717d6ebdf || true
+ln -sf /dev/mapper/YCD9eU-bei4-BQRS-dJuV-Sj5G-Ygbl-nB7Kxj /var/lib/ceph/osd/ceph-1/block
+chown -h ceph:ceph /var/lib/ceph/osd/ceph-1/block
+systemctl reset-failed ceph-osd@1
+systemctl restart ceph-osd@1
+systemctl --no-pager -l status ceph-osd@1
+'
+```
+
+On NixOS, `ceph-volume lvm activate` may print an expected warning when trying to `systemctl enable` a generated unit under read-only `/etc`; OSD activation is still usable when the `block` link is corrected and `ceph-osd@1` is restarted.
+
+### Ceph mgr unit mismatch (missing auth for stale daemon id)
+
+- Symptom:
+  - `ceph-...@mgr.srv3.xddbkj.service` fails with `failed to fetch mon config`
+  - `ceph auth get mgr.srv3.xddbkj` returns `ENOENT`
+- Cause: stale mgr daemon id/unit exists without corresponding auth entry.
+- Workaround: run the valid mgr daemon (`mgr.srv3.dvecgx`) and clean stale mgr containers.
+
+```bash
+ssh srv3 '
+systemctl stop ceph-5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c@mgr.srv3.xddbkj.service || true
+systemctl stop ceph-5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c@mgr.srv3.dvecgx.service || true
+podman ps -a --format "{{.Names}}" | grep -E "mgr-srv3-(xddbkj|dvecgx)" | xargs -r podman rm -f
+systemctl reset-failed ceph-5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c@mgr.srv3.dvecgx.service || true
+systemctl start ceph-5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c@mgr.srv3.dvecgx.service
+systemctl --no-pager -l status ceph-5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c@mgr.srv3.dvecgx.service
+'
+```
+
+### Stale `osd.0` after reprovision
+
+- Symptom: `ceph-osd@0.service` remains failed after migrating to OSDs `1..3`.
+- Workaround:
+  - If Ceph CLI is responsive, purge stale OSD entry:
+
+```bash
+ssh srv3 'ceph osd purge 0 --yes-i-really-mean-it'
+```
+
+  - If CLI is temporarily unresponsive, at least clear local failed unit state:
+
+```bash
+ssh srv3 'systemctl reset-failed ceph-osd@0'
+```
+
 ### Flux bootstrap timing failure
 
 - Symptom: `flux-gitops.service` fails with `TLS handshake timeout` to `https://127.0.0.1:6443/api`.
@@ -245,6 +301,8 @@ ssh srv3 'systemctl restart flux-gitops.service'
 ssh srv3 'comin fetch'
 ssh srv3 'journalctl -u flux-gitops.service -n 120 --no-pager -l'
 ```
+
+If direct SSH exec to `srv3` is flaky while this is happening, run the same commands via `srv4` as a jump host with the `srv3` management key copied to a temporary file on `srv4`.
 
 ### DNS not ready for unlock host alias
 
