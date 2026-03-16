@@ -29,8 +29,13 @@
 
   lukasf.tuxedoControlCenter.enable = true;
   lukasf.shadowTech.enable = true;
+  lukasf.kvm.enable = true;
 
-  users.users.lukasf.extraGroups = lib.mkAfter [ "input" ];
+  users.users.lukasf.extraGroups = lib.mkAfter [
+    "input"
+    "libvirtd"
+    "kvm"
+  ];
   boot.kernelModules = [ "uinput" ];
   services.udev.extraRules = ''
     KERNEL=="uinput", MODE="0660", GROUP="input"

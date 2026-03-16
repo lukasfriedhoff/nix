@@ -21,6 +21,7 @@ in
 
         # Plugin set kept minimal but batteries-included for daily development.
         plugins = lib.filter (p: p != null) [
+          vimPlugins.plenary-nvim
           vimPlugins.lualine-nvim
           vimPlugins.gitsigns-nvim
           vimPlugins.which-key-nvim
@@ -38,7 +39,7 @@ in
           vimPlugins.tokyonight-nvim
           vimPlugins.nvim-notify
           vimPlugins.nui-nvim
-          vimPlugins.ChatGPT-nvim
+          vimPlugins.ollama-nvim
           (vimPlugins.copilot-lua or null)
           (vimPlugins.CopilotChat-nvim or null)
         ];
@@ -55,6 +56,7 @@ in
           nodejs_22
           python3
           lua-language-server
+          gopls
           tree-sitter
         ];
 

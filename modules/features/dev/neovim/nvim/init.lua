@@ -102,17 +102,25 @@ end
 -- Mason / LSP
 local mason = safe_require("mason")
 local mason_lspconfig = safe_require("mason-lspconfig")
-local lspconfig = safe_require("lspconfig")
-if mason and mason_lspconfig and lspconfig then
+if mason and mason_lspconfig then
   mason.setup()
   mason_lspconfig.setup({
-    ensure_installed = { "lua_ls", "bashls", "yamlls", "jsonls", "gopls", "tsserver", "pyright" },
+    ensure_installed = { "lua_ls", "bashls", "yamlls", "jsonls", "ts_ls", "pyright" },
   })
 
   local cmp_nvim_lsp = safe_require("cmp_nvim_lsp")
   local capabilities = cmp_nvim_lsp and cmp_nvim_lsp.default_capabilities() or nil
 
-  local servers = { "lua_ls", "bashls", "yamlls", "jsonls", "gopls", "tsserver", "pyright" }
+  local servers = { "lua_ls", "bashls", "yamlls", "jsonls", "gopls", "ts_ls", "pyright" }
+  -- Neovim 0.11 exposes vim.lsp.config as a callable table (not a plain function).
+  local use_builtin_lsp_config = type(vim.lsp) == "table"
+    and vim.lsp.config ~= nil
+    and type(vim.lsp.enable) == "function"
+  local lspconfig = nil
+  if not use_builtin_lsp_config then
+    lspconfig = safe_require("lspconfig")
+  end
+
   for _, server in ipairs(servers) do
     local opts = {}
     if capabilities then
@@ -126,7 +134,12 @@ if mason and mason_lspconfig and lspconfig then
         },
       }
     end
-    lspconfig[server].setup(opts)
+    if use_builtin_lsp_config then
+      vim.lsp.config(server, opts)
+      vim.lsp.enable(server)
+    elseif lspconfig and lspconfig[server] then
+      lspconfig[server].setup(opts)
+    end
   end
 end
 
@@ -173,11 +186,36 @@ if copilot_chat then
   end, { desc = "Copilot Chat" })
 end
 
-local chatgpt = safe_require("chatgpt")
-if chatgpt then
-  chatgpt.setup()
-  vim.keymap.set("n", "<leader>co", "<cmd>ChatGPT<CR>", { desc = "Codex / ChatGPT" })
-  vim.keymap.set("v", "<leader>ci", "<cmd>ChatGPTEditWithInstruction<CR>", { desc = "Edit with instruction" })
+-- Local LLM via Ollama, optionally through OpenWebUI's Ollama proxy.
+-- Examples:
+--   NVIM_OLLAMA_URL=http://127.0.0.1:11434
+--   NVIM_OLLAMA_URL=http://127.0.0.1:3000/ollama   (OpenWebUI)
+--   NVIM_OLLAMA_MODEL=qwen2.5-coder:7b
+local ollama = safe_require("ollama")
+if ollama then
+  local ollama_url = vim.env.NVIM_OLLAMA_URL or vim.env.OLLAMA_HOST or "http://127.0.0.1:11434"
+  if not ollama_url:match("^https?://") then
+    ollama_url = "http://" .. ollama_url
+  end
+
+  ollama.setup({
+    model = vim.env.NVIM_OLLAMA_MODEL or "llama3.2",
+    url = ollama_url,
+    serve = {
+      on_start = false,
+    },
+  })
+
+  vim.keymap.set({ "n", "v" }, "<leader>oo", function()
+    ollama.prompt()
+  end, { desc = "Ollama prompt" })
+  vim.keymap.set({ "n", "v" }, "<leader>og", function()
+    ollama.prompt("Generate_Code")
+  end, { desc = "Ollama generate code" })
+  vim.keymap.set({ "n", "v" }, "<leader>or", function()
+    ollama.prompt("Raw")
+  end, { desc = "Ollama raw prompt" })
+  vim.keymap.set("n", "<leader>om", "<cmd>OllamaModel<CR>", { desc = "Ollama model" })
 end
 
 -- Codex AI helpers
