@@ -175,7 +175,7 @@ scripts/vms/new-qemu-vm.sh \
   --iso artifacts/iso/nixos-minimal-ci-ssh.iso \
   --libosinfo-os-id http://nixos.org/nixos/unstable \
   --memory 16384 \
-  --vcpus 6 \
+  --vcpus 8 \
   --disk-size 100 \
   --disk-serial srv3-root \
   --extra-disk 20:srv3-swap \

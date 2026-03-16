@@ -46,6 +46,8 @@ Local helper script (single host libvirt):
 scripts/vms/new-qemu-vm.sh \
   --name srv3 \
   --mode iso \
+  --memory 16384 \
+  --vcpus 8 \
   --disk-size 100 \
   --disk-serial srv3-root \
   --extra-disk 20:srv3-swap \
@@ -53,6 +55,21 @@ scripts/vms/new-qemu-vm.sh \
   --extra-disk 50:srv3-ceph2 \
   --extra-disk 50:srv3-ceph3 \
   --iso https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso
+```
+
+If the domain already exists and is still on low resources, update persistent
+libvirt settings and reboot the VM to apply:
+
+```bash
+ssh srv4-root '
+virsh --connect qemu:///system setmaxmem srv3 16777216 --config
+virsh --connect qemu:///system setmem    srv3 16777216 --config
+virsh --connect qemu:///system setvcpus  srv3 8 --maximum --config
+virsh --connect qemu:///system setvcpus  srv3 8 --config
+virsh --connect qemu:///system dumpxml --inactive srv3 | egrep "<memory|<currentMemory|<vcpu"
+'
+# reboot required for live domain to pick up new max memory/vcpu
+ssh srv4-root 'virsh --connect qemu:///system reboot srv3'
 ```
 
 If you run on `srv4`, keep these requirements:
@@ -220,19 +237,42 @@ ssh root@<SRV3_IP> 'journalctl -b -u sshd -u systemd-logind --no-pager -l -n 200
 
 - Symptom: `ceph-volume-osd-create.service` fails with `RuntimeError: Device /dev/vdc has a filesystem`.
 - Cause: old signatures/LVM metadata on ceph data disks from prior runs.
-- Workaround:
+- Workaround (non-destructive stop + clean reprovision):
 
 ```bash
 ssh srv3 '
-for d in /dev/vdc /dev/vdd /dev/vde; do
-  sgdisk --zap-all "$d" || true
-  wipefs -a "$d" || true
+set -euxo pipefail
+systemctl stop ceph-volume-osd-activate.service ceph-volume-osd-create.service || true
+for u in ceph-osd@1.service ceph-osd@2.service ceph-osd@3.service; do
+  systemctl stop "$u" || true
 done
+for id in 1 2 3; do
+  ceph osd purge "$id" --yes-i-really-mean-it || true
+done
+for d in /dev/vdc /dev/vdd /dev/vde; do
+  ceph-volume lvm zap --destroy "$d" || true
+  wipefs -a -f "$d" || true
+done
+rm -f /var/lib/ceph/.osd-zap-ceph-volume.done
 systemctl restart ceph-volume-osd-create.service
+systemctl restart ceph-volume-osd-activate.service
 '
 ```
 
 Only run disk zapping for explicit reprovisioning.
+
+### cephadm-mon-update fails with `mon_unit: unbound variable`
+
+- Symptom: `cephadm-mon-update.service` fails with:
+  - `line 98: mon_unit: unbound variable`
+- Cause: older generation without `mon_unit` default initialization.
+- Recovery:
+
+```bash
+ssh srv3 'comin fetch'
+ssh srv3 'systemctl restart cephadm-mon-update.service'
+ssh srv3 'systemctl --no-pager -l status cephadm-mon-update.service'
+```
 
 ### Ceph OSD starts but fails opening `block` with `Operation not permitted`
 
