@@ -51,7 +51,7 @@ in
     })
     (lib.mkIf isLinuxWorkstation {
       home.sessionVariables = {
-        OLLAMA_HOST = "http://srv1.lab.h4xx.io:11434";
+        OLLAMA_HOST = "http://10.0.11.53:11434";
       };
 
       home.packages = lib.mkAfter [

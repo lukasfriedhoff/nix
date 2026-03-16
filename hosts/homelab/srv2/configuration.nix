@@ -7,6 +7,7 @@
 
 let
   nets = import ../../../resources/homelab/networks.nix;
+  lukasfPasswordHash = "$6$yzoypuzQDaJPoH3Q$jMjF9ciENiSRMMDfkeJJdGb9jMK1W35kNLvO3gH4B58rhWj285gYBI6n8.i8ry8jG5f7Ll3VxNbdvX5Sp2aGs0";
 in
 
 {
@@ -103,6 +104,12 @@ in
 
   boot.initrd.network.udhcpc.enable = true;
   boot.initrd.network.udhcpc.extraArgs = [
+    # Some switches delay forwarding briefly after link-up (STP/listen state).
+    # Retry longer so initrd SSH unlock remains available during boot.
+    "-t"
+    "20"
+    "-T"
+    "3"
     "-x"
     # DHCP option 61 (client identifier): 01 + MAC (no separators)
     "0x3d:01681def3995b2"
@@ -123,9 +130,20 @@ in
     # srv2 srv2.lab.h4xx.io 10.42.1.91
   '';
 
+  users.groups.sudo = { };
+
   users.users.lukasf = {
     isNormalUser = true;
     group = "users";
-    hashedPassword = "$6$yzoypuzQDaJPoH3Q$jMjF9ciENiSRMMDfkeJJdGb9jMK1W35kNLvO3gH4B58rhWj285gYBI6n8.i8ry8jG5f7Ll3VxNbdvX5Sp2aGs0";
+    extraGroups = [
+      "sudo"
+      "wheel"
+    ];
+    hashedPassword = lukasfPasswordHash;
+  };
+
+  users.users.root = {
+    initialHashedPassword = lib.mkForce null;
+    hashedPassword = lukasfPasswordHash;
   };
 }

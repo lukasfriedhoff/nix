@@ -68,4 +68,14 @@
     purpose = "ceph";
     type = "virtual";
   };
+  "ata-ST4000VX016-3CV104_WW60911A" = {
+    host = "srv2";
+    purpose = "storage";
+    type = "hdd";
+  };
+  "ata-WDC_WD40EFRX-68N32N0_WD-WCC7K2FFFP9P" = {
+    host = "srv2";
+    purpose = "storage";
+    type = "hdd";
+  };
 }

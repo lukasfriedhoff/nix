@@ -101,6 +101,7 @@ in
         environment.systemPackages = with pkgs; [
           libvirt
           ceph
+          podman-compose
         ];
 
         # Allow dynamic binaries from third-party installers (e.g., oh-my-opencode CLI).
