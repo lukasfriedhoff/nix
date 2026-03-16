@@ -98,7 +98,9 @@ in
       provisioner = "ceph-volume";
       encrypted = true;
       autoProvision = hasRole "osd";
-      zapDevices = false;
+      # Reprovision helper: keep enabled until OSDs are recreated once.
+      # The ceph module writes a marker to skip further destructive zaps.
+      zapDevices = true;
     };
     monUpdate = {
       enable = hasRole "bootstrap";

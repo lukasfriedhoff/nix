@@ -2960,6 +2960,7 @@ in
               fi
 
               mon=""
+              mon_unit=""
               if [ -n "${monName}" ]; then
                 mon="${monName}"
                 if [ -n "$fsid" ] && [ -f "/run/systemd/system/ceph-''${fsid}@.service" ]; then
