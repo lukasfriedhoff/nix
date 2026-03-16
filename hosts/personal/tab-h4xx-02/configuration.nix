@@ -52,7 +52,7 @@
 
   # Trim and power tuning for the low-power SoC and eMMC
   services.fstrim.enable = true;
-  powerManagement.powertop.enable = true;
+  powerManagement.powertop.enable = false;
 
   # Trim GNOME background services on 4 GB RAM devices
   services.gnome = {

@@ -20,7 +20,8 @@ in
     # Power management
     powerManagement = {
       enable = true;
-      powertop.enable = lib.mkDefault true;
+      # Keep powertop available as a tool, but do not apply auto-tune globally.
+      powertop.enable = lib.mkDefault false;
     };
 
     # TLP for advanced power management (alternative to auto-cpufreq)
