@@ -160,6 +160,42 @@ in
     owner = "root";
   };
 
+  sops.secrets."srv3-bootstrap-password" = {
+    sopsFile = ../../../secrets/profiles/personal/servers/srv3/bootstrap-password.txt;
+    format = "binary";
+    mode = "0400";
+    owner = "root";
+  };
+
+  systemd.services.srv3-bootstrap-password = {
+    description = "Apply srv3 bootstrap password from SOPS secret";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "sops-install-secrets.service" ];
+    requires = [ "sops-install-secrets.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+      secret="${config.sops.secrets."srv3-bootstrap-password".path}"
+      if [ ! -s "$secret" ]; then
+        exit 0
+      fi
+
+      password="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret")"
+      if [ -z "$password" ]; then
+        echo "srv3 bootstrap password secret is empty" >&2
+        exit 1
+      fi
+
+      ${pkgs.shadow}/bin/chpasswd <<EOF
+      root:$password
+      nixos:$password
+      EOF
+    '';
+  };
+
   # Needed by cephadm to satisfy asyncssh dependency for health checks.
   environment.systemPackages = with pkgs; [
     python3Packages.asyncssh
