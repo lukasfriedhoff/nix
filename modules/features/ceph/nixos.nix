@@ -134,7 +134,8 @@ let
     export PATH="${cephadmBinPath}:''${PATH:-}"
     exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
-  cephadmMgrPath = "/run/ceph/cephadm-orch";
+  cephadmMgrPathHost = "/run/ceph/cephadm-orch";
+  cephadmMgrPathContainer = "/usr/sbin/cephadm";
   cephadmMgrWrapper = pkgs.writeTextFile {
     name = "cephadm-orch-wrapper.py";
     executable = true;
@@ -1608,7 +1609,9 @@ in
                                 sleep 2
                               done
 
-                              ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}" >/dev/null 2>&1 || true
+                              ceph_cmd config set mgr cephadm_path "${
+                                if cfg.bootstrap.enable then cephadmMgrPathContainer else cephadmMgrPathHost
+                              }" >/dev/null 2>&1 || true
 
                               resolved_devices=""
                               for dev in ${deviceList}; do
@@ -1890,7 +1893,15 @@ in
                 continue
               fi
               osd_id="''${osd_dir##*/ceph-}"
+              osd_keyring="$osd_dir/keyring"
               if [ -n "$osd_id" ]; then
+                if [ ! -s "$osd_keyring" ]; then
+                  echo "ceph-volume: skipping stale OSD dir $osd_dir (missing keyring)" >&2
+                  ${pkgs.systemd}/bin/systemctl stop "ceph-osd@''${osd_id}.service" >/dev/null 2>&1 || true
+                  ${pkgs.systemd}/bin/systemctl disable "ceph-osd@''${osd_id}.service" >/dev/null 2>&1 || true
+                  ${pkgs.systemd}/bin/systemctl reset-failed "ceph-osd@''${osd_id}.service" >/dev/null 2>&1 || true
+                  continue
+                fi
                 ${pkgs.systemd}/bin/systemctl start "ceph-osd@''${osd_id}.service" || true
               fi
             done
@@ -3189,17 +3200,19 @@ in
                 exit 1
               fi
 
-              if [ -n "$fsid" ]; then
+              cephadm_path="${if cfg.bootstrap.enable then cephadmMgrPathContainer else cephadmMgrPathHost}"
+              if [ "${if cfg.bootstrap.enable then "1" else "0"}" != "1" ]; then
                 install -d -m 0755 -o ceph -g ceph /run/ceph
-                cephadm_path="${cephadmMgrPath}"
                 install -D -m 0755 -o ceph -g ceph ${cephadmMgrWrapper} "$cephadm_path"
               fi
 
               current="$(
                 ceph_cmd config get mgr cephadm_path 2>/dev/null || true
               )"
-              if [ "$current" != "${cephadmMgrPath}" ]; then
-                ceph_cmd config set mgr cephadm_path "${cephadmMgrPath}"
+              path_changed=0
+              if [ "$current" != "$cephadm_path" ]; then
+                ceph_cmd config set mgr cephadm_path "$cephadm_path"
+                path_changed=1
               fi
               ceph_cmd config set mgr mgr/cephadm/mode root >/dev/null 2>&1 || true
 
@@ -3213,6 +3226,22 @@ in
                 fi
                 sleep 2
               done
+              if [ "$orch_ready" -ne 1 ] && [ "$path_changed" -eq 1 ]; then
+                active_mgr="$(
+                  ceph_cmd mgr dump 2>/dev/null | sed -n 's/.*"active_name": "\([^"]*\)".*/\1/p' | head -n1
+                )"
+                if [ -n "$active_mgr" ]; then
+                  ceph_cmd mgr fail "$active_mgr" >/dev/null 2>&1 || true
+                  sleep 8
+                  for _ in $(seq 1 8); do
+                    if ceph_cmd_timeout 10 orch status >/dev/null 2>&1; then
+                      orch_ready=1
+                      break
+                    fi
+                    sleep 2
+                  done
+                fi
+              fi
               if [ "$orch_ready" -ne 1 ]; then
                 echo "cephadm path: ceph orch unavailable after updating cephadm_path; leaving path configured and continuing" >&2
                 exit 0
