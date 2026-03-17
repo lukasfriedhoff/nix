@@ -203,6 +203,47 @@ in
     python3Packages.asyncssh
   ];
 
+  # `ceph orch` is unavailable on this single-node demo cluster; bootstrap an
+  # MDS keyring and run one local MDS daemon so CephFS can come online.
+  systemd.services."ceph-mds-${hostName}-keyring" = lib.mkIf (hasRole "bootstrap") {
+    description = "Ensure Ceph MDS keyring for ${hostName}";
+    wantedBy = [ "multi-user.target" ];
+    wants = [ "cephadm-cephfs.service" ];
+    after = [ "cephadm-cephfs.service" ];
+    path = [ pkgs.ceph ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+      keyring_dir="/var/lib/ceph/mds/ceph-${hostName}"
+      keyring_path="$keyring_dir/keyring"
+      mkdir -p "$keyring_dir"
+      ceph auth get-or-create "mds.${hostName}" \
+        mon 'allow profile mds' \
+        osd 'allow rw tag cephfs *=*' \
+        mds 'allow' \
+        -o "$keyring_path"
+      chown -R ceph:ceph "$keyring_dir"
+    '';
+  };
+
+  systemd.services."ceph-mds-${hostName}-start" = lib.mkIf (hasRole "bootstrap") {
+    description = "Start Ceph MDS instance ${hostName}";
+    wantedBy = [ "multi-user.target" ];
+    wants = [ "ceph-mds-${hostName}-keyring.service" ];
+    after = [ "ceph-mds-${hostName}-keyring.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+      systemctl start ceph-mds@${hostName}.service
+    '';
+  };
+
   networking.firewall.allowedTCPPorts = [ 4243 ];
 
   networking.extraHosts = ''

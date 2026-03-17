@@ -994,26 +994,30 @@ in
           target_uid=${toString cfg.user.uid}
           target_gid=${toString cfg.user.gid}
           stopped_units=0
+          active_ceph_units_file="$(mktemp)"
+          trap 'rm -f "$active_ceph_units_file"' EXIT
 
           stop_ceph_units() {
-            systemctl stop \
+            systemctl list-units \
+              --type=service \
+              --state=active \
+              --no-legend \
               'ceph-mon@*.service' \
               'ceph-mgr@*.service' \
               'ceph-osd@*.service' \
               'ceph-mds@*.service' \
               'ceph-radosgw@*.service' \
-              >/dev/null 2>&1 || true
-            stopped_units=1
+              | awk '{print $1}' > "$active_ceph_units_file" || true
+            if [ -s "$active_ceph_units_file" ]; then
+              xargs -r systemctl stop < "$active_ceph_units_file" >/dev/null 2>&1 || true
+              stopped_units=1
+            fi
           }
 
           start_ceph_units() {
-            systemctl start \
-              'ceph-mon@*.service' \
-              'ceph-mgr@*.service' \
-              'ceph-osd@*.service' \
-              'ceph-mds@*.service' \
-              'ceph-radosgw@*.service' \
-              >/dev/null 2>&1 || true
+            if [ -s "$active_ceph_units_file" ]; then
+              xargs -r systemctl start < "$active_ceph_units_file" >/dev/null 2>&1 || true
+            fi
           }
 
           stop_ceph_processes() {
