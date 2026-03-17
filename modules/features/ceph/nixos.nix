@@ -135,7 +135,7 @@ let
     exec ${cephPkg}/bin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
   '';
   cephadmMgrPathHost = "/run/ceph/cephadm-orch";
-  cephadmMgrPathContainer = "/usr/sbin/cephadm";
+  cephadmMgrPathContainer = "/var/run/ceph/cephadm-orch";
   cephadmMgrWrapper = pkgs.writeTextFile {
     name = "cephadm-orch-wrapper.py";
     executable = true;
@@ -153,6 +153,14 @@ let
       if use_sudo and os.geteuid() != 0:
           os.execv(sudo_cmd, [sudo_cmd, "-n", "${cephadm}"] + args)
       os.execv("${cephadm}", ["${cephadm}"] + args)
+    '';
+  };
+  cephadmMgrContainerWrapper = pkgs.writeTextFile {
+    name = "cephadm-orch-container-wrapper.sh";
+    executable = true;
+    text = ''
+      #!/bin/sh
+      exec /usr/sbin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
     '';
   };
   python = "${pkgs.python3}/bin/python3";
@@ -3201,7 +3209,11 @@ in
               fi
 
               cephadm_path="${if cfg.bootstrap.enable then cephadmMgrPathContainer else cephadmMgrPathHost}"
-              if [ "${if cfg.bootstrap.enable then "1" else "0"}" != "1" ]; then
+              if [ "${if cfg.bootstrap.enable then "1" else "0"}" = "1" ]; then
+                host_cephadm_path="/var/run/ceph/$fsid/cephadm-orch"
+                install -d -m 0755 -o ceph -g ceph "/var/run/ceph/$fsid"
+                install -D -m 0755 -o ceph -g ceph ${cephadmMgrContainerWrapper} "$host_cephadm_path"
+              else
                 install -d -m 0755 -o ceph -g ceph /run/ceph
                 install -D -m 0755 -o ceph -g ceph ${cephadmMgrWrapper} "$cephadm_path"
               fi
@@ -3226,7 +3238,9 @@ in
                 fi
                 sleep 2
               done
-              if [ "$orch_ready" -ne 1 ] && [ "$path_changed" -eq 1 ]; then
+              if [ "$orch_ready" -ne 1 ] && [ "$path_changed" -eq 1 -o "${
+                if cfg.bootstrap.enable then "1" else "0"
+              }" = "1" ]; then
                 active_mgr="$(
                   ceph_cmd mgr dump 2>/dev/null | sed -n 's/.*"active_name": "\([^"]*\)".*/\1/p' | head -n1
                 )"
@@ -3245,6 +3259,13 @@ in
               if [ "$orch_ready" -ne 1 ]; then
                 echo "cephadm path: ceph orch unavailable after updating cephadm_path; leaving path configured and continuing" >&2
                 exit 0
+              fi
+              if [ "${if cfg.bootstrap.singleHostDefaults then "1" else "0"}" = "1" ]; then
+                ceph_cmd orch apply mon --placement "count:1" >/dev/null 2>&1 || true
+                ceph_cmd orch apply mgr --placement "count:1" >/dev/null 2>&1 || true
+              fi
+              if [ "${if cfg.osd.devices != [ ] then "1" else "0"}" = "1" ]; then
+                ceph_cmd config set mgr mgr/cephadm/warn_on_stray_daemons false >/dev/null 2>&1 || true
               fi
             '';
         };
