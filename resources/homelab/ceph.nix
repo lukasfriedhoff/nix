@@ -242,7 +242,7 @@
           secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "srv3.lab.h4xx.io";
+          monHost = "10.1.30.25";
           monPort = 3300;
         }
         {
@@ -252,7 +252,7 @@
           secretUuid = "3ddfbba6-8046-4d3e-a18b-1f2542002865";
           keyringFile = "/etc/ceph/ceph.client.admin.keyring";
           confFile = "/etc/ceph/ceph.conf";
-          monHost = "srv3.lab.h4xx.io";
+          monHost = "10.1.30.25";
           monPort = 3300;
         }
       ];
