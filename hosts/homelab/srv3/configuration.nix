@@ -147,7 +147,7 @@ in
       enable = true;
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
       branch = "develop";
-      path = "./overlays/homelab";
+      path = "./overlays/testing-srv3";
       sopsAgeKeyFile = config.sops.secrets."flux-sops-age-key".path;
       sourceName = "flux-cluster";
       kustomizationName = "testing";
