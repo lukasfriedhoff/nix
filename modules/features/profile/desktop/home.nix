@@ -46,6 +46,7 @@ in
 
       home.packages = [
         pkgs.gpodder
+        pkgs.cloudflared
         inputs.witr.packages.${pkgs.system}.default
       ];
     })
