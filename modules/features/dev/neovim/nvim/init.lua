@@ -219,9 +219,83 @@ if ollama then
 end
 
 -- Codex AI helpers
-if vim.fn.executable("codex") == 1 then
+local function detect_codex_cli()
+  local candidates = {}
+  local seen = {}
+
+  local function add_candidate(path)
+    if type(path) ~= "string" then
+      return
+    end
+    local trimmed = vim.trim(path)
+    if trimmed == "" or seen[trimmed] then
+      return
+    end
+    seen[trimmed] = true
+    table.insert(candidates, trimmed)
+  end
+
+  add_candidate(vim.env.CODEX_BIN)
+  add_candidate(vim.fn.exepath("codex"))
+  for _, path in ipairs(vim.fn.systemlist("which -a codex 2>/dev/null")) do
+    add_candidate(path)
+  end
+
+  local legacy = nil
+  for _, bin in ipairs(candidates) do
+    vim.fn.system({ bin, "exec", "--help" })
+    if vim.v.shell_error == 0 then
+      return { bin = bin, mode = "exec" }
+    end
+
+    local help = vim.fn.system({ bin, "--help" })
+    if vim.v.shell_error == 0 and help:find("%-%-plain") and legacy == nil then
+      legacy = { bin = bin, mode = "plain" }
+    end
+  end
+
+  return legacy
+end
+
+local codex_cli = detect_codex_cli()
+if codex_cli then
   local function run_codex(prompt)
-    local output = vim.fn.system({ "codex", "--plain", prompt })
+    if codex_cli.mode == "exec" then
+      local output_file = vim.fn.tempname()
+      local output = vim.fn.system({
+        codex_cli.bin,
+        "exec",
+        "--color",
+        "never",
+        "--output-last-message",
+        output_file,
+        "--",
+        prompt,
+      })
+      local shell_error = vim.v.shell_error
+      local reply = ""
+
+      if vim.fn.filereadable(output_file) == 1 then
+        reply = table.concat(vim.fn.readfile(output_file), "\n")
+        vim.fn.delete(output_file)
+      end
+
+      if shell_error ~= 0 then
+        local err = vim.trim(reply ~= "" and reply or output)
+        if err == "" then
+          err = "Unknown error"
+        end
+        vim.notify("Codex error: " .. err, vim.log.levels.ERROR)
+        return nil
+      end
+
+      if vim.trim(reply) == "" then
+        reply = vim.trim(output)
+      end
+      return reply
+    end
+
+    local output = vim.fn.system({ codex_cli.bin, "--plain", prompt })
     if vim.v.shell_error ~= 0 then
       vim.notify("Codex error: " .. output, vim.log.levels.ERROR)
       return nil
@@ -249,7 +323,11 @@ if vim.fn.executable("codex") == 1 then
   end, { nargs = "*" })
 
   vim.api.nvim_create_user_command("CodexTerminal", function()
-    vim.cmd("tabnew | terminal codex")
+    if codex_cli.mode ~= "exec" then
+      vim.notify("Interactive Codex terminal requires Codex CLI with `exec` support", vim.log.levels.WARN)
+      return
+    end
+    vim.cmd("tabnew | terminal " .. vim.fn.fnameescape(codex_cli.bin))
   end, { desc = "Launch interactive Codex terminal" })
 
   vim.keymap.set("n", "<leader>ca", function()
