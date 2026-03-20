@@ -7,6 +7,19 @@
 
 let
   cfg = config.programs.vscode;
+
+  # Prefer the packaged Mermaid markdown extension when available.
+  mermaidExtension =
+    if (pkgs.vscode-extensions ? bierner) && (pkgs.vscode-extensions.bierner ? markdown-mermaid) then
+      pkgs.vscode-extensions.bierner.markdown-mermaid
+    else if
+      (pkgs ? vscode-marketplace)
+      && (pkgs.vscode-marketplace ? bierner)
+      && (pkgs.vscode-marketplace.bierner ? markdown-mermaid)
+    then
+      pkgs.vscode-marketplace.bierner.markdown-mermaid
+    else
+      null;
 in
 {
   config = lib.mkMerge [
@@ -17,20 +30,22 @@ in
       programs.vscode = {
         package = pkgs.vscode;
         profiles.default = {
-          extensions = with pkgs.vscode-extensions; [
-            golang.go
-            hashicorp.hcl
-            hashicorp.terraform
-            jnoortheen.nix-ide
-            redhat.vscode-yaml
-            redhat.vscode-xml
-            vscjava.vscode-java-pack
-            ms-python.python
-            ms-kubernetes-tools.vscode-kubernetes-tools
-            dbaeumer.vscode-eslint
-            github.copilot
-            github.copilot-chat
-          ];
+          extensions =
+            (with pkgs.vscode-extensions; [
+              golang.go
+              hashicorp.hcl
+              hashicorp.terraform
+              jnoortheen.nix-ide
+              redhat.vscode-yaml
+              redhat.vscode-xml
+              vscjava.vscode-java-pack
+              ms-python.python
+              ms-kubernetes-tools.vscode-kubernetes-tools
+              dbaeumer.vscode-eslint
+              github.copilot
+              github.copilot-chat
+            ])
+            ++ lib.optional (mermaidExtension != null) mermaidExtension;
 
           userSettings = {
             "editor.formatOnSave" = true;
@@ -43,6 +58,14 @@ in
             "update.showReleaseNotes" = false;
             "extensions.autoUpdate" = false;
             "extensions.autoCheckUpdates" = false;
+
+            # Markdown preview support (including Mermaid rendering).
+            "markdown.preview.mermaid" = true;
+            "markdown.experimental.previewMermaid" = true;
+            "markdown-mermaid.lightModeTheme" = "default";
+            "markdown-mermaid.darkModeTheme" = "dark";
+            "markdown-mermaid.languages" = [ "mermaid" ];
+
             "terminal.integrated.defaultProfile.linux" = "Nix Bash";
             "terminal.integrated.profiles.linux" = {
               "Nix Bash" = {
