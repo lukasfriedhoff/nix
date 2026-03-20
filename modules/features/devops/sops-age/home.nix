@@ -4,12 +4,20 @@
   pkgs,
   config,
   secrets,
+  profile ? null,
   workSystem ? false,
   ...
 }:
 
 let
   cfg = config.programs."sops-age";
+  personalDesktopProfiles = [
+    "srv4"
+    "tux"
+    "tab"
+    "lenovo"
+  ];
+  isPersonalDesktop = profile != null && lib.elem profile personalDesktopProfiles;
 in
 {
   options.programs."sops-age" = {
@@ -50,6 +58,7 @@ in
         sshKeyPrivSecret = secretPath "git-personal-ed25519.priv";
         gpgSecret = secretPath "git-personal-gpg.asc";
         openAIEnv = secretPath "openai.env";
+        cloudflareApiMgmtToken = secretPath "cloudflare/api-mgmt.token.txt";
         nextcloudConfig = secretPath "nextcloud/nextcloud.cfg.txt";
         nextcloudExclude = secretPath "nextcloud/sync-exclude.lst.txt";
         extraSshKeys = import ../../../../resources/ssh/keys.nix;
@@ -65,7 +74,12 @@ in
         ];
 
         # still nice for interactive shells; activation exports explicitly too
-        home.sessionVariables.SOPS_AGE_KEY_FILE = ageKeyFile;
+        home.sessionVariables = {
+          SOPS_AGE_KEY_FILE = ageKeyFile;
+        }
+        // lib.optionalAttrs (!workSystem && isPersonalDesktop) {
+          CLOUDFLARE_API_TOKEN_FILE = "${config.xdg.configHome}/secrets/cloudflare-api-mgmt.token";
+        };
 
         # --- existing: import personal GPG key if missing (unchanged) ---
         home.activation.importPersonalGitKey = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -163,6 +177,28 @@ in
             "${pkgs.coreutils}/bin/rm" -f "$dst"
           fi
         '';
+
+        home.activation.decryptCloudflareApiMgmtToken = lib.mkIf (!workSystem && isPersonalDesktop) (
+          lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            set -eu
+
+            export SOPS_AGE_KEY_FILE='${ageKeyFile}'
+
+            cfg_dir="${config.xdg.configHome}/secrets"
+            "${pkgs.coreutils}/bin/mkdir" -p "$cfg_dir"
+
+            dst="$cfg_dir/cloudflare-api-mgmt.token"
+
+            if [ -f '${cloudflareApiMgmtToken}' ]; then
+              tmp="$(mktemp)"
+              ${sopsBin} -d '${cloudflareApiMgmtToken}' > "$tmp"
+              "${pkgs.coreutils}/bin/install" -m 600 "$tmp" "$dst"
+              "${pkgs.coreutils}/bin/rm" -f "$tmp"
+            elif [ -f "$dst" ]; then
+              "${pkgs.coreutils}/bin/rm" -f "$dst"
+            fi
+          ''
+        );
 
         home.activation.installNextcloudConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           set -eu

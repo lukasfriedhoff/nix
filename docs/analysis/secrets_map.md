@@ -20,6 +20,7 @@ secrets/profiles/
 │       (reserved for cross-profile secrets)
 ├── personal/
 │   ├── shared/                          [tux, tab, lenovo, srv4, srv1]
+│   │   ├── cloudflare/                  (Cloudflare API tokens for personal infra automation)
 │   │   ├── homelab/                     (shared personal homelab secrets)
 │   │   │   └── flux-cluster-dev/
 │   │   └── luks/                        (shared luks material)
