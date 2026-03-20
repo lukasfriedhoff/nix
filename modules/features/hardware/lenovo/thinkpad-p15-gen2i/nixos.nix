@@ -23,8 +23,11 @@ in
 
     hardware.nvidia = {
       modesetting.enable = true;
-      powerManagement.enable = false;
+      # Required for reliable Wayland resume with NVIDIA (installs nvidia-suspend/resume hooks).
+      powerManagement.enable = true;
       powerManagement.finegrained = false;
+      # Work around intermittent external display blanking/Xid crashes on Wayland.
+      gsp.enable = false;
       open = false;
       package = config.boot.kernelPackages.nvidiaPackages.stable;
       prime = {
