@@ -193,16 +193,17 @@ in
             ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
           fi
 
-          if ! ${fluxBin} --namespace flux-system get kustomization ${cfg.gitops.kustomizationName} >/dev/null 2>&1; then
-            ${fluxBin} create kustomization ${cfg.gitops.kustomizationName} \
-              --target-namespace flux-system \
-              --source=GitRepository/${cfg.gitops.sourceName} \
-              --path='${cfg.gitops.path}' \
-              --prune=true \
-              --interval=${cfg.gitops.interval}
-          else
-            ${fluxBin} reconcile kustomization ${cfg.gitops.kustomizationName}
-          fi
+          # Keep the root Kustomization spec in sync with Nix options (path/source/interval).
+          ${fluxBin} create kustomization ${cfg.gitops.kustomizationName} \
+            --target-namespace flux-system \
+            --source=GitRepository/${cfg.gitops.sourceName} \
+            --path='${cfg.gitops.path}' \
+            --prune=true \
+            --interval=${cfg.gitops.interval} \
+            --export \
+            | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+
+          ${fluxBin} reconcile kustomization ${cfg.gitops.kustomizationName}
         '';
       };
       wantedBy = [ "multi-user.target" ];
