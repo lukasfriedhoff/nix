@@ -7,11 +7,13 @@
   personal = {
     user = "lukasf";
     defaultIdentity = "~/.ssh/personal/id_ed25519";
+    keyDir = "~/.ssh/personal";
   };
 
   # Work / Dacoso defaults
   dacoso = {
     user = "lukasfriedhoff";
-    defaultIdentity = "~/.ssh/id_ed25519_dacoso";
+    defaultIdentity = "~/.ssh/work/ci";
+    keyDir = "~/.ssh/work";
   };
 }

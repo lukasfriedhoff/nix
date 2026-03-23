@@ -13,7 +13,8 @@ let
   defaultsProfile = if workSystem then sshData.defaults.dacoso else sshData.defaults.personal;
   hostsProfile = if workSystem then sshData.dacosoHosts else sshData.personalHosts;
 
-  keyFromName = host: if lib.hasAttr "keyName" host then "~/.ssh/personal/${host.keyName}" else null;
+  keyFromName =
+    host: if lib.hasAttr "keyName" host then "${defaultsProfile.keyDir}/${host.keyName}" else null;
 
   identityFor =
     host:
@@ -95,13 +96,13 @@ in
               HostName github.com
               User git
               IdentitiesOnly yes
-              IdentityFile ~/.ssh/id_ed25519_dacoso
+              IdentityFile ~/.ssh/work/github
 
             Host bitbucket.org
               HostName bitbucket.org
               User git
               IdentitiesOnly yes
-              IdentityFile ~/.ssh/bitbucket
+              IdentityFile ~/.ssh/work/bitbucket
           ''
         else
           ''
@@ -122,6 +123,16 @@ in
       home.file.".ssh/config.d/20-hosts".text = renderHostsFile (
         if workSystem then "dacoso" else "personal"
       ) hostsProfile;
+
+      home.file.".ssh/config.d/30-work-subnet-default" = lib.mkIf workSystem {
+        text = ''
+          # Fallback for direct work LAN IP logins without explicit host blocks.
+          # Keep this after 20-hosts so per-host IdentityFile values win first.
+          Host 10.7.*
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/work/ci
+        '';
+      };
 
       home.file.".ssh/config.d/40-chaospott" = lib.mkIf (!workSystem && !pkgs.stdenv.isDarwin) {
         source = ../../../../resources/ssh/config.d/chaospott;
