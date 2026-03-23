@@ -61,9 +61,29 @@ in
         cloudflareApiMgmtToken = secretPath "cloudflare/api-mgmt.token.txt";
         nextcloudConfig = secretPath "nextcloud/nextcloud.cfg.txt";
         nextcloudExclude = secretPath "nextcloud/sync-exclude.lst.txt";
-        extraSshKeys = import ../../../../resources/ssh/keys.nix;
+        extraSshKeys =
+          let
+            allSshKeys = import ../../../../resources/ssh/keys.nix;
+            keyScope = spec: spec.scope or "all";
+          in
+          if workSystem then
+            lib.filter (
+              spec:
+              let
+                scope = keyScope spec;
+              in
+              scope == "work" || scope == "all"
+            ) allSshKeys
+          else
+            lib.filter (
+              spec:
+              let
+                scope = keyScope spec;
+              in
+              scope == "personal" || scope == "all"
+            ) allSshKeys;
         extraSshConfigSnippets = import ../../../../resources/ssh/config-snippets.nix;
-        managedSshFiles = (lib.optionals (!workSystem) extraSshKeys) ++ extraSshConfigSnippets;
+        managedSshFiles = extraSshKeys ++ extraSshConfigSnippets;
         ageKeyFile = "${config.xdg.configHome}/sops/age/keys.txt";
         personalSshDir = "${config.home.homeDirectory}/.ssh/personal";
       in
@@ -155,6 +175,24 @@ in
 
             ln -sf "${personalSshDir}/id_ed25519" "${config.home.homeDirectory}/.ssh/id_ed25519"
             ln -sf "${personalSshDir}/id_ed25519.pub" "${config.home.homeDirectory}/.ssh/id_ed25519.pub"
+          ''
+        );
+
+        home.activation.removePersonalDefaultSshKeyOnWork = lib.mkIf workSystem (
+          lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            set -eu
+
+            rm -f "${config.home.homeDirectory}/.ssh/id_ed25519"
+            rm -f "${config.home.homeDirectory}/.ssh/id_ed25519.pub"
+            rm -f "${config.home.homeDirectory}/.ssh/github"
+            rm -f "${config.home.homeDirectory}/.ssh/github.pub"
+            rm -f "${config.home.homeDirectory}/.ssh/bitbucket"
+            rm -f "${config.home.homeDirectory}/.ssh/bitbucket.pub"
+            rm -f "${config.home.homeDirectory}/.ssh/ci"
+            rm -f "${config.home.homeDirectory}/.ssh/ci.pub"
+            rm -f "${config.home.homeDirectory}/.ssh/aruba3"
+            rm -f "${config.home.homeDirectory}/.ssh/aruba3.pub"
+            rm -rf "${config.home.homeDirectory}/.ssh/personal"
           ''
         );
 
@@ -265,8 +303,14 @@ in
             chmod 700 "${config.home.homeDirectory}/.ssh"
             mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
             chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
-            mkdir -p "${personalSshDir}"
-            chmod 700 "${personalSshDir}"
+            ${lib.optionalString workSystem ''
+              mkdir -p "${config.home.homeDirectory}/.ssh/work"
+              chmod 700 "${config.home.homeDirectory}/.ssh/work"
+            ''}
+            ${lib.optionalString (!workSystem) ''
+              mkdir -p "${personalSshDir}"
+              chmod 700 "${personalSshDir}"
+            ''}
 
               ${lib.concatMapStrings mkCommands managedSshFiles}
           '';
