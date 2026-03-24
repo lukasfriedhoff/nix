@@ -232,7 +232,49 @@
         }
       ];
       rgw = {
-        enable = false;
+        enable = true;
+        serviceId = "testing";
+        realm = "testing";
+        zonegroup = "testing";
+        zone = "testing";
+        endpoint = "http://10.1.30.25:7480";
+        region = "us-east-1";
+        poolPrefix = "testing";
+        pool = {
+          size = 1;
+          minSize = 1;
+        };
+        bucketPrefix = "testing";
+        users = [
+          {
+            name = "testing-lgtm";
+            displayName = "Testing LGTM";
+            accessKeyFile = "5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c/rgw/testing-lgtm.access.key";
+            secretKeyFile = "5bb51195-8104-49cb-ad7c-a7cb6a7bfb1c/rgw/testing-lgtm.secret.key";
+          }
+        ];
+        buckets = [
+          {
+            name = "loki";
+            user = "testing-lgtm";
+          }
+          {
+            name = "mimir-blocks";
+            user = "testing-lgtm";
+          }
+          {
+            name = "mimir-alertmanager";
+            user = "testing-lgtm";
+          }
+          {
+            name = "mimir-ruler";
+            user = "testing-lgtm";
+          }
+          {
+            name = "tempo";
+            user = "testing-lgtm";
+          }
+        ];
       };
       kvmPools = [
         {
