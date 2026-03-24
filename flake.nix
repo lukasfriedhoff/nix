@@ -222,6 +222,7 @@
               shared = sharedCommonRoot;
               profileShared = personalSharedRoot;
               profileCommon = personalCommonDesktopRoot;
+              ceph = "${personalProfileRoot}/servers/ceph";
               root = personalServerRoot "srv3";
               personal = personalServerRoot "srv3";
             };

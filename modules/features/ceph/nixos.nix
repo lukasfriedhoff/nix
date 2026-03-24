@@ -156,11 +156,20 @@ let
     '';
   };
   cephadmMgrContainerWrapper = pkgs.writeTextFile {
-    name = "cephadm-orch-container-wrapper.sh";
+    name = "cephadm-orch-container-wrapper.py";
     executable = true;
     text = ''
-      #!/bin/sh
-      exec /usr/sbin/cephadm ${lib.escapeShellArgs cephadmArgs} "$@"
+      #!/usr/bin/env python3
+      import os
+      import sys
+
+      args = sys.argv[1:]
+      if "--unit-dir" not in args:
+          args = ["--unit-dir", "${cfg.cephadm.unitDir}"] + args
+      cephadm = "/run/current-system/sw/bin/cephadm"
+      if not os.path.exists(cephadm):
+          cephadm = "/usr/sbin/cephadm"
+      os.execv(cephadm, [cephadm] + args)
     '';
   };
   python = "${pkgs.python3}/bin/python3";
