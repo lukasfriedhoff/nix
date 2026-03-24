@@ -27,7 +27,7 @@ in
       xkb = {
         layout = "us,de";
         variant = ",nodeadkeys";
-        options = "grp:win_space_toggle";
+        options = "grp:ctrl_space_toggle";
       };
     };
 
@@ -41,6 +41,13 @@ in
     services.gnome.gnome-online-accounts.enable = true;
     services.gnome.evolution-data-server.enable = true;
     services.printing.enable = true;
+
+    # Ignore hardware suspend-key events from flaky consumer-control devices.
+    # Suspend through lid close / UI actions still works.
+    services.logind.settings.Login = {
+      HandleSuspendKey = "ignore";
+      HandleSuspendKeyLongPress = "ignore";
+    };
 
     programs.firefox = {
       enable = true;

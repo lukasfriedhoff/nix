@@ -49,6 +49,25 @@ in
         pkgs.cloudflared
         inputs.witr.packages.${pkgs.system}.default
       ];
+
+      dconf.settings."org/gnome/desktop/wm/keybindings" = {
+        "switch-windows" = [ "<Alt>Tab" ];
+        "switch-windows-backward" = [ "<Shift><Alt>Tab" ];
+        "switch-applications" = [ ];
+        "switch-applications-backward" = [ ];
+        "switch-input-source" = [ "<Control>space" ];
+        "switch-input-source-backward" = [ "<Shift><Control>space" ];
+      };
+
+      dconf.settings."org/gnome/desktop/input-sources" = {
+        "xkb-options" = [ "grp:ctrl_space_toggle" ];
+      };
+
+      # Prevent immediate re-suspend after long idle periods across sleep/resume cycles.
+      dconf.settings."org/gnome/settings-daemon/plugins/power" = {
+        "sleep-inactive-ac-type" = "nothing";
+        "sleep-inactive-battery-type" = "nothing";
+      };
     })
     (lib.mkIf isLinuxWorkstation {
       home.sessionVariables = {
@@ -82,13 +101,6 @@ in
       programs.icarusModManager = {
         enable = true;
         autoInstallDotnet80 = true;
-      };
-
-      dconf.settings."org/gnome/desktop/wm/keybindings" = {
-        "switch-windows" = [ "<Alt>Tab" ];
-        "switch-windows-backward" = [ "<Shift><Alt>Tab" ];
-        "switch-applications" = [ ];
-        "switch-applications-backward" = [ ];
       };
     })
   ];
