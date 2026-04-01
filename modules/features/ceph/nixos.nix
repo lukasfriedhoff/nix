@@ -707,6 +707,21 @@ in
         description = "Use dm-crypt for OSDs managed by cephadm.";
       };
 
+      deviceClass = lib.mkOption {
+        type = lib.types.nullOr (
+          lib.types.enum [
+            "hdd"
+            "ssd"
+            "nvme"
+          ]
+        );
+        default = null;
+        description = ''
+          Optional CRUSH device class to enforce for local OSDs after activation.
+          Useful for virtualized OSDs where rotational hints are misleading.
+        '';
+      };
+
       zapDevices = lib.mkOption {
         type = lib.types.bool;
         default = false;
@@ -1870,6 +1885,7 @@ in
             set -euo pipefail
             admin_keyring="/etc/ceph/ceph.client.admin.keyring"
             ceph_bin="${cephPkg}/bin/ceph"
+            osd_device_class="${if cfg.osd.deviceClass == null then "" else cfg.osd.deviceClass}"
             if [ -s "$admin_keyring" ]; then
               for osd_dir in /var/lib/ceph/osd/ceph-*; do
                 if [ ! -d "$osd_dir" ]; then
@@ -1920,6 +1936,12 @@ in
                   continue
                 fi
                 ${pkgs.systemd}/bin/systemctl start "ceph-osd@''${osd_id}.service" || true
+                if [ -n "$osd_device_class" ] && [ -s "$admin_keyring" ]; then
+                  timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                    osd crush rm-device-class "osd.''${osd_id}" >/dev/null 2>&1 || true
+                  timeout 10 "$ceph_bin" -n client.admin -k "$admin_keyring" \
+                    osd crush set-device-class "$osd_device_class" "osd.''${osd_id}" >/dev/null 2>&1 || true
+                fi
               fi
             done
           '';
@@ -2762,6 +2784,8 @@ in
 
                 if [ -z "$rgw_endpoint" ]; then
                   echo "cephadm-rgw: endpoint not set; skipping bucket create for $rgw_bucket" >&2
+                elif [ "$rgw_endpoint_ready" -ne 1 ]; then
+                  echo "cephadm-rgw: endpoint not ready; deferring bucket create for $rgw_bucket" >&2
                 elif [ ! -s "$rgw_bucket_access_file" ] || [ ! -s "$rgw_bucket_secret_file" ]; then
                   echo "cephadm-rgw: missing bucket credentials for $rgw_bucket_owner" >&2
                   exit 1
@@ -2779,14 +2803,24 @@ in
                     if [ "$rgw_region" != "us-east-1" ]; then
                       create_args=(--create-bucket-configuration "LocationConstraint=$rgw_region")
                     fi
-                    AWS_ACCESS_KEY_ID="$rgw_bucket_access" \
-                      AWS_SECRET_ACCESS_KEY="$rgw_bucket_secret" \
-                      AWS_EC2_METADATA_DISABLED=true \
-                      AWS_DEFAULT_REGION="$rgw_region" \
-                      AWS_S3_FORCE_PATH_STYLE=true \
-                      ${pkgs.awscli2}/bin/aws --endpoint-url "$rgw_endpoint" s3api create-bucket \
-                      --bucket "$rgw_bucket" "''${create_args[@]}" \
-                      >/dev/null
+                    bucket_created=0
+                    for _ in $(seq 1 5); do
+                      if AWS_ACCESS_KEY_ID="$rgw_bucket_access" \
+                        AWS_SECRET_ACCESS_KEY="$rgw_bucket_secret" \
+                        AWS_EC2_METADATA_DISABLED=true \
+                        AWS_DEFAULT_REGION="$rgw_region" \
+                        AWS_S3_FORCE_PATH_STYLE=true \
+                        ${pkgs.awscli2}/bin/aws --endpoint-url "$rgw_endpoint" s3api create-bucket \
+                        --bucket "$rgw_bucket" "''${create_args[@]}" \
+                        >/dev/null 2>&1; then
+                        bucket_created=1
+                        break
+                      fi
+                      sleep 2
+                    done
+                    if [ "$bucket_created" -ne 1 ]; then
+                      echo "cephadm-rgw: failed to create bucket $rgw_bucket; will retry on next run" >&2
+                    fi
                   fi
                 fi
               ''
@@ -2924,6 +2958,23 @@ in
               --placement "$rgw_placement" \
               --port "$rgw_port" \
               ${sslPortArg}
+
+            ceph_cmd orch start "rgw.$rgw_service" >/dev/null 2>&1 || true
+
+            rgw_endpoint_ready=0
+            if [ -n "$rgw_endpoint" ]; then
+              for _ in $(seq 1 30); do
+                if ceph_cmd_timeout 10 orch ps --service_name "rgw.$rgw_service" --format yaml 2>/dev/null \
+                  | grep -q "status_desc: running"; then
+                  rgw_endpoint_ready=1
+                  break
+                fi
+                sleep 2
+              done
+              if [ "$rgw_endpoint_ready" -ne 1 ]; then
+                echo "cephadm-rgw: rgw.$rgw_service is not running yet; bucket reconcile deferred" >&2
+              fi
+            fi
 
             ${userCommands}
             ${bucketCommands}
