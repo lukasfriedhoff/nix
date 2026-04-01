@@ -97,6 +97,7 @@ in
       lockboxKeys = cephLockboxKeys;
       provisioner = "ceph-volume";
       encrypted = true;
+      deviceClass = "ssd";
       autoProvision = hasRole "osd";
       # Reprovision helper: keep enabled until OSDs are recreated once.
       # The ceph module writes a marker to skip further destructive zaps.
