@@ -144,6 +144,7 @@ in
       "--tls-san srv3.lab.h4xx.io"
       "--tls-san srv3"
       "--tls-san ${cephCluster.monIp}"
+      "--kubelet-arg=max-pods=250"
     ];
     gitops = {
       enable = true;
