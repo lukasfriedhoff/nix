@@ -141,6 +141,15 @@ in
       "nfs4"
     ];
 
+    # Longhorn RWX uses an nsenter-based helper that expects classic mount
+    # binaries in /usr/bin and /sbin on the host namespace.
+    systemd.tmpfiles.rules = lib.optionals cfg.longhorn.enable [
+      "L+ /bin/mount - - - - /run/wrappers/bin/mount"
+      "L+ /usr/bin/mount - - - - /run/wrappers/bin/mount"
+      "L+ /sbin/mount.nfs - - - - /run/current-system/sw/bin/mount.nfs"
+      "L+ /sbin/mount.nfs4 - - - - /run/current-system/sw/bin/mount.nfs4"
+    ];
+
     services.k3s = {
       enable = true;
       role = "server";
