@@ -36,6 +36,8 @@ in
   options.homelab.kubernetes = {
     enable = mkEnableOption "single-node Kubernetes (k3s) control plane";
 
+    longhorn.enable = mkEnableOption "Longhorn node prerequisites (open-iscsi + NFS client support)";
+
     extraK3sFlags = mkOption {
       type = types.listOf types.str;
       default = [ ];
@@ -117,11 +119,22 @@ in
       "net.bridge.bridge-nf-call-ip6tables" = 1;
     };
 
-    environment.systemPackages = with pkgs; [
-      kubectl
-      fluxcd
-      git
-      cilium-cli
+    environment.systemPackages =
+      with pkgs;
+      [
+        kubectl
+        fluxcd
+        git
+        cilium-cli
+      ]
+      ++ lib.optionals cfg.longhorn.enable [
+        nfs-utils
+      ];
+
+    services.openiscsi.enable = cfg.longhorn.enable;
+    boot.supportedFilesystems = lib.optionals cfg.longhorn.enable [
+      "nfs"
+      "nfs4"
     ];
 
     services.k3s = {

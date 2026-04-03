@@ -139,6 +139,7 @@ in
 
   homelab.kubernetes = {
     enable = true;
+    longhorn.enable = true;
     extraK3sFlags = [
       "--tls-san srv3.lab.h4xx.io"
       "--tls-san srv3"
