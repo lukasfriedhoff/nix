@@ -131,7 +131,11 @@ in
         nfs-utils
       ];
 
-    services.openiscsi.enable = cfg.longhorn.enable;
+    services.openiscsi = mkIf cfg.longhorn.enable {
+      enable = true;
+      # NixOS 26.05 openiscsi module requires an explicit initiator name.
+      name = lib.mkDefault "iqn.2026-04.io.h4xx.${config.networking.hostName}:longhorn";
+    };
     boot.supportedFilesystems = lib.optionals cfg.longhorn.enable [
       "nfs"
       "nfs4"
