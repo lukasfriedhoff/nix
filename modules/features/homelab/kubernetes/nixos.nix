@@ -136,11 +136,14 @@ in
       # NixOS 26.05 openiscsi module requires an explicit initiator name.
       name = lib.mkDefault "iqn.2026-04.io.h4xx.${config.networking.hostName}:longhorn";
     };
+    systemd.sockets.iscsid = mkIf cfg.longhorn.enable {
+      enable = lib.mkForce false;
+    };
     systemd.services.iscsid = mkIf cfg.longhorn.enable {
       # Longhorn or manual recovery can leave an unmanaged iscsid process behind.
-      # Ensure stale instances are gone before systemd binds the socket.
+      # Ensure stale instances are gone before systemd starts iscsid.
       serviceConfig.ExecStartPre = lib.mkBefore [
-        "${pkgs.procps}/bin/pkill -x iscsid || true"
+        "-${pkgs.procps}/bin/pkill -x iscsid"
       ];
     };
     boot.supportedFilesystems = lib.optionals cfg.longhorn.enable [
