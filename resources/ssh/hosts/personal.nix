@@ -126,5 +126,12 @@
     user = "root";
     keyName = "srv3-personal-mgmt";
   }
+  {
+    match = "nix-testing";
+    alias = "nix-testing";
+    hostName = "nix-testing.h4xx.io";
+    user = "root";
+    keyName = "srv3-personal-mgmt";
+  }
 
 ]

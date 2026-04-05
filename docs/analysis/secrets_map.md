@@ -45,6 +45,8 @@ secrets/profiles/
 │       │   └── ssh/
 │       ├── srv2/
 │       │   └── ssh/
+│       ├── srv3/
+│       │   └── nix-cache/
 │       └── srv4-vm-01/
 │           └── wireguard/
 └── work/

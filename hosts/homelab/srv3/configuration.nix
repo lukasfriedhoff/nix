@@ -45,6 +45,17 @@ in
     usePasswordAuth = false;
   };
 
+  lukasf.nixCache = {
+    enable = true;
+    secretKeyFile = "nix-cache/nix-serve.key";
+    publicKey = builtins.readFile ../../../resources/nix-cache/testing-cache.pub;
+    openFirewall = true;
+    configureClient = true;
+    cacheHost = "nix-testing.h4xx.io";
+    # Use loopback locally to avoid DNS dependency on the host itself.
+    cacheUrl = "http://127.0.0.1:5000";
+  };
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelParams = [
