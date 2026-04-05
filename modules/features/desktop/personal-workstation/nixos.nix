@@ -11,10 +11,6 @@ let
   cfg = config.desktop.personalWorkstation;
 
   primaryRoot = secrets.primary or secrets.root or null;
-  profileCommonRoot = secrets.profileCommon or null;
-
-  builderKeyFile =
-    if profileCommonRoot != null then "${profileCommonRoot}/ssh/srv1-personal-mgmt.priv" else null;
 
   wireguardKeyFile = if primaryRoot != null then "${primaryRoot}/wireguard/homelab.priv" else null;
 
@@ -44,8 +40,6 @@ let
 
   cephUserSecretName =
     if cephClientName != null then "ceph/client-${cephClientName}-keyring-user" else null;
-
-  cachePublicKey = builtins.readFile ../../../../resources/nix-cache/personal-cache.pub;
 in
 {
   options.desktop.personalWorkstation = {
@@ -77,19 +71,6 @@ in
 
         lukasf.protonvpn.enable = true;
 
-        lukasf.nixCache = {
-          enable = true;
-          serve = false;
-          configureClient = true;
-          cacheHost = "srv1.lab.h4xx.io";
-          publicKey = cachePublicKey;
-          connectTimeout = 2;
-          fallbackToOfficial = true;
-        };
-
-        # If the private cache is unreachable, build locally instead of aborting.
-        nix.settings.fallback = true;
-
         virtualisation.podman = {
           enable = true;
           dockerCompat = true;
@@ -119,27 +100,7 @@ in
           "d /home/${linuxUser}/.ceph 0700 ${linuxUser} users -"
           "d /var/lib/sops-nix/ssh 0700 root root -"
         ];
-
-        shared.ssh.knownHosts.srv1 = {
-          hostNames = [
-            "srv1"
-            "srv1.lab.h4xx.io"
-            "10.1.30.12"
-          ];
-          publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDYyq/6oW5/oNHLk6N3QKiacIPghI+uoUNV5OC2Er4aA";
-        };
       }
-      (lib.mkIf (builderKeyFile != null) {
-        sops.secrets."srv1-builder-key" = {
-          sopsFile = builderKeyFile;
-          owner = "root";
-          format = "binary";
-          mode = "0400";
-          path = "/var/lib/sops-nix/ssh/srv1-builder-key";
-        };
-
-        lukasf.remoteBuilds.sshKeyFile = config.sops.secrets."srv1-builder-key".path;
-      })
       (lib.mkIf (cfg.wireguardAddress != null && hasWireguardKey) {
         desktop.wireguardHomelab = {
           enable = true;

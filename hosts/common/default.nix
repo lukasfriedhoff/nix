@@ -2,12 +2,20 @@
   config,
   lib,
   pkgs,
+  secrets ? { },
   ...
 }:
 
 let
   desktopDefaults = config.networking.networkmanager.enable;
   homelabDefaults = config.homelab.personalServer.enable;
+  profileCommonRoot = secrets.profileCommon or null;
+  srv3BuilderKeyFile =
+    if profileCommonRoot != null then "${profileCommonRoot}/ssh/srv3-personal-mgmt.priv" else null;
+  hasSrv3BuilderKey = srv3BuilderKeyFile != null && builtins.pathExists srv3BuilderKeyFile;
+  srv3HostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGciKlKcfvt/Q6IGxJ2MSD80426WIlpGFsJrei+GpBX/";
+  srv3HostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUdjaUtsS2NmdnQvUTZJR3hKMk1TRDgwNDI2V0lscEdGc0pyZWkrR3BCWC8K";
+  testingCachePublicKey = builtins.readFile ../../resources/nix-cache/testing-cache.pub;
 in
 {
   config = lib.mkMerge [
@@ -16,6 +24,44 @@ in
     }
     (lib.mkIf desktopDefaults {
       sops.age.keyFile = lib.mkDefault "/home/lukasf/.config/sops/age/keys.txt";
+    })
+    (lib.mkIf (desktopDefaults && hasSrv3BuilderKey) {
+      sops.secrets."srv3-builder-key" = {
+        sopsFile = srv3BuilderKeyFile;
+        owner = "root";
+        format = "binary";
+        mode = "0400";
+        path = "/var/lib/sops-nix/ssh/srv3-builder-key";
+      };
+
+      lukasf.remoteBuilds = {
+        hostName = lib.mkDefault "nix-testing.h4xx.io";
+        sshKeyFile = lib.mkDefault config.sops.secrets."srv3-builder-key".path;
+        publicHostKey = lib.mkForce srv3HostKeyB64;
+        connectTimeout = lib.mkDefault 3;
+      };
+
+      lukasf.nixCache = {
+        enable = lib.mkDefault true;
+        serve = lib.mkDefault false;
+        configureClient = lib.mkDefault true;
+        cacheHost = lib.mkDefault "nix-testing.h4xx.io";
+        cacheUrl = lib.mkDefault "https://nix-testing.h4xx.io";
+        publicKey = lib.mkDefault testingCachePublicKey;
+        connectTimeout = lib.mkDefault 2;
+        fallbackToOfficial = lib.mkDefault true;
+      };
+
+      nix.settings.fallback = lib.mkDefault true;
+
+      shared.ssh.knownHosts.nix-testing = {
+        hostNames = [
+          "nix-testing.h4xx.io"
+          "srv3.lab.h4xx.io"
+          "10.1.30.25"
+        ];
+        publicKey = srv3HostKey;
+      };
     })
     (lib.mkIf homelabDefaults {
       sops.age.keyFile = lib.mkDefault "/var/lib/sops-nix/age/keys.txt";
