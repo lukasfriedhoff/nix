@@ -279,6 +279,9 @@ in
                 secretFile = secretPath spec.secret;
                 mode = spec.mode or "600";
                 dest = "${config.home.homeDirectory}/${spec.path}";
+                isPrivateKey = lib.hasSuffix ".priv" spec.secret;
+                publicSecretFile =
+                  if isPrivateKey then secretPath "${lib.removeSuffix ".priv" spec.secret}.pub" else "";
               in
               ''
                 if [ -f '${secretFile}' ]; then
@@ -286,6 +289,20 @@ in
                   if ${sopsBin} -d '${secretFile}' > "$tmpfile"; then
                     ${pkgs.coreutils}/bin/install -D -m ${mode} "$tmpfile" '${dest}'
                     echo "[HM][ssh] Installed ${spec.path}"
+                    ${lib.optionalString isPrivateKey ''
+                      if [ -f '${publicSecretFile}' ]; then
+                        tmp_pub="$(mktemp)"
+                        if ${sopsBin} -d '${publicSecretFile}' > "$tmp_pub"; then
+                          ${pkgs.coreutils}/bin/install -D -m 644 "$tmp_pub" '${dest}.pub'
+                          echo "[HM][ssh] Installed ${spec.path}.pub"
+                        else
+                          echo "[HM][ssh] Failed to decrypt ${publicSecretFile}"
+                        fi
+                        ${pkgs.coreutils}/bin/rm -f "$tmp_pub"
+                      else
+                        echo "[HM][ssh] Public key secret not found: ${publicSecretFile}"
+                      fi
+                    ''}
                   else
                     echo "[HM][ssh] Failed to decrypt ${secretFile}"
                   fi
