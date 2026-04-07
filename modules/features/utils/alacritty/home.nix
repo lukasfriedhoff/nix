@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -17,6 +18,10 @@ in
         env.TERM = "xterm-256color";
         font = {
           size = lib.mkDefault 12;
+          normal = lib.mkIf pkgs.stdenv.isDarwin {
+            family = lib.mkForce "FiraMono Nerd Font Mono";
+            style = "Regular";
+          };
           # draw_bold_text_with_bright_colors = true;
         };
         scrolling.multiplier = 5;
