@@ -127,9 +127,9 @@
     keyName = "srv3-personal-mgmt";
   }
   {
-    match = "nix-testing";
-    alias = "nix-testing";
-    hostName = "nix-testing.h4xx.io";
+    match = "nix-builder";
+    alias = "nix-builder";
+    hostName = "nix-builder-testing.h4xx.io";
     user = "root";
     keyName = "srv3-personal-mgmt";
   }
