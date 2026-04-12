@@ -26,6 +26,10 @@ in
 {
   config = lib.mkMerge [
     (lib.mkIf isLinuxDesktop {
+      programs.bash.shellAliases = {
+        scrcpy = "env -u DRI_PRIME -u __NV_PRIME_RENDER_OFFLOAD SDL_VIDEODRIVER=x11 scrcpy --render-driver=opengl --video-codec=h264";
+      };
+
       programs.evolution.enable = lib.mkDefault true;
       programs.evolution.nextcloud.enable = lib.mkDefault true;
 
