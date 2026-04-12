@@ -82,6 +82,8 @@ in
         environment.systemPackages = with pkgs; [
           libvirt
           ceph
+          android-tools
+          scrcpy
           podman-compose
         ];
 
