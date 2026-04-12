@@ -13,14 +13,14 @@ let
   srv3BuilderKeyFile =
     if profileCommonRoot != null then "${profileCommonRoot}/ssh/srv3-personal-mgmt.priv" else null;
   hasSrv3BuilderKey = srv3BuilderKeyFile != null && builtins.pathExists srv3BuilderKeyFile;
-  srv3HostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGciKlKcfvt/Q6IGxJ2MSD80426WIlpGFsJrei+GpBX/";
-  srv3HostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUdjaUtsS2NmdnQvUTZJR3hKMk1TRDgwNDI2V0lscEdGc0pyZWkrR3BCWC8K";
+  nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIUnp+yz5VYFwdQUSlGDI3KfC+7hyGi2KHWRqLfxCCFf lukasf@lenovo-h4xx-03";
+  nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUlVbnAreXo1VllGd2RRVVNsR0RJM0tmQys3aHlHaTJLSFdScUxmeENDRmYgbHVrYXNmQGxlbm92by1oNHh4LTAzCg==";
   testingCachePublicKey = builtins.readFile ../../resources/nix-cache/testing-cache.pub;
 in
 {
   config = lib.mkMerge [
     {
-      lukasf.remoteBuilds.publicHostKey = lib.mkDefault "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURZeXEvNm9XNS9vTkhMazZOM1FLaWFjSVBnaEkrdW9VTlY1T0MyRXI0YUEgcm9vdEBuaXhvcwo=";
+      lukasf.remoteBuilds.publicHostKey = lib.mkDefault nixBuilderHostKeyB64;
     }
     (lib.mkIf desktopDefaults {
       sops.age.keyFile = lib.mkDefault "/home/lukasf/.config/sops/age/keys.txt";
@@ -35,9 +35,9 @@ in
       };
 
       lukasf.remoteBuilds = {
-        hostName = lib.mkDefault "nix-testing.h4xx.io";
+        hostName = lib.mkDefault "nix-builder-testing.h4xx.io";
         sshKeyFile = lib.mkDefault config.sops.secrets."srv3-builder-key".path;
-        publicHostKey = lib.mkForce srv3HostKeyB64;
+        publicHostKey = lib.mkForce nixBuilderHostKeyB64;
         connectTimeout = lib.mkDefault 3;
       };
 
@@ -54,13 +54,11 @@ in
 
       nix.settings.fallback = lib.mkDefault true;
 
-      shared.ssh.knownHosts.nix-testing = {
+      shared.ssh.knownHosts.nix-builder = {
         hostNames = [
-          "nix-testing.h4xx.io"
-          "srv3.lab.h4xx.io"
-          "10.1.30.25"
+          "nix-builder-testing.h4xx.io"
         ];
-        publicKey = srv3HostKey;
+        publicKey = nixBuilderHostKey;
       };
     })
     (lib.mkIf homelabDefaults {
