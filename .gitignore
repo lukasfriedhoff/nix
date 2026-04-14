@@ -3,3 +3,5 @@
 .Trash-*
 .cache
 .claude/
+CLAUDE.md
+kubeconfig
