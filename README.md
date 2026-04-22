@@ -48,6 +48,7 @@ customer-facing servers.
 | lenovo-h4xx-03 | Desktop | GNOME | Lenovo ThinkPad P15 Gen 2i |
 | lenovo-h4xx-04 | Desktop | GNOME | Lenovo ThinkPad P15 Gen 2i (clone) |
 | srv4-vm-01 | Desktop | Plasma | Virtual machine |
+| virtual-05 | Desktop | GNOME | Virtual desktop (Moonlight target) |
 | srv1 | Server | Homelab | Personal homelab (Ceph, k3s) |
 | srv2 | Server | Homelab | Personal homelab node |
 | macbook-pro | Darwin | macOS | Work MacBook |

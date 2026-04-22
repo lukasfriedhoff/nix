@@ -71,6 +71,12 @@ in
       dconf.settings."org/gnome/settings-daemon/plugins/power" = {
         "sleep-inactive-ac-type" = "nothing";
         "sleep-inactive-battery-type" = "nothing";
+        "idle-dim" = false;
+      };
+
+      # Keep displays from dimming/blanking while idle.
+      dconf.settings."org/gnome/desktop/session" = {
+        "idle-delay" = lib.hm.gvariant.mkUint32 0;
       };
     })
     (lib.mkIf isLinuxWorkstation {

@@ -38,11 +38,15 @@ let
     "pegasus"
     "lutris"
     "prismlauncher"
-    "desktop"
     "emulationstation"
     "kodi"
   ];
-  wolfUserApps = wolfBaseApps ++ [
+  wolfGuestApps = wolfBaseApps ++ [
+    "desktop"
+    "icarusModManager"
+  ];
+  wolfLukasApps = wolfBaseApps ++ [
+    "desktopNix"
     "icarusModManager"
   ];
   allowUnfreePackages = [
@@ -265,7 +269,42 @@ in
         dockerfile = ../../../containers/wolf-icarus-mod-manager/Dockerfile;
         context = ../../../containers/wolf-icarus-mod-manager;
       }
+      {
+        name = "localhost/wolf-desktop-nix:latest";
+        dockerfile = ../../../containers/wolf-desktop-nix/Dockerfile;
+        context = ../../../containers/wolf-desktop-nix;
+      }
     ];
+    appCatalog.desktopNix = {
+      title = "Desktop (Nix - lukasf)";
+      icon_png_path = "https://games-on-whales.github.io/wildlife/apps/xfce/assets/icon.png";
+      app_state_folder = "desktop-nix";
+      runner = {
+        type = "docker";
+        name = "WolfDesktopNix";
+        image = "localhost/wolf-desktop-nix:latest";
+        mounts = [ ];
+        env = [
+          "UNAME=lukasf"
+          "PUID=1000"
+          "PGID=1000"
+          "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*"
+        ];
+        devices = [ ];
+        ports = [ ];
+        base_create_json = ''
+          {
+            "HostConfig": {
+              "IpcMode": "host",
+              "Privileged": false,
+              "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
+              "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
+              "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+            }
+          }
+        '';
+      };
+    };
     settings = {
       hostname = "Wolf";
       config_version = 6;
@@ -278,12 +317,12 @@ in
       {
         id = "lukas";
         name = "Lukas";
-        appNames = wolfUserApps;
+        appNames = wolfLukasApps;
       }
       {
         id = "guest";
         name = "Guest";
-        appNames = wolfUserApps;
+        appNames = wolfGuestApps;
       }
     ];
   };
