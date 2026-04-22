@@ -13,6 +13,7 @@ This directory contains hardware-specific documentation for each managed device.
 | srv1 | Supermicro server | See host config |
 | srv2 | Homelab server | See host config |
 | srv4-vm-01 | Virtual machine | N/A |
+| virtual-05 | Virtual desktop | N/A |
 
 ## Hardware Quirks
 

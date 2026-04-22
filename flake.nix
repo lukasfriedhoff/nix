@@ -351,6 +351,16 @@
               ]
             );
 
+            virtual-05 = mkNixosHost "tux" (
+              gnomeDesktopModules
+              ++ [
+                ./hosts/personal/virtual-05/configuration.nix
+                (mkDesktopHome "tux" [
+                  stylix.homeModules.stylix
+                ])
+              ]
+            );
+
             tux-h4xx-01 = mkNixosHost "tux" (
               gnomeDesktopModules
               ++ [
