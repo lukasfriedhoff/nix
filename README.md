@@ -117,6 +117,7 @@ material into the correct secret directories.
 | Ceph module | [`docs/services/ceph.md`](docs/services/ceph.md) |
 | Backup procedures | [`docs/services/backup.md`](docs/services/backup.md) |
 | Remote deployment | [`docs/deployment/remote-servers.md`](docs/deployment/remote-servers.md) |
+| srv4 LLM runtime (RHEL) | [`docs/deployment/srv4-llm-runtime.md`](docs/deployment/srv4-llm-runtime.md) |
 | QEMU VM bootstrap | [`docs/deployment/qemu-vm-bootstrap.md`](docs/deployment/qemu-vm-bootstrap.md) |
 | Architecture decisions | [`docs/architecture/`](docs/architecture/) |
 
@@ -132,6 +133,7 @@ material into the correct secret directories.
 - `scripts/collect-power-metrics.sh` - Battery/power diagnostics for laptops
 - `scripts/servers/deploy-from-iso.sh` - nixos-anywhere wrapper for fresh installs
 - `scripts/servers/create-management-key.sh` - Generate SSH keys with SOPS encryption
+- `scripts/servers/setup-srv4-llm-runtime.sh` - Configure ollama + open-webui on RHEL srv4 via podman/systemd
 
 ### Related Projects
 

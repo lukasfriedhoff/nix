@@ -12,7 +12,7 @@
     };
     dns = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "192.168.88.1" ];
+      default = [ "10.1.30.1" ];
       description = "DNS servers pushed to homelab VPN clients.";
     };
     allowedIPs = lib.mkOption {
