@@ -201,20 +201,49 @@ if ollama then
   ollama.setup({
     model = vim.env.NVIM_OLLAMA_MODEL or "llama3.2",
     url = ollama_url,
+    -- Upstream prompts Ask_About_Code / Explain_Code use $sel and can crash
+    -- when no valid visual range exists. Override to buffer-safe prompts.
+    prompts = {
+      Ask_About_Code = {
+        prompt = "I have a question about this: $input\n\nHere is the code:\n```$ftype\n$buf\n```",
+        input_label = "Q",
+      },
+      Explain_Code = {
+        prompt = "Explain this code:\n```$ftype\n$buf\n```",
+      },
+    },
     serve = {
       on_start = false,
     },
   })
 
-  vim.keymap.set({ "n", "v" }, "<leader>oo", function()
-    ollama.prompt()
+  local function ollama_prompt_safe(name)
+    local ok, err = pcall(function()
+      ollama.prompt(name)
+    end)
+    if not ok then
+      vim.notify(("Ollama prompt failed: %s"):format(tostring(err)), vim.log.levels.ERROR, { title = "Ollama" })
+    end
+  end
+
+  vim.keymap.set("n", "<leader>oo", function()
+    ollama_prompt_safe()
   end, { desc = "Ollama prompt" })
-  vim.keymap.set({ "n", "v" }, "<leader>og", function()
-    ollama.prompt("Generate_Code")
+  vim.keymap.set("n", "<leader>og", function()
+    ollama_prompt_safe("Generate_Code")
   end, { desc = "Ollama generate code" })
-  vim.keymap.set({ "n", "v" }, "<leader>or", function()
-    ollama.prompt("Raw")
+  vim.keymap.set("n", "<leader>or", function()
+    ollama_prompt_safe("Raw")
   end, { desc = "Ollama raw prompt" })
+  -- ollama.nvim expects <C-u> command mappings for visual selections.
+  vim.keymap.set("x", "<leader>oo", ":<C-u>lua require('ollama').prompt()<CR>", { desc = "Ollama prompt (selection)" })
+  vim.keymap.set(
+    "x",
+    "<leader>og",
+    ":<C-u>lua require('ollama').prompt('Generate_Code')<CR>",
+    { desc = "Ollama generate code (selection)" }
+  )
+  vim.keymap.set("x", "<leader>or", ":<C-u>lua require('ollama').prompt('Raw')<CR>", { desc = "Ollama raw prompt (selection)" })
   vim.keymap.set("n", "<leader>om", "<cmd>OllamaModel<CR>", { desc = "Ollama model" })
 end
 
