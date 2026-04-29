@@ -76,8 +76,9 @@ in
           };
 
           sizes = {
-            applications = 11;
+            applications = 16;
             desktop = 11;
+            terminal = 16;
           };
         };
         cursor = {

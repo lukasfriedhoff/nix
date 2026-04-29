@@ -41,4 +41,10 @@
     user = "lukasfriedhoff";
     keyName = "ci";
   }
+  {
+    match = "lf-alma-02";
+    alias = "lf-alma-02";
+    user = "nuagealerting";
+    keyName = "ci";
+  }
 ]
