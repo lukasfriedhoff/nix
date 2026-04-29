@@ -179,6 +179,17 @@ in
           set -euo pipefail
 
           if ! ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
+            # Recover from skipped starts (e.g. secret not present earlier).
+            ${pkgs.systemd}/bin/systemctl start ${userServiceName}.service || true
+            for _ in $(seq 1 10); do
+              if ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
+                break
+              fi
+              sleep 1
+            done
+          fi
+
+          if ! ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
             exit 0
           fi
 
