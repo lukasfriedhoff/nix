@@ -67,25 +67,4 @@
     };
   };
 
-  # Keep the Windows partition declared so the unit exists, but avoid
-  # automounting or blocking boots/switches if the volume is dirty.
-  # Define explicit units for the Windows partition so the unit files exist in
-  # the generation that switch-to-configuration references.
-  systemd.mounts = [
-    {
-      what = "/dev/disk/by-uuid/5C3801A538017F70";
-      where = "/mnt/windows";
-      type = "ntfs3";
-      options = "noauto,nofail,x-systemd.device-timeout=1s";
-      wantedBy = [ ];
-    }
-  ];
-
-  systemd.automounts = [
-    {
-      where = "/mnt/windows";
-      wantedBy = [ "multi-user.target" ];
-      automountConfig.IdleTimeoutSec = "1min";
-    }
-  ];
 }
