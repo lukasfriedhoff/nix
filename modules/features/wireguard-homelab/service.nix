@@ -230,11 +230,9 @@ in
         systemd.services.${userServiceName} = {
           wants = [
             "network-online.target"
-            "sops-nix.service"
           ];
           after = [
             "network-online.target"
-            "sops-nix.service"
           ];
           wantedBy = lib.mkIf cfg.userUnit.enable (lib.mkForce [ ]);
           unitConfig = {

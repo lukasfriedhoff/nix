@@ -8,6 +8,19 @@
 
   networking.hostName = "tux-h4xx-01";
 
+  # Keep a system-owned age key copy so sops-nix can decrypt secrets reliably
+  # during activation and make WireGuard key material available at boot/login.
+  sops.age.keyFile = "/var/lib/sops-nix/age/keys.txt";
+
+  system.activationScripts.bootstrapSopsAgeKey = {
+    text = ''
+      if [ ! -s /var/lib/sops-nix/age/keys.txt ] && [ -s /home/lukasf/.config/sops/age/keys.txt ]; then
+        install -d -m 0700 /var/lib/sops-nix/age
+        install -m 0600 /home/lukasf/.config/sops/age/keys.txt /var/lib/sops-nix/age/keys.txt
+      fi
+    '';
+  };
+
   hardwareProfiles.tuxedo.infinitybookPro16Gen8.enable = true;
 
   boot.loader.systemd-boot.enable = true;
