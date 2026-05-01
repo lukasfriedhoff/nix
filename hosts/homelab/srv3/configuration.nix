@@ -258,7 +258,29 @@ in
     '';
   };
 
-  networking.firewall.allowedTCPPorts = [ 4243 ];
+  networking.firewall = {
+    # Expose moonlight-web hostNetwork listener and Moonlight client channels
+    # so the Wolf host on srv4 can return stream traffic to srv3.
+    allowedTCPPorts = [
+      4243
+      18080
+      47984
+      47989
+      48010
+    ];
+    allowedUDPPorts = [
+      47998
+      47999
+      48000
+      48010
+    ];
+    allowedUDPPortRanges = [
+      {
+        from = 40000;
+        to = 40100;
+      }
+    ];
+  };
 
   networking.extraHosts = ''
     # srv3 srv3.lab.h4xx.io
