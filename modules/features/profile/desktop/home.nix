@@ -83,6 +83,7 @@ in
       home.sessionVariables = {
         OLLAMA_HOST = resolvedOllamaHost;
         NVIM_OLLAMA_URL = resolvedOllamaHost;
+        NVIM_OLLAMA_MODEL = "qwen3-coder:30b";
         OPENWEBUI_URL = resolvedOpenWebUiUrl;
       };
 
