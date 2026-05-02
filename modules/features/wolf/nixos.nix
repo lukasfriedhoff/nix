@@ -508,6 +508,40 @@ let
         wantedBy = [ "multi-user.target" ];
       };
     };
+
+  mkImageArchiveService =
+    image:
+    let
+      serviceName = "wolf-image-load-${sanitizeServiceName image.name}";
+      loadCmd =
+        if image.format == "import" then
+          "${podmanBin} import ${lib.escapeShellArg image.archive} ${lib.escapeShellArg image.name}"
+        else
+          "${podmanBin} load -i ${lib.escapeShellArg image.archive}";
+      script =
+        if image.alwaysLoad then
+          loadCmd
+        else
+          "if ! ${podmanBin} image exists ${lib.escapeShellArg image.name}; then ${loadCmd}; fi";
+    in
+    lib.optionalAttrs image.autoLoad {
+      "${serviceName}" = {
+        description = "Load Wolf app image ${image.name}";
+        after = [
+          "network-online.target"
+          "podman.socket"
+        ];
+        wants = [
+          "network-online.target"
+          "podman.socket"
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${bashBin} -c ${lib.escapeShellArg script}";
+        };
+        wantedBy = [ "multi-user.target" ];
+      };
+    };
 in
 {
   options.lukasf.wolf = {
@@ -633,6 +667,51 @@ in
       );
       default = [ ];
       description = "Local Wolf app images built with Podman.";
+    };
+
+    appImageArchives = mkOption {
+      type = types.listOf (
+        types.submodule {
+          options = {
+            name = mkOption {
+              type = types.str;
+              description = "Podman image tag for the Wolf app image.";
+            };
+
+            archive = mkOption {
+              type = types.path;
+              description = "Path to an image archive tarball/rootfs archive.";
+            };
+
+            format = mkOption {
+              type = types.enum [
+                "import"
+                "load"
+              ];
+              default = "import";
+              description = ''
+                Archive import mode:
+                - "import": use `podman import` (rootfs tarball)
+                - "load": use `podman load` (saved OCI/Docker image archive)
+              '';
+            };
+
+            autoLoad = mkOption {
+              type = types.bool;
+              default = true;
+              description = "Load the image archive automatically via systemd.";
+            };
+
+            alwaysLoad = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Reload/import the image every time the unit runs.";
+            };
+          };
+        }
+      );
+      default = [ ];
+      description = "Wolf app images loaded/imported from Nix store archives.";
     };
 
     image = mkOption {
@@ -772,7 +851,9 @@ in
       ${mergeScript}
     '';
 
-    systemd.services = mkMerge (map mkImageService cfg.appImages);
+    systemd.services = mkMerge (
+      (map mkImageService cfg.appImages) ++ (map mkImageArchiveService cfg.appImageArchives)
+    );
 
     environment.etc."containers/systemd/wolf.container".text =
       let

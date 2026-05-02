@@ -338,6 +338,27 @@
               };
               modules = extraModules;
             };
+
+          virtual05Modules = gnomeDesktopModules ++ [
+            ./hosts/personal/virtual-05/configuration.nix
+            (mkDesktopHome "tux" [
+              stylix.homeModules.stylix
+            ])
+          ];
+
+          virtual05ContainerModules = virtual05Modules ++ [
+            "${nixpkgs}/nixos/modules/virtualisation/docker-image.nix"
+            (
+              { lib, ... }:
+              {
+                # docker-image profile defaults to host resolv.conf, which conflicts
+                # with systemd-resolved from the desktop profile.
+                networking.useHostResolvConf = lib.mkForce false;
+                services.resolved.enable = lib.mkForce false;
+                documentation.doc.enable = lib.mkForce false;
+              }
+            )
+          ];
         in
         {
           nixosConfigurations = {
@@ -351,15 +372,9 @@
               ]
             );
 
-            virtual-05 = mkNixosHost "tux" (
-              gnomeDesktopModules
-              ++ [
-                ./hosts/personal/virtual-05/configuration.nix
-                (mkDesktopHome "tux" [
-                  stylix.homeModules.stylix
-                ])
-              ]
-            );
+            virtual-05 = mkNixosHost "tux" virtual05Modules;
+
+            virtual-05-container = mkNixosHost "tux" virtual05ContainerModules;
 
             tux-h4xx-01 = mkNixosHost "tux" (
               gnomeDesktopModules
