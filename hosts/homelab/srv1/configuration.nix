@@ -269,10 +269,12 @@ in
         dockerfile = ../../../containers/wolf-icarus-mod-manager/Dockerfile;
         context = ../../../containers/wolf-icarus-mod-manager;
       }
+    ];
+    appImageArchives = [
       {
         name = "localhost/wolf-desktop-nix:latest";
-        dockerfile = ../../../containers/wolf-desktop-nix/Dockerfile;
-        context = ../../../containers/wolf-desktop-nix;
+        archive = inputs.self.nixosConfigurations.virtual-05-container.config.system.build.tarball;
+        format = "import";
       }
     ];
     appCatalog.desktopNix = {
