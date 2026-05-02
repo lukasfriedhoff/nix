@@ -80,6 +80,16 @@ in
     "hostname:srv3"
   ];
 
+  fileSystems."/var/lib/longhorn-disk1" = {
+    device = "/dev/disk/by-id/virtio-srv3-longhorn1";
+    fsType = "ext4";
+    options = [
+      "defaults"
+      "nofail"
+      "discard"
+    ];
+  };
+
   lukasf.ceph = {
     enable = true;
     cephadm.unitDir = "/run/systemd/system";

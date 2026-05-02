@@ -68,6 +68,11 @@
     purpose = "ceph";
     type = "virtual";
   };
+  "virtio-srv3-longhorn1" = {
+    host = "srv3";
+    purpose = "longhorn";
+    type = "virtual";
+  };
   "ata-ST4000VX016-3CV104_WW60911A" = {
     host = "srv2";
     purpose = "storage";
