@@ -77,6 +77,9 @@ in
       home.packages = [
         pkgs.gpodder
         pkgs.cloudflared
+        pkgs.noto-fonts-color-emoji
+        pkgs.font-awesome
+        pkgs.nerd-fonts.symbols-only
         inputs.witr.packages.${pkgs.system}.default
       ];
 
