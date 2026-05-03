@@ -34,6 +34,9 @@ let
   };
   defaultOllamaHost = "http://srv4.lab.h4xx.io:11434";
   defaultOpenWebUiUrl = "http://srv4.lab.h4xx.io:3000";
+  defaultOpencodeModel = "ollama/qwen3-coder:30b";
+  defaultGlobalOpencodeSkillsDir = "${config.xdg.configHome}/opencode/skills";
+  defaultRepoOpencodeSkillsDir = "${config.home.homeDirectory}/git/lukasfriedhoff/nix/.opencode/skills";
   resolvedOllamaHost =
     if profile != null && builtins.hasAttr profile llmOllamaHostByProfile then
       llmOllamaHostByProfile.${profile}
@@ -44,6 +47,7 @@ let
       llmOpenWebUiByProfile.${profile}
     else
       defaultOpenWebUiUrl;
+  resolvedOpencodeBaseUrl = "${lib.removeSuffix "/" resolvedOllamaHost}/v1";
   isPersonalDesktop = profile != null && lib.elem profile personalDesktopProfiles;
   isLinuxDesktop = isPersonalDesktop && (!pkgs.stdenv.isDarwin);
   isPersonalWorkstation = profile != null && lib.elem profile personalWorkstationProfiles;
@@ -87,7 +91,10 @@ in
         OLLAMA_HOST = resolvedOllamaHost;
         NVIM_OLLAMA_URL = resolvedOllamaHost;
         NVIM_OLLAMA_MODEL = "qwen3-coder:30b";
+        OPENCODE_MODEL = defaultOpencodeModel;
         OPENWEBUI_URL = resolvedOpenWebUiUrl;
+        # Required for opencode plugins with native node modules (onnxruntime, etc.)
+        LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
       };
 
       programs.oh-my-opencode = {
@@ -101,6 +108,58 @@ in
           zaiCodingPlan = "no";
         };
       };
+
+      home.activation.configureOpencodeBackend = lib.hm.dag.entryAfter [ "ohMyOpenCodeInstall" ] ''
+        set -euo pipefail
+
+        config_dir="${config.xdg.configHome}/opencode"
+        config_file="$config_dir/opencode.json"
+        global_skills_dir="${defaultGlobalOpencodeSkillsDir}"
+        repo_skills_dir="${defaultRepoOpencodeSkillsDir}"
+        mkdir -p "$config_dir"
+        mkdir -p "$global_skills_dir"
+
+        # One-time bootstrap: copy repo-scoped skills to the global opencode skill dir
+        # if it is still empty.
+        if [ -d "$repo_skills_dir" ] && [ -z "$(find "$global_skills_dir" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+          cp -a "$repo_skills_dir"/. "$global_skills_dir"/
+        fi
+
+        if [ ! -s "$config_file" ]; then
+          printf '%s\n' \
+            '{' \
+            '  "$schema": "https://opencode.ai/config.json"' \
+            '}' >"$config_file"
+        fi
+
+        tmp="$(mktemp)"
+        ${pkgs.jq}/bin/jq \
+          --arg model "${defaultOpencodeModel}" \
+          --arg baseURL "${resolvedOpencodeBaseUrl}" \
+          --arg skillsPath "${defaultGlobalOpencodeSkillsDir}" \
+          '
+            ."$schema" = "https://opencode.ai/config.json"
+            | .model = $model
+            | .provider = (.provider // {})
+            | .provider.ollama = (.provider.ollama // {})
+            | .provider.ollama.npm = "@ai-sdk/openai-compatible"
+            | .provider.ollama.name = "Ollama"
+            | .provider.ollama.options = (.provider.ollama.options // {})
+            | .provider.ollama.options.baseURL = $baseURL
+            | .provider.ollama.models = (.provider.ollama.models // {})
+            | .provider.ollama.models["qwen3-coder:30b"] = (
+              (.provider.ollama.models["qwen3-coder:30b"] // {})
+              + { name: "qwen3-coder:30b" }
+            )
+            | .skills = (.skills // {})
+            | .skills.paths = (
+              ((.skills.paths // []) + [$skillsPath])
+              | reduce .[] as $p ([]; if index($p) then . else . + [$p] end)
+            )
+          ' \
+          "$config_file" >"$tmp"
+        mv "$tmp" "$config_file"
+      '';
 
       dconf.settings."org/gnome/desktop/wm/keybindings" = {
         "switch-windows" = [ "<Alt>Tab" ];
