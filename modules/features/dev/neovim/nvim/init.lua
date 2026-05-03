@@ -64,6 +64,13 @@ if notify then
   vim.notify = notify
 end
 
+local snacks = safe_require("snacks")
+if snacks then
+  snacks.setup({
+    input = { enabled = true },
+  })
+end
+
 -- Colorscheme
 local tokyonight = safe_require("tokyonight")
 if tokyonight then
@@ -377,6 +384,24 @@ if codex_cli then
   end, { desc = "Codex explain selection" })
 
   vim.keymap.set("n", "<leader>cT", ":CodexTerminal<CR>", { desc = "Codex terminal" })
+end
+
+-- OpenCode AI integration
+local opencode = safe_require("opencode")
+if opencode then
+  vim.o.autoread = true
+  vim.keymap.set({ "n", "x" }, "<leader>oa", function()
+    opencode.ask("@this: ", { submit = true })
+  end, { desc = "OpenCode ask + submit" })
+  vim.keymap.set({ "n", "x" }, "<leader>os", function()
+    opencode.select()
+  end, { desc = "OpenCode select" })
+  vim.keymap.set({ "n", "t" }, "<leader>ot", function()
+    opencode.toggle()
+  end, { desc = "OpenCode toggle" })
+  vim.keymap.set({ "n", "x" }, "<leader>op", function()
+    opencode.ask("@this: ", { submit = false })
+  end, { desc = "OpenCode prompt (draft)" })
 end
 
 -- General settings
