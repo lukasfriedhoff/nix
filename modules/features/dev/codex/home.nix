@@ -11,7 +11,8 @@ in
 {
   config = lib.mkMerge [
     {
-      programs.codex.enable = lib.mkDefault true;
+      # Disabled by default - opencode is the preferred AI coding agent
+      programs.codex.enable = lib.mkDefault false;
     }
     (lib.mkIf cfg.enable {
       programs.codex.package = pkgs.codex;

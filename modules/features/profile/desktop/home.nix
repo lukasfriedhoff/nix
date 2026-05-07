@@ -109,56 +109,82 @@ in
         };
       };
 
-      home.activation.configureOpencodeBackend = lib.hm.dag.entryAfter [ "ohMyOpenCodeInstall" ] ''
-        set -euo pipefail
+      # Declarative opencode configuration (uses built-in Home Manager module)
+      programs.opencode = {
+        enable = true;
+        settings = {
+          model = defaultOpencodeModel;
+          disabled_providers = [
+            "anthropic"
+            "openai"
+            "github-copilot"
+            "google"
+            "opencode"
+          ];
+          provider.ollama = {
+            npm = "@ai-sdk/openai-compatible";
+            name = "Ollama";
+            options.baseURL = resolvedOpencodeBaseUrl;
+            models."qwen3-coder:30b".name = "qwen3-coder:30b";
+          };
+          skills.paths = [ defaultGlobalOpencodeSkillsDir ];
+          agent = {
+            explore.skills = [
+              "flake"
+              "flux"
+              "git-master"
+              "helm"
+              "home-manager"
+              "kubernetes"
+              "neovim-config"
+              "nix"
+              "sops-secrets"
+              "ssh"
+              "wireguard"
+            ];
+            build.skills = [
+              "cert-manager"
+              "cilium"
+              "flake"
+              "flux"
+              "git-master"
+              "helm"
+              "home-manager"
+              "kubernetes"
+              "kustomize"
+              "neovim-config"
+              "nix"
+              "podman"
+              "sops-secrets"
+              "ssh"
+              "systemd"
+              "wireguard"
+            ];
+            plan.skills = [
+              "flake"
+              "flux"
+              "git-master"
+              "home-manager"
+              "kubernetes"
+              "neovim-config"
+              "nix"
+            ];
+          };
+        };
+        # Skills are managed via settings.skills.paths above
+        # The built-in module also supports `skills = ./path/to/skills` or
+        # `skills = { skill-name = "content"; }` for inline skills
+      };
 
-        config_dir="${config.xdg.configHome}/opencode"
-        config_file="$config_dir/opencode.json"
+      # One-time bootstrap: copy repo-scoped skills to global opencode skill dir
+      home.activation.bootstrapOpencodeSkills = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         global_skills_dir="${defaultGlobalOpencodeSkillsDir}"
         repo_skills_dir="${defaultRepoOpencodeSkillsDir}"
-        mkdir -p "$config_dir"
         mkdir -p "$global_skills_dir"
 
-        # One-time bootstrap: copy repo-scoped skills to the global opencode skill dir
-        # if it is still empty.
         if [ -d "$repo_skills_dir" ] && [ -z "$(find "$global_skills_dir" -mindepth 1 -print -quit 2>/dev/null)" ]; then
           cp -a "$repo_skills_dir"/. "$global_skills_dir"/
         fi
-
-        if [ ! -s "$config_file" ]; then
-          printf '%s\n' \
-            '{' \
-            '  "$schema": "https://opencode.ai/config.json"' \
-            '}' >"$config_file"
-        fi
-
-        tmp="$(mktemp)"
-        ${pkgs.jq}/bin/jq \
-          --arg model "${defaultOpencodeModel}" \
-          --arg baseURL "${resolvedOpencodeBaseUrl}" \
-          --arg skillsPath "${defaultGlobalOpencodeSkillsDir}" \
-          '
-            ."$schema" = "https://opencode.ai/config.json"
-            | .model = $model
-            | .provider = (.provider // {})
-            | .provider.ollama = (.provider.ollama // {})
-            | .provider.ollama.npm = "@ai-sdk/openai-compatible"
-            | .provider.ollama.name = "Ollama"
-            | .provider.ollama.options = (.provider.ollama.options // {})
-            | .provider.ollama.options.baseURL = $baseURL
-            | .provider.ollama.models = (.provider.ollama.models // {})
-            | .provider.ollama.models["qwen3-coder:30b"] = (
-              (.provider.ollama.models["qwen3-coder:30b"] // {})
-              + { name: "qwen3-coder:30b" }
-            )
-            | .skills = (.skills // {})
-            | .skills.paths = (
-              ((.skills.paths // []) + [$skillsPath])
-              | reduce .[] as $p ([]; if index($p) then . else . + [$p] end)
-            )
-          ' \
-          "$config_file" >"$tmp"
-        mv "$tmp" "$config_file"
       '';
 
       dconf.settings."org/gnome/desktop/wm/keybindings" = {

@@ -1,4 +1,8 @@
-{ lib, ... }:
+{
+  lib,
+  secrets,
+  ...
+}:
 
 {
   imports = [
@@ -36,7 +40,17 @@
     cephClientName = "tux";
   };
 
-  lukasf.wireguard.homelab.userUnit.enable = true;
+  # Manage homelab WireGuard through NetworkManager profiles instead of the
+  # custom system/user unit orchestration.
+  lukasf.wireguard.homelab = {
+    enable = lib.mkForce false;
+    userUnit.enable = lib.mkForce false;
+  };
+  desktop.wireguardHomelab.enable = lib.mkForce false;
+  desktop.networkmanagerSops = {
+    enable = true;
+    secretsDir = "${secrets.primary}/networkmanager";
+  };
 
   desktop.gaming.defaultRenderer = "nvidia";
 

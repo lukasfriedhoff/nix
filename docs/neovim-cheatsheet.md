@@ -148,19 +148,34 @@ Environment variables used by Neovim:
 
 Current desktop profile wiring sets these in `modules/features/profile/desktop/home.nix`.
 
+### OpenCode (opencode.nvim + srv4 Ollama)
+
+| Mapping / Command | Mode | What it does |
+| --- | --- | --- |
+| `<leader>oa` | Normal/Visual | OpenCode ask (`@this`) + submit |
+| `<leader>op` | Normal/Visual | OpenCode ask draft (`@this`) without submit |
+| `<leader>os` | Normal/Visual | OpenCode action picker |
+| `<leader>ot` | Normal/Terminal | Toggle OpenCode pane |
+
+Home Manager now enforces OpenCode backend/model for personal desktops by patching:
+
+- `~/.config/opencode/opencode.json`
+- `model = ollama/qwen3-coder:30b`
+- `provider.ollama.options.baseURL = http://srv4.lab.h4xx.io:11434/v1` (or localhost on `srv4`)
+
 ## 8. Qwen via Ollama (Exact Workflow)
 
 1. Pull a Qwen model on the Ollama host:
 
 ```bash
-ssh srv4 'ollama pull qwen2.5-coder:7b'
+ssh srv4 'ollama pull qwen3-coder:30b'
 ```
 
 2. In your local shell before launching Neovim:
 
 ```bash
 export NVIM_OLLAMA_URL=http://srv4.lab.h4xx.io:11434
-export NVIM_OLLAMA_MODEL=qwen2.5-coder:7b
+export NVIM_OLLAMA_MODEL=qwen3-coder:30b
 nvim
 ```
 

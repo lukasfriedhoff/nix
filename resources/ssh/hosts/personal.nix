@@ -129,7 +129,7 @@
   {
     match = "nix-builder";
     alias = "nix-builder";
-    hostName = "nix-builder-testing.h4xx.io";
+    hostName = "srv3.lab.h4xx.io";
     user = "root";
     keyName = "srv3-personal-mgmt";
   }
