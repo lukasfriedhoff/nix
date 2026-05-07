@@ -127,7 +127,6 @@ in
             options.baseURL = resolvedOpencodeBaseUrl;
             models."qwen3-coder:30b".name = "qwen3-coder:30b";
           };
-          skills.paths = [ defaultGlobalOpencodeSkillsDir ];
           agent = {
             explore.skills = [
               "flake"
@@ -171,9 +170,8 @@ in
             ];
           };
         };
-        # Skills are managed via settings.skills.paths above
-        # The built-in module also supports `skills = ./path/to/skills` or
-        # `skills = { skill-name = "content"; }` for inline skills
+        # Skills are loaded from ~/.config/opencode/skill/ directory
+        # which is populated by the bootstrapOpencodeSkills activation script
       };
 
       # One-time bootstrap: copy repo-scoped skills to global opencode skill dir
