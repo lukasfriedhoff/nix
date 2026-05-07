@@ -39,6 +39,11 @@
     address = "10.1.90.3/24";
   };
 
+  # Enable gaming support for the ASUS Vivobook
+  desktop.gaming = {
+    enable = true;
+  };
+
   # Prefer RAM compression over eMMC swap to cut thrashing
   zramSwap = {
     enable = true;

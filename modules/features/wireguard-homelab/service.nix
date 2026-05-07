@@ -81,6 +81,32 @@ in
       description = "Networks reachable over the MikroTik VPN peer.";
     };
 
+    endpointResolutionRetries = lib.mkOption {
+      type = lib.types.str;
+      default = "30";
+      example = "15";
+      description = ''
+        Value for <literal>WG_ENDPOINT_RESOLUTION_RETRIES</literal>. Use
+        <literal>infinity</literal> to keep retrying endpoint DNS resolution
+        until network is available. A finite default avoids wedging the
+        oneshot start path forever when DNS is unavailable after resume.
+      '';
+    };
+
+    healthcheck = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable periodic reachability checks and self-healing restarts for the tunnel.";
+      };
+
+      target = lib.mkOption {
+        type = lib.types.str;
+        default = "10.1.30.1";
+        description = "Reachability target over the VPN used by the health check.";
+      };
+    };
+
     userUnit = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -172,6 +198,29 @@ in
             echo "wg-homelab: endpoint file $endpoint_file is empty" >&2
             exit 1
           fi
+
+          endpoint_host="''${endpoint%:*}"
+          endpoint_port="''${endpoint##*:}"
+          if [ "$endpoint_host" = "$endpoint_port" ]; then
+            echo "wg-homelab: endpoint '$endpoint' must be host:port" >&2
+            exit 1
+          fi
+
+          retries="''${WG_ENDPOINT_RESOLUTION_RETRIES:-20}"
+          attempt=0
+          while true; do
+            if ${lib.getExe' pkgs.getent "getent"} ahostsv4 "$endpoint_host" >/dev/null 2>&1 || \
+               ${lib.getExe' pkgs.getent "getent"} ahostsv6 "$endpoint_host" >/dev/null 2>&1; then
+              break
+            fi
+            attempt=$((attempt + 1))
+            if [ "$retries" != "infinity" ] && [ "$attempt" -ge "$retries" ]; then
+              echo "wg-homelab: cannot resolve endpoint host '$endpoint_host' after $attempt tries" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+
           ${pkgs.wireguard-tools}/bin/wg set "$iface" peer ${cfg.peerPublicKey} persistent-keepalive ${toString cfg.persistentKeepalive} endpoint "$endpoint"
         '';
 
@@ -193,9 +242,18 @@ in
             exit 0
           fi
 
-          ${setEndpointScript} ${iface} ${cfg.endpointFile} || true
+          ${setEndpointScript} ${iface} ${cfg.endpointFile}
           ${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns} || true
           ${setDomainScript} ${iface} ${cfg.dnsDomainFile} || true
+
+          ${lib.optionalString cfg.healthcheck.enable ''
+            if ! ${pkgs.iputils}/bin/ping -I ${iface} -c 1 -W 2 ${cfg.healthcheck.target} >/dev/null 2>&1; then
+              ${pkgs.systemd}/bin/systemctl restart ${userServiceName}.service || true
+              ${setEndpointScript} ${iface} ${cfg.endpointFile} || true
+              ${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns} || true
+              ${setDomainScript} ${iface} ${cfg.dnsDomainFile} || true
+            fi
+          ''}
         '';
 
         sleepScript = pkgs.writeShellScript "wg-homelab-sleep" ''
@@ -213,8 +271,8 @@ in
           set -euo pipefail
           state_file="/run/${userServiceName}.was-active"
           if [ -f "$state_file" ]; then
-            ${pkgs.systemd}/bin/systemctl start ${userServiceName}.service || true
-            ${pkgs.systemd}/bin/systemctl start ${refreshServiceName}.service || true
+            ${pkgs.systemd}/bin/systemctl --no-block start ${userServiceName}.service || true
+            ${pkgs.systemd}/bin/systemctl --no-block start ${refreshServiceName}.service || true
           fi
           rm -f "$state_file"
         '';
@@ -226,9 +284,9 @@ in
           listenPort = 0;
           inherit (cfg) mtu;
           postSetup = [
+            "${setEndpointScript} ${iface} ${cfg.endpointFile} || true"
             "${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns} || true"
             "${setDomainScript} ${iface} ${cfg.dnsDomainFile} || true"
-            "${setEndpointScript} ${iface} ${cfg.endpointFile} || true"
           ];
           peers = [
             {
@@ -252,6 +310,7 @@ in
             StartLimitIntervalSec = "5min";
           };
           serviceConfig = {
+            Environment = [ "WG_ENDPOINT_RESOLUTION_RETRIES=${cfg.endpointResolutionRetries}" ];
             Restart = "on-failure";
             RestartSec = "30s";
           };
@@ -269,6 +328,7 @@ in
           ];
           serviceConfig = {
             Type = "oneshot";
+            Environment = [ "WG_ENDPOINT_RESOLUTION_RETRIES=${cfg.endpointResolutionRetries}" ];
             ExecStart = refreshScript;
           };
         };
@@ -314,7 +374,7 @@ in
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
-            ExecStart = "${pkgs.systemd}/bin/systemctl start ${userServiceName}.service";
+            ExecStart = "${pkgs.systemd}/bin/systemctl --no-block start ${userServiceName}.service";
             ExecStop = "${pkgs.systemd}/bin/systemctl stop ${userServiceName}.service";
           };
         };

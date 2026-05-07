@@ -6,42 +6,18 @@ local function safe_require(module)
   return mod
 end
 
-local function get_visual_selection()
-  local saved_reg = vim.fn.getreg('"')
-  local saved_type = vim.fn.getregtype('"')
-  vim.cmd('noautocmd normal! ""y')
-  local selection = vim.fn.getreg('"')
-  vim.fn.setreg('"', saved_reg, saved_type)
-  return selection
-end
-
-local function open_floating_buffer(title, body)
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_option_value('filetype', 'markdown', { buf = buf })
-  vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
-
-  local lines = vim.split(vim.trim(body), '\n', { plain = true, trimempty = true })
-  if vim.tbl_isempty(lines) then
-    lines = { '(no output)' }
-  end
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-
-  local width = math.floor(vim.o.columns * 0.6)
-  local height = math.floor(vim.o.lines * 0.6)
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
-
-  vim.api.nvim_open_win(buf, true, {
-    relative = 'editor',
-    width = width,
-    height = height,
-    row = row,
-    col = col,
-    border = 'rounded',
-    title = title,
-    title_pos = 'center',
-  })
-end
+-- General settings
+vim.o.number = true
+vim.o.relativenumber = false
+vim.o.termguicolors = true
+vim.o.cursorline = true
+vim.o.signcolumn = "yes"
+vim.opt.undofile = true
+vim.opt.clipboard = "unnamedplus"
+vim.o.autoread = true
+vim.o.updatetime = 250
+vim.o.timeoutlen = 300
+vim.o.completeopt = "menu,menuone,noselect"
 
 -- UI / ergonomics
 local lualine = safe_require("lualine")
@@ -77,19 +53,55 @@ if tokyonight then
   vim.cmd.colorscheme("tokyonight-night")
 end
 
--- Treesitter & Telescope
+-- Treesitter
 local treesitter = safe_require("nvim-treesitter.configs")
 if treesitter then
   treesitter.setup({
     highlight = { enable = true },
     indent = { enable = true },
+    ensure_installed = {
+      "bash",
+      "c",
+      "go",
+      "gomod",
+      "gosum",
+      "hcl",
+      "javascript",
+      "json",
+      "lua",
+      "markdown",
+      "nix",
+      "python",
+      "terraform",
+      "typescript",
+      "tsx",
+      "yaml",
+      "helm",
+    },
+    textobjects = {
+      select = {
+        enable = true,
+        lookahead = true,
+        keymaps = {
+          ["af"] = "@function.outer",
+          ["if"] = "@function.inner",
+          ["ac"] = "@class.outer",
+          ["ic"] = "@class.inner",
+        },
+      },
+    },
   })
 end
 
+-- Telescope
 local telescope_builtin = safe_require("telescope.builtin")
 if telescope_builtin then
   vim.keymap.set("n", "<leader>ff", telescope_builtin.find_files, { desc = "Find Files" })
-  vim.keymap.set("n", "<leader>fg", telescope_builtin.live_grep, { desc = "Ripgrep" })
+  vim.keymap.set("n", "<leader>fg", telescope_builtin.live_grep, { desc = "Live Grep" })
+  vim.keymap.set("n", "<leader>fb", telescope_builtin.buffers, { desc = "Buffers" })
+  vim.keymap.set("n", "<leader>fh", telescope_builtin.help_tags, { desc = "Help Tags" })
+  vim.keymap.set("n", "<leader>fd", telescope_builtin.diagnostics, { desc = "Diagnostics" })
+  vim.keymap.set("n", "<leader>fs", telescope_builtin.lsp_document_symbols, { desc = "Document Symbols" })
 end
 
 -- File tree
@@ -106,45 +118,115 @@ if nvim_tree then
   vim.keymap.set("n", "<leader>t", ":NvimTreeToggle<CR>", { desc = "Toggle file tree" })
 end
 
--- Mason / LSP
+-- Lazygit
+local lazygit_ok = pcall(require, "lazygit")
+if lazygit_ok then
+  vim.keymap.set("n", "<leader>gg", ":LazyGit<CR>", { desc = "LazyGit" })
+end
+
+-- LSP configuration
 local mason = safe_require("mason")
 local mason_lspconfig = safe_require("mason-lspconfig")
-if mason and mason_lspconfig then
+local lspconfig = safe_require("lspconfig")
+local cmp_nvim_lsp = safe_require("cmp_nvim_lsp")
+
+if mason then
   mason.setup()
+end
+
+if mason_lspconfig then
   mason_lspconfig.setup({
-    ensure_installed = { "lua_ls", "bashls", "yamlls", "jsonls", "ts_ls", "pyright" },
+    automatic_installation = false,
   })
+end
 
-  local cmp_nvim_lsp = safe_require("cmp_nvim_lsp")
-  local capabilities = cmp_nvim_lsp and cmp_nvim_lsp.default_capabilities() or nil
+local capabilities = nil
+if cmp_nvim_lsp then
+  capabilities = cmp_nvim_lsp.default_capabilities()
+end
 
-  local servers = { "lua_ls", "bashls", "yamlls", "jsonls", "gopls", "ts_ls", "pyright" }
-  -- Neovim 0.11 exposes vim.lsp.config as a callable table (not a plain function).
-  local use_builtin_lsp_config = type(vim.lsp) == "table"
-    and vim.lsp.config ~= nil
-    and type(vim.lsp.enable) == "function"
-  local lspconfig = nil
-  if not use_builtin_lsp_config then
-    lspconfig = safe_require("lspconfig")
-  end
+local on_attach = function(_, bufnr)
+  local opts = { buffer = bufnr }
+  vim.keymap.set("n", "gd", vim.lsp.buf.definition, vim.tbl_extend("force", opts, { desc = "Go to definition" }))
+  vim.keymap.set("n", "gD", vim.lsp.buf.declaration, vim.tbl_extend("force", opts, { desc = "Go to declaration" }))
+  vim.keymap.set("n", "gr", vim.lsp.buf.references, vim.tbl_extend("force", opts, { desc = "References" }))
+  vim.keymap.set("n", "gi", vim.lsp.buf.implementation, vim.tbl_extend("force", opts, { desc = "Implementation" }))
+  vim.keymap.set("n", "K", vim.lsp.buf.hover, vim.tbl_extend("force", opts, { desc = "Hover" }))
+  vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, vim.tbl_extend("force", opts, { desc = "Rename" }))
+  vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, vim.tbl_extend("force", opts, { desc = "Code action" }))
+  vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, vim.tbl_extend("force", opts, { desc = "Line diagnostics" }))
+  vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, vim.tbl_extend("force", opts, { desc = "Previous diagnostic" }))
+  vim.keymap.set("n", "]d", vim.diagnostic.goto_next, vim.tbl_extend("force", opts, { desc = "Next diagnostic" }))
+end
 
-  for _, server in ipairs(servers) do
-    local opts = {}
-    if capabilities then
-      opts.capabilities = capabilities
-    end
-    if server == "lua_ls" then
-      opts.settings = {
-        Lua = {
-          diagnostics = { globals = { "vim" } },
-          workspace = { checkThirdParty = false },
+-- Neovim 0.11+ uses vim.lsp.config/vim.lsp.enable
+local use_builtin_lsp = type(vim.lsp) == "table" and vim.lsp.config ~= nil and type(vim.lsp.enable) == "function"
+
+local servers = {
+  lua_ls = {
+    settings = {
+      Lua = {
+        diagnostics = { globals = { "vim" } },
+        workspace = { checkThirdParty = false },
+        telemetry = { enable = false },
+      },
+    },
+  },
+  bashls = {},
+  yamlls = {
+    settings = {
+      yaml = {
+        schemas = {
+          kubernetes = "*.k8s.yaml",
+          ["https://json.schemastore.org/github-workflow.json"] = ".github/workflows/*.yml",
+          ["https://json.schemastore.org/kustomization.json"] = "kustomization.yaml",
         },
-      }
-    end
-    if use_builtin_lsp_config then
+        validate = true,
+        completion = true,
+      },
+    },
+  },
+  jsonls = {},
+  gopls = {
+    settings = {
+      gopls = {
+        analyses = {
+          unusedparams = true,
+          shadow = true,
+        },
+        staticcheck = true,
+        gofumpt = true,
+      },
+    },
+  },
+  ts_ls = {},
+  pyright = {},
+  clangd = {},
+  terraformls = {},
+  tflint = {},
+  -- ansiblels removed from nixpkgs; use ansible-lint via none-ls instead
+  helm_ls = {
+    settings = {
+      ["helm-ls"] = {
+        yamlls = {
+          path = "yaml-language-server",
+        },
+      },
+    },
+  },
+}
+
+if lspconfig then
+  for server, config in pairs(servers) do
+    local opts = vim.tbl_deep_extend("force", {
+      capabilities = capabilities,
+      on_attach = on_attach,
+    }, config)
+
+    if use_builtin_lsp then
       vim.lsp.config(server, opts)
       vim.lsp.enable(server)
-    elseif lspconfig and lspconfig[server] then
+    elseif lspconfig[server] then
       lspconfig[server].setup(opts)
     end
   end
@@ -154,6 +236,8 @@ end
 local cmp = safe_require("cmp")
 local luasnip = safe_require("luasnip")
 if cmp and luasnip then
+  require("luasnip.loaders.from_vscode").lazy_load()
+
   cmp.setup({
     snippet = {
       expand = function(args)
@@ -161,10 +245,29 @@ if cmp and luasnip then
       end,
     },
     mapping = cmp.mapping.preset.insert({
-      ["<CR>"] = cmp.mapping.confirm({ select = true }),
+      ["<C-b>"] = cmp.mapping.scroll_docs(-4),
+      ["<C-f>"] = cmp.mapping.scroll_docs(4),
       ["<C-Space>"] = cmp.mapping.complete(),
-      ["<Tab>"] = cmp.mapping.select_next_item(),
-      ["<S-Tab>"] = cmp.mapping.select_prev_item(),
+      ["<C-e>"] = cmp.mapping.abort(),
+      ["<CR>"] = cmp.mapping.confirm({ select = true }),
+      ["<Tab>"] = cmp.mapping(function(fallback)
+        if cmp.visible() then
+          cmp.select_next_item()
+        elseif luasnip.expand_or_jumpable() then
+          luasnip.expand_or_jump()
+        else
+          fallback()
+        end
+      end, { "i", "s" }),
+      ["<S-Tab>"] = cmp.mapping(function(fallback)
+        if cmp.visible() then
+          cmp.select_prev_item()
+        elseif luasnip.jumpable(-1) then
+          luasnip.jump(-1)
+        else
+          fallback()
+        end
+      end, { "i", "s" }),
     }),
     sources = cmp.config.sources({
       { name = "nvim_lsp" },
@@ -176,28 +279,59 @@ if cmp and luasnip then
   })
 end
 
--- Copilot integration (optional)
-local copilot = safe_require("copilot")
-if copilot then
-  copilot.setup({
-    suggestion = { enabled = true },
-    panel = { enabled = true },
+-- Formatting with conform.nvim
+local conform = safe_require("conform")
+if conform then
+  conform.setup({
+    formatters_by_ft = {
+      lua = { "stylua" },
+      python = { "ruff_format", "black" },
+      go = { "gofumpt", "goimports" },
+      javascript = { "prettier" },
+      typescript = { "prettier" },
+      javascriptreact = { "prettier" },
+      typescriptreact = { "prettier" },
+      json = { "prettier" },
+      yaml = { "prettier" },
+      markdown = { "prettier" },
+      bash = { "shfmt" },
+      sh = { "shfmt" },
+      terraform = { "terraform_fmt" },
+      tf = { "terraform_fmt" },
+      nix = { "nixfmt" },
+      c = { "clang_format" },
+      cpp = { "clang_format" },
+    },
+    format_on_save = function(bufnr)
+      -- Disable autoformat for certain filetypes
+      local ignore_filetypes = { "helm" }
+      if vim.tbl_contains(ignore_filetypes, vim.bo[bufnr].filetype) then
+        return
+      end
+      return { timeout_ms = 500, lsp_fallback = true }
+    end,
+  })
+
+  vim.keymap.set({ "n", "v" }, "<leader>cf", function()
+    conform.format({ async = true, lsp_fallback = true })
+  end, { desc = "Format buffer" })
+end
+
+-- Linting with none-ls (null-ls successor)
+local null_ls = safe_require("null-ls")
+if null_ls then
+  null_ls.setup({
+    sources = {
+      -- Diagnostics
+      null_ls.builtins.diagnostics.shellcheck,
+      null_ls.builtins.diagnostics.ansiblelint,
+      null_ls.builtins.diagnostics.golangci_lint,
+      null_ls.builtins.diagnostics.tflint,
+    },
   })
 end
 
-local copilot_chat = safe_require("CopilotChat")
-if copilot_chat then
-  copilot_chat.setup({})
-  vim.keymap.set("n", "<leader>cc", function()
-    copilot_chat.toggle()
-  end, { desc = "Copilot Chat" })
-end
-
--- Local LLM via Ollama, optionally through OpenWebUI's Ollama proxy.
--- Examples:
---   NVIM_OLLAMA_URL=http://127.0.0.1:11434
---   NVIM_OLLAMA_URL=http://127.0.0.1:3000/ollama   (OpenWebUI)
---   NVIM_OLLAMA_MODEL=qwen2.5-coder:7b
+-- Local LLM via Ollama
 local ollama = safe_require("ollama")
 if ollama then
   local ollama_url = vim.env.NVIM_OLLAMA_URL or vim.env.OLLAMA_HOST or "http://127.0.0.1:11434"
@@ -208,8 +342,6 @@ if ollama then
   ollama.setup({
     model = vim.env.NVIM_OLLAMA_MODEL or "llama3.2",
     url = ollama_url,
-    -- Upstream prompts Ask_About_Code / Explain_Code use $sel and can crash
-    -- when no valid visual range exists. Override to buffer-safe prompts.
     prompts = {
       Ask_About_Code = {
         prompt = "I have a question about this: $input\n\nHere is the code:\n```$ftype\n$buf\n```",
@@ -233,163 +365,29 @@ if ollama then
     end
   end
 
-  vim.keymap.set("n", "<leader>oo", function()
+  vim.keymap.set("n", "<leader>lo", function()
     ollama_prompt_safe()
   end, { desc = "Ollama prompt" })
-  vim.keymap.set("n", "<leader>og", function()
+  vim.keymap.set("n", "<leader>lg", function()
     ollama_prompt_safe("Generate_Code")
   end, { desc = "Ollama generate code" })
-  vim.keymap.set("n", "<leader>or", function()
+  vim.keymap.set("n", "<leader>lr", function()
     ollama_prompt_safe("Raw")
   end, { desc = "Ollama raw prompt" })
-  -- ollama.nvim expects <C-u> command mappings for visual selections.
-  vim.keymap.set("x", "<leader>oo", ":<C-u>lua require('ollama').prompt()<CR>", { desc = "Ollama prompt (selection)" })
+  vim.keymap.set("x", "<leader>lo", ":<C-u>lua require('ollama').prompt()<CR>", { desc = "Ollama prompt (selection)" })
   vim.keymap.set(
     "x",
-    "<leader>og",
+    "<leader>lg",
     ":<C-u>lua require('ollama').prompt('Generate_Code')<CR>",
     { desc = "Ollama generate code (selection)" }
   )
-  vim.keymap.set("x", "<leader>or", ":<C-u>lua require('ollama').prompt('Raw')<CR>", { desc = "Ollama raw prompt (selection)" })
-  vim.keymap.set("n", "<leader>om", "<cmd>OllamaModel<CR>", { desc = "Ollama model" })
-end
-
--- Codex AI helpers
-local function detect_codex_cli()
-  local candidates = {}
-  local seen = {}
-
-  local function add_candidate(path)
-    if type(path) ~= "string" then
-      return
-    end
-    local trimmed = vim.trim(path)
-    if trimmed == "" or seen[trimmed] then
-      return
-    end
-    seen[trimmed] = true
-    table.insert(candidates, trimmed)
-  end
-
-  add_candidate(vim.env.CODEX_BIN)
-  add_candidate(vim.fn.exepath("codex"))
-  for _, path in ipairs(vim.fn.systemlist("which -a codex 2>/dev/null")) do
-    add_candidate(path)
-  end
-
-  local legacy = nil
-  for _, bin in ipairs(candidates) do
-    vim.fn.system({ bin, "exec", "--help" })
-    if vim.v.shell_error == 0 then
-      return { bin = bin, mode = "exec" }
-    end
-
-    local help = vim.fn.system({ bin, "--help" })
-    if vim.v.shell_error == 0 and help:find("%-%-plain") and legacy == nil then
-      legacy = { bin = bin, mode = "plain" }
-    end
-  end
-
-  return legacy
-end
-
-local codex_cli = detect_codex_cli()
-if codex_cli then
-  local function run_codex(prompt)
-    if codex_cli.mode == "exec" then
-      local output_file = vim.fn.tempname()
-      local output = vim.fn.system({
-        codex_cli.bin,
-        "exec",
-        "--color",
-        "never",
-        "--output-last-message",
-        output_file,
-        "--",
-        prompt,
-      })
-      local shell_error = vim.v.shell_error
-      local reply = ""
-
-      if vim.fn.filereadable(output_file) == 1 then
-        reply = table.concat(vim.fn.readfile(output_file), "\n")
-        vim.fn.delete(output_file)
-      end
-
-      if shell_error ~= 0 then
-        local err = vim.trim(reply ~= "" and reply or output)
-        if err == "" then
-          err = "Unknown error"
-        end
-        vim.notify("Codex error: " .. err, vim.log.levels.ERROR)
-        return nil
-      end
-
-      if vim.trim(reply) == "" then
-        reply = vim.trim(output)
-      end
-      return reply
-    end
-
-    local output = vim.fn.system({ codex_cli.bin, "--plain", prompt })
-    if vim.v.shell_error ~= 0 then
-      vim.notify("Codex error: " .. output, vim.log.levels.ERROR)
-      return nil
-    end
-    return output
-  end
-
-  local function ask_codex(prompt, title)
-    local reply = run_codex(prompt)
-    if not reply then
-      return
-    end
-    open_floating_buffer(title or "Codex", reply)
-  end
-
-  vim.api.nvim_create_user_command("Codex", function(opts)
-    local prompt = table.concat(opts.fargs, " ")
-    if prompt == "" then
-      prompt = vim.fn.input("Codex prompt: ")
-    end
-    if prompt == "" then
-      return
-    end
-    ask_codex(prompt, "Codex")
-  end, { nargs = "*" })
-
-  vim.api.nvim_create_user_command("CodexTerminal", function()
-    if codex_cli.mode ~= "exec" then
-      vim.notify("Interactive Codex terminal requires Codex CLI with `exec` support", vim.log.levels.WARN)
-      return
-    end
-    vim.cmd("tabnew | terminal " .. vim.fn.fnameescape(codex_cli.bin))
-  end, { desc = "Launch interactive Codex terminal" })
-
-  vim.keymap.set("n", "<leader>ca", function()
-    local prompt = vim.fn.input("Codex prompt: ")
-    if prompt == "" then
-      return
-    end
-    ask_codex(prompt, "Codex prompt")
-  end, { desc = "Codex ask" })
-
-  vim.keymap.set("v", "<leader>ca", function()
-    local selection = get_visual_selection()
-    if selection == "" then
-      return
-    end
-    local prompt = "Explain the following code and include actionable suggestions:\n\n" .. selection
-    ask_codex(prompt, "Codex • selection")
-  end, { desc = "Codex explain selection" })
-
-  vim.keymap.set("n", "<leader>cT", ":CodexTerminal<CR>", { desc = "Codex terminal" })
+  vim.keymap.set("x", "<leader>lr", ":<C-u>lua require('ollama').prompt('Raw')<CR>", { desc = "Ollama raw (selection)" })
+  vim.keymap.set("n", "<leader>lm", "<cmd>OllamaModel<CR>", { desc = "Ollama select model" })
 end
 
 -- OpenCode AI integration
 local opencode = safe_require("opencode")
 if opencode then
-  vim.o.autoread = true
   vim.keymap.set({ "n", "x" }, "<leader>oa", function()
     opencode.ask("@this: ", { submit = true })
   end, { desc = "OpenCode ask + submit" })
@@ -404,13 +402,9 @@ if opencode then
   end, { desc = "OpenCode prompt (draft)" })
 end
 
--- General settings
-vim.o.number = true
-vim.o.relativenumber = false
-vim.o.termguicolors = true
-vim.o.cursorline = true
-vim.o.signcolumn = "yes"
-vim.opt.undofile = true
-vim.opt.clipboard = "unnamedplus"
+-- Kubernetes helpers
+vim.api.nvim_create_user_command("K9s", function()
+  vim.cmd("tabnew | terminal k9s")
+end, { desc = "Launch k9s in terminal" })
 
-vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, { desc = "Line diagnostics" })
+vim.keymap.set("n", "<leader>k9", ":K9s<CR>", { desc = "K9s" })

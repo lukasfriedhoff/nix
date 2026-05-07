@@ -91,10 +91,12 @@ in
         programs.nix-ld = {
           enable = true;
           libraries = with pkgs; [
-            stdenv.cc.cc
+            stdenv.cc.cc.lib
             glibc
             openssl
             zlib
+            icu
+            libcxx
           ];
         };
 
