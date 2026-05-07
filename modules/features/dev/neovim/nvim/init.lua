@@ -318,23 +318,15 @@ if conform then
 end
 
 -- Linting with none-ls (null-ls successor)
--- Note: Many builtins were removed in none-ls; prefer LSP-native diagnostics
--- or conform.nvim for formatting. Only configure sources that exist.
+-- Note: Most builtins were removed in none-ls; only golangci_lint remains.
+-- Other linting is handled by LSP servers directly.
 local null_ls = safe_require("null-ls")
-if null_ls then
-  local sources = {}
-
-  -- Only add sources that exist in none-ls
-  if null_ls.builtins.diagnostics.golangci_lint then
-    table.insert(sources, null_ls.builtins.diagnostics.golangci_lint)
-  end
-  if null_ls.builtins.diagnostics.ansible_lint then
-    table.insert(sources, null_ls.builtins.diagnostics.ansible_lint)
-  end
-
-  if #sources > 0 then
-    null_ls.setup({ sources = sources })
-  end
+if null_ls and null_ls.builtins.diagnostics.golangci_lint then
+  null_ls.setup({
+    sources = {
+      null_ls.builtins.diagnostics.golangci_lint,
+    },
+  })
 end
 
 -- Local LLM via Ollama
