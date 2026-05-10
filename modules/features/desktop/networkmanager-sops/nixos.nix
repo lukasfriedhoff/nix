@@ -67,7 +67,7 @@ in
 {
   options.desktop.networkmanagerSops = {
     enable = lib.mkEnableOption "SOPS-backed NetworkManager connections" // {
-      default = true;
+      default = false;
     };
 
     secretsDir = lib.mkOption {

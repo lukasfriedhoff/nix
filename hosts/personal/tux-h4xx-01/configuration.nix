@@ -1,6 +1,5 @@
 {
   lib,
-  secrets,
   ...
 }:
 
@@ -47,10 +46,6 @@
     userUnit.enable = lib.mkForce false;
   };
   desktop.wireguardHomelab.enable = lib.mkForce false;
-  desktop.networkmanagerSops = {
-    enable = true;
-    secretsDir = "${secrets.primary}/networkmanager";
-  };
 
   desktop.gaming.defaultRenderer = "nvidia";
 
