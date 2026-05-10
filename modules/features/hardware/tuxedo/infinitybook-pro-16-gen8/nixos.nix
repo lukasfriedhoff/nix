@@ -62,9 +62,6 @@ in
     ];
 
     boot.blacklistedKernelModules = [ "nouveau" ];
-    boot.kernelParams = [
-      "acpi_mask_gpe=0x6F"
-    ];
 
     environment.systemPackages = with pkgs; [
       mesa-demos # provides glxinfo for quick renderer checks
