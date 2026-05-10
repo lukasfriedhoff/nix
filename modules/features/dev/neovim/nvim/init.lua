@@ -44,6 +44,7 @@ local snacks = safe_require("snacks")
 if snacks then
   snacks.setup({
     input = { enabled = true },
+    terminal = { enabled = true },
   })
 end
 
@@ -386,8 +387,6 @@ end
 -- OpenCode AI integration
 local opencode = safe_require("opencode")
 if opencode then
-  opencode.setup({})
-
   vim.keymap.set({ "n", "x" }, "<leader>oa", function()
     opencode.ask("@this: ", { submit = true })
   end, { desc = "OpenCode ask + submit" })
