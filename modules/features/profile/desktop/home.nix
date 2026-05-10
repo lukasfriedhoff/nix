@@ -1,3 +1,5 @@
+# Desktop profile for personal Linux workstations
+# Enables GUI applications, development tools, and AI assistants
 {
   config,
   inputs,
@@ -8,16 +10,29 @@
 }:
 
 let
+  # Use profile-based detection for backwards compatibility
   personalDesktopProfiles = [
     "srv4"
     "tux"
     "tab"
     "lenovo"
   ];
+  isPersonalDesktop = profile != null && lib.elem profile personalDesktopProfiles;
+
+  # Check profiles.desktop.enable if defined, otherwise fall back to profile detection
+  desktopEnabled =
+    if config ? profiles && config.profiles ? desktop then
+      config.profiles.desktop.enable
+    else
+      isPersonalDesktop;
+
+  # Workstation profiles get extra development tools
   personalWorkstationProfiles = [
     "tux"
     "lenovo"
   ];
+
+  # LLM backend configuration per profile
   llmOllamaHostByProfile = {
     # srv4 hosts the local LLM runtime directly.
     srv4 = "http://127.0.0.1:11434";
@@ -35,8 +50,6 @@ let
   defaultOllamaHost = "http://srv4.lab.h4xx.io:11434";
   defaultOpenWebUiUrl = "http://srv4.lab.h4xx.io:3000";
   defaultOpencodeModel = "ollama/qwen3-coder:30b";
-  defaultGlobalOpencodeSkillsDir = "${config.xdg.configHome}/opencode/skills";
-  defaultRepoOpencodeSkillsDir = "${config.home.homeDirectory}/git/lukasfriedhoff/nix/.opencode/skills";
   resolvedOllamaHost =
     if profile != null && builtins.hasAttr profile llmOllamaHostByProfile then
       llmOllamaHostByProfile.${profile}
@@ -48,8 +61,8 @@ let
     else
       defaultOpenWebUiUrl;
   resolvedOpencodeBaseUrl = "${lib.removeSuffix "/" resolvedOllamaHost}/v1";
-  isPersonalDesktop = profile != null && lib.elem profile personalDesktopProfiles;
-  isLinuxDesktop = isPersonalDesktop && (!pkgs.stdenv.isDarwin);
+
+  isLinuxDesktop = desktopEnabled && (!pkgs.stdenv.isDarwin);
   isPersonalWorkstation = profile != null && lib.elem profile personalWorkstationProfiles;
   isLinuxWorkstation = isPersonalWorkstation && (!pkgs.stdenv.isDarwin);
 in
@@ -96,6 +109,9 @@ in
         # Required for opencode plugins with native node modules (onnxruntime, etc.)
         LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
       };
+
+      # Enable Nix-managed AI agents and skills (uses config.profiles.desktop from core)
+      ai.enable = lib.mkDefault true;
 
       programs.oh-my-opencode = {
         enable = true;
@@ -170,20 +186,8 @@ in
             ];
           };
         };
-        # Skills are loaded from ~/.config/opencode/skill/ directory
-        # which is populated by the bootstrapOpencodeSkills activation script
+        # Skills are managed by lukasf.ai module and installed to ~/.opencode/skills/
       };
-
-      # One-time bootstrap: copy repo-scoped skills to global opencode skill dir
-      home.activation.bootstrapOpencodeSkills = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        global_skills_dir="${defaultGlobalOpencodeSkillsDir}"
-        repo_skills_dir="${defaultRepoOpencodeSkillsDir}"
-        mkdir -p "$global_skills_dir"
-
-        if [ -d "$repo_skills_dir" ] && [ -z "$(find "$global_skills_dir" -mindepth 1 -print -quit 2>/dev/null)" ]; then
-          cp -a "$repo_skills_dir"/. "$global_skills_dir"/
-        fi
-      '';
 
       dconf.settings."org/gnome/desktop/wm/keybindings" = {
         "switch-windows" = [ "<Alt>Tab" ];
