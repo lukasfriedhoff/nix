@@ -254,6 +254,26 @@
             };
           };
 
+          # Server home configuration (minimal, no GUI)
+          # deadnix: skip - exported for future server hosts with home-manager
+          mkServerHome = profile: extraImports: {
+            home-manager.useGlobalPkgs = false;
+            home-manager.useUserPackages = true;
+            home-manager.backupFileExtension = "hm-backup";
+            home-manager.extraSpecialArgs = mkSpecialArgs profile // {
+              pkgs = linuxPkgs;
+            };
+            home-manager.users.${linuxUser} = {
+              imports =
+                featureModules.home
+                ++ extraImports
+                ++ [
+                  # Explicitly enable server profile
+                  { profiles.server.enable = true; }
+                ];
+            };
+          };
+
           # Shared by ALL NixOS hosts
           coreModules = featureModules.nixos ++ [
             sops-nix.nixosModules.sops
@@ -481,6 +501,16 @@
             specialArgs = mkSpecialArgs "mac" // {
               inherit self;
             };
+          };
+
+          # Reusable Home Manager modules for different profiles
+          homeModules = {
+            # Core shared configuration
+            core = ./modules/features/profile/core/home.nix;
+            # Server profile (minimal, CLI only)
+            server = ./modules/features/profile/server/home.nix;
+            # Desktop profile (full GUI and development tools)
+            desktop = ./modules/features/profile/desktop/home.nix;
           };
 
           homeConfigurations =
