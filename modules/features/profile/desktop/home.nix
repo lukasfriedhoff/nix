@@ -69,6 +69,34 @@ in
 {
   config = lib.mkMerge [
     (lib.mkIf isLinuxDesktop {
+      programs.kubeconfig = lib.mkIf isPersonalDesktop {
+        enable = lib.mkDefault true;
+        defaultContext = lib.mkDefault "homelab-prod";
+        clusters = lib.mkDefault [
+          {
+            name = "homelab-prod";
+            mode = "ssh";
+            sshHost = "srv1";
+            apiServer = "https://srv1.lab.h4xx.io:6443";
+            contextName = "homelab-prod";
+          }
+          {
+            name = "homelab-testing";
+            mode = "ssh";
+            sshHost = "srv3";
+            apiServer = "https://srv3.lab.h4xx.io:6443";
+            contextName = "homelab-testing";
+          }
+          {
+            name = "homelab-staging";
+            mode = "ssh";
+            sshHost = "srv5-k3s-stg1";
+            apiServer = "https://srv5-k3s-stg1.lab.h4xx.io:6443";
+            contextName = "homelab-staging";
+          }
+        ];
+      };
+
       programs.bash.shellAliases = {
         scrcpy = "env -u DRI_PRIME -u __NV_PRIME_RENDER_OFFLOAD SDL_VIDEODRIVER=x11 scrcpy --render-driver=opengl --video-codec=h264";
       };
