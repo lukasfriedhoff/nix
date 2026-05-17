@@ -1,9 +1,8 @@
-_:
-{
+_: {
   disko.devices = {
     disk.main = {
       type = "disk";
-      device = "/dev/disk/by-id/virtio-srv5-k3s-stg1-root";
+      device = "/dev/vda";
       content = {
         type = "gpt";
         partitions = {
@@ -35,6 +34,24 @@ _:
                 format = "ext4";
                 mountpoint = "/";
               };
+            };
+          };
+        };
+      };
+    };
+
+    disk.longhorn = {
+      type = "disk";
+      device = "/dev/vdb";
+      content = {
+        type = "gpt";
+        partitions = {
+          data = {
+            size = "100%";
+            content = {
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/var/lib/longhorn-disk1";
             };
           };
         };

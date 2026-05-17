@@ -127,6 +127,51 @@
     keyName = "srv3-personal-mgmt";
   }
   {
+    match = "srv5-k3s-stg1";
+    alias = "srv5-k3s-stg1";
+    hostName = "srv5-k3s-stg1.lab.h4xx.io";
+    user = "root";
+    keyName = "srv5-k3s-stg1-personal-mgmt";
+  }
+  {
+    match = "unlock-srv5-k3s-stg1";
+    alias = "unlock-srv5-k3s-stg1";
+    hostName = "srv5-k3s-stg1.lab.h4xx.io";
+    port = 2222;
+    user = "root";
+    keyName = "srv5-k3s-stg1-personal-mgmt";
+  }
+  {
+    match = "srv6-k3s-stg2";
+    alias = "srv6-k3s-stg2";
+    hostName = "srv6-k3s-stg2.lab.h4xx.io";
+    user = "root";
+    keyName = "srv6-k3s-stg2-personal-mgmt";
+  }
+  {
+    match = "unlock-srv6-k3s-stg2";
+    alias = "unlock-srv6-k3s-stg2";
+    hostName = "srv6-k3s-stg2.lab.h4xx.io";
+    port = 2222;
+    user = "root";
+    keyName = "srv6-k3s-stg2-personal-mgmt";
+  }
+  {
+    match = "srv7-k3s-stg3";
+    alias = "srv7-k3s-stg3";
+    hostName = "srv7-k3s-stg3.lab.h4xx.io";
+    user = "root";
+    keyName = "srv7-k3s-stg3-personal-mgmt";
+  }
+  {
+    match = "unlock-srv7-k3s-stg3";
+    alias = "unlock-srv7-k3s-stg3";
+    hostName = "srv7-k3s-stg3.lab.h4xx.io";
+    port = 2222;
+    user = "root";
+    keyName = "srv7-k3s-stg3-personal-mgmt";
+  }
+  {
     match = "nix-builder";
     alias = "nix-builder";
     hostName = "srv3.lab.h4xx.io";

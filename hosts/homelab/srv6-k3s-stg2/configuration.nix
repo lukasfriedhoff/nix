@@ -25,6 +25,11 @@ in
   ];
 
   networking.hostName = hostName;
+  networking.extraHosts = ''
+    10.1.30.18 srv5-k3s-stg1 srv5-k3s-stg1.lab.h4xx.io k3s-staging-api.lab.h4xx.io
+    10.1.30.19 srv6-k3s-stg2 srv6-k3s-stg2.lab.h4xx.io
+    10.1.30.22 srv7-k3s-stg3 srv7-k3s-stg3.lab.h4xx.io
+  '';
   shared.network.domain = clusterDomain;
 
   homelab.personalServer = {
@@ -32,6 +37,9 @@ in
     managementPubKey = null;
     usePasswordAuth = false;
   };
+
+  users.users.root.openssh.authorizedKeys.keyFiles = [ ./initrd-authorized.pub ];
+  users.users.nixos.openssh.authorizedKeys.keyFiles = [ ./initrd-authorized.pub ];
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -42,16 +50,17 @@ in
   };
 
   boot.initrd.network.udhcpc.enable = true;
-
-  fileSystems."/var/lib/longhorn-disk1" = {
-    device = "/dev/disk/by-id/virtio-srv6-k3s-stg2-longhorn1";
-    fsType = "ext4";
-    options = [
-      "defaults"
-      "nofail"
-      "discard"
-    ];
-  };
+  boot.initrd.network.udhcpc.extraArgs = [
+    "-t"
+    "20"
+    "-T"
+    "3"
+    "-x"
+    # DHCP option 61 (client identifier): 01 + mgmt MAC (52:54:00:0b:b2:6c)
+    "0x3d:015254000bb26c"
+    "-x"
+    "hostname:srv6"
+  ];
 
   homelab.kubernetes = {
     enable = true;

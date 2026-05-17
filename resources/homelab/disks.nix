@@ -73,6 +73,36 @@
     purpose = "longhorn";
     type = "virtual";
   };
+  "virtio-srv5-k3s-stg1-root" = {
+    host = "srv5-k3s-stg1";
+    purpose = "root";
+    type = "virtual";
+  };
+  "virtio-srv5-k3s-stg1-longhorn1" = {
+    host = "srv5-k3s-stg1";
+    purpose = "longhorn";
+    type = "virtual";
+  };
+  "virtio-srv6-k3s-stg2-root" = {
+    host = "srv6-k3s-stg2";
+    purpose = "root";
+    type = "virtual";
+  };
+  "virtio-srv6-k3s-stg2-longhorn1" = {
+    host = "srv6-k3s-stg2";
+    purpose = "longhorn";
+    type = "virtual";
+  };
+  "virtio-srv7-k3s-stg3-root" = {
+    host = "srv7-k3s-stg3";
+    purpose = "root";
+    type = "virtual";
+  };
+  "virtio-srv7-k3s-stg3-longhorn1" = {
+    host = "srv7-k3s-stg3";
+    purpose = "longhorn";
+    type = "virtual";
+  };
   "ata-ST4000VX016-3CV104_WW60911A" = {
     host = "srv2";
     purpose = "storage";
