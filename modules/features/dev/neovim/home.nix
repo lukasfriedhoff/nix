@@ -18,6 +18,7 @@ in
         vimAlias = true;
         withNodeJs = true;
         withPython3 = true;
+        withRuby = false; # Explicitly adopt new default (was true before 26.05)
 
         # Plugin set kept minimal but batteries-included for daily development.
         plugins = lib.filter (p: p != null) [
@@ -103,9 +104,9 @@ in
           black
 
           # JavaScript/TypeScript
-          nodePackages.typescript-language-server
-          nodePackages.eslint
-          nodePackages.prettier
+          typescript-language-server
+          eslint
+          prettier
 
           # Bash
           bash-language-server
@@ -114,7 +115,7 @@ in
 
           # YAML/JSON
           yaml-language-server
-          nodePackages.vscode-json-languageserver
+          vscode-langservers-extracted # provides vscode-json-languageserver
 
           # C/C++
           clang-tools
@@ -136,7 +137,7 @@ in
           helm-ls
         ];
 
-        extraLuaConfig = builtins.readFile ./nvim/init.lua;
+        initLua = builtins.readFile ./nvim/init.lua;
       };
 
       home.packages = with pkgs; [
