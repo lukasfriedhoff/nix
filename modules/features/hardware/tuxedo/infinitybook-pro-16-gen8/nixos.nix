@@ -17,7 +17,7 @@ in
     # Firmware & device support
     hardware.enableAllFirmware = true;
     services.fwupd.enable = true;
-    services.power-profiles-daemon.enable = true;
+    services.power-profiles-daemon.enable = false; # Conflicts with tccd
     services.thermald.enable = true;
     services.hardware.bolt.enable = true;
 
@@ -25,11 +25,11 @@ in
     hardware.bluetooth.enable = true;
 
     hardware.tuxedo-rs = {
-      enable = true;
-      tailor-gui.enable = true;
+      enable = false; # Use tccd instead for full TDP/fan/cTGP control
+      tailor-gui.enable = false;
     };
 
-    programs.light.enable = true;
+    hardware.acpilight.enable = true; # Brightness control (replaces deprecated programs.light)
 
     # Graphics: Intel iGPU + NVIDIA RTX 4070 Max-Q (01:00.0)
     hardware.graphics = {
@@ -45,16 +45,20 @@ in
     hardware.nvidia = {
       modesetting.enable = true;
       powerManagement.enable = true;
-      powerManagement.finegrained = true;
-      open = false;
+      powerManagement.finegrained = false; # Incompatible with PRIME sync
+      open = true; # Use open driver like Tuxedo OS
+      dynamicBoost.enable = true; # Enable nvidia-powerd for CPU/GPU power balancing
       package = config.boot.kernelPackages.nvidiaPackages.stable;
       prime = {
-        offload.enable = true;
-        sync.enable = false;
+        offload.enable = false;
+        sync.enable = true; # Use dGPU for all rendering (better gaming perf)
         intelBusId = "PCI:0:2:0";
         nvidiaBusId = "PCI:1:0:0";
       };
     };
+
+    # Lower swappiness for better gaming performance (Tuxedo OS uses 10)
+    boot.kernel.sysctl."vm.swappiness" = 10;
 
     services.xserver.videoDrivers = [
       "nvidia"
