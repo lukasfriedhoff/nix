@@ -166,7 +166,8 @@ scripts/homelab/new-host.sh \
 ```
 
 2. Boot the VM from your prebuilt ISO with management key baked in
-   (`artifacts/iso/nixos-minimal-ci-ssh.iso` in this repo):
+   (`artifacts/iso/nixos-minimal-ci-ssh.iso` in this repo; see
+   `artifacts/iso/README.md`):
 
 ```bash
 scripts/vms/new-qemu-vm.sh \

@@ -116,4 +116,19 @@
     path = ".ssh/personal/srv3-personal-mgmt";
     scope = "personal";
   }
+  {
+    secret = "ssh/srv5-k3s-stg1-personal-mgmt.priv";
+    path = ".ssh/personal/srv5-k3s-stg1-personal-mgmt";
+    scope = "personal";
+  }
+  {
+    secret = "ssh/srv6-k3s-stg2-personal-mgmt.priv";
+    path = ".ssh/personal/srv6-k3s-stg2-personal-mgmt";
+    scope = "personal";
+  }
+  {
+    secret = "ssh/srv7-k3s-stg3-personal-mgmt.priv";
+    path = ".ssh/personal/srv7-k3s-stg3-personal-mgmt";
+    scope = "personal";
+  }
 ]
