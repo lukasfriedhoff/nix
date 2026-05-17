@@ -21,6 +21,7 @@ secrets/profiles/
 ├── personal/
 │   ├── shared/                          [tux, tab, lenovo, srv4, srv1]
 │   │   ├── cloudflare/                  (Cloudflare API tokens for personal infra automation)
+│   │   ├── authelia/                    (shared Authelia test users by environment/cluster)
 │   │   ├── homelab/                     (shared personal homelab secrets)
 │   │   │   └── flux-cluster-dev/
 │   │   └── luks/                        (shared luks material)
@@ -67,6 +68,11 @@ secrets/profiles/
 
 ## Host-specific notes
 - **Ceph on `tux-h4xx-01`**: this desktop is a Ceph client for the homelab cluster. It stores a client keyring under `secrets/profiles/personal/desktops/tux-h4xx-01/ceph/` so the system can mount/access RBDs and the user can run CLI tools (`rbd`, `rados`) without manual key distribution. This is why a desktop-scoped Ceph secret exists.
+
+## Authelia test user lookup
+- **Testing cluster**: `secrets/profiles/personal/shared/authelia/testing-srv3-testuser.yaml`
+- **Staging cluster**: `secrets/profiles/personal/shared/authelia/staging-3vm-testuser.yaml`
+- These files hold the canonical `testuser` credentials for environment login checks.
 
 ## Policy notes
 - **WireGuard secrets are personal-only**: shared domain/endpoint live under `personal/shared/wireguard` so work hosts do not receive decryption keys.
