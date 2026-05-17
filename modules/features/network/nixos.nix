@@ -52,10 +52,10 @@ in
       services.resolved.enable = true;
     })
     (lib.mkIf (cfg.resolved.dnssec != null) {
-      services.resolved.dnssec = cfg.resolved.dnssec;
+      services.resolved.settings.Resolve.DNSSEC = cfg.resolved.dnssec;
     })
     (lib.mkIf (cfg.resolved.fallbackDns != [ ]) {
-      services.resolved.fallbackDns = cfg.resolved.fallbackDns;
+      services.resolved.settings.Resolve.FallbackDNS = cfg.resolved.fallbackDns;
     })
     (lib.mkIf (cfg.resolved.networkmanagerDns != null) {
       networking.networkmanager.dns = cfg.resolved.networkmanagerDns;
