@@ -25,6 +25,20 @@
   libuuid,
   libva,
   libvdpau,
+  libx11,
+  libxcb,
+  libxcb-image,
+  libxcb-render-util,
+  libxcomposite,
+  libxcursor,
+  libxdamage,
+  libxfixes,
+  libxi,
+  libxinerama,
+  libxrandr,
+  libxscrnsaver,
+  libxshmfence,
+  libxtst,
   makeWrapper,
   mesa,
   nspr,
@@ -38,7 +52,6 @@
   stdenv,
   systemd,
   wrapGAppsHook3,
-  xorg,
   zlib,
 }:
 
@@ -48,7 +61,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "https://update.shadow.tech/launcher/prod/linux/ubuntu_18.04/ShadowPC.AppImage";
-    sha256 = "0q34hv78wbl54gzpdl2ca8l1pbkwb4dpbjr14fc38kgh7cah8jxn";
+    hash = "sha256-4+cvub8BoxPSbpuBJ5YsonXIxPhyqto6BYFvtmbf1cA=";
   };
 
   nativeBuildInputs = [
@@ -86,20 +99,20 @@ stdenv.mkDerivation rec {
     openssl
     pango
     rtmpdump
-    xorg.libX11
-    xorg.libXcomposite
-    xorg.libXcursor
-    xorg.libXdamage
-    xorg.libXfixes
-    xorg.libXi
-    xorg.libXrandr
-    xorg.libXScrnSaver
-    xorg.libXtst
-    xorg.libXinerama
-    xorg.libxcb
-    xorg.libxshmfence
-    xorg.xcbutilimage
-    xorg.xcbutilrenderutil
+    libx11
+    libxcomposite
+    libxcursor
+    libxdamage
+    libxfixes
+    libxi
+    libxrandr
+    libxscrnsaver
+    libxtst
+    libxinerama
+    libxcb
+    libxshmfence
+    libxcb-image
+    libxcb-render-util
     zlib
   ];
 
