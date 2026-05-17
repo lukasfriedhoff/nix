@@ -125,7 +125,7 @@ in
         pkgs.noto-fonts-color-emoji
         pkgs.font-awesome
         pkgs.nerd-fonts.symbols-only
-        inputs.witr.packages.${pkgs.system}.default
+        inputs.witr.packages.${pkgs.stdenv.hostPlatform.system}.default
       ];
 
       home.sessionVariables = {
