@@ -18,9 +18,12 @@ secrets/profiles/
 │   ├── desktops/
 │   │   ├── common/          # Shared desktop secrets (SSH keys)
 │   │   ├── tux-h4xx-01/     # tux-specific secrets
-│   │   └── tab-h4xx-02/     # tab-specific secrets
+│   │   ├── tab-h4xx-02/     # tab-specific secrets
+│   │   └── lenovo-h4xx-03/  # lenovo-specific secrets
 │   ├── servers/
 │   │   ├── srv1/            # srv1 secrets
+│   │   ├── srv2/            # srv2 secrets
+│   │   ├── srv3/            # srv3 secrets
 │   │   ├── srv4-vm-01/      # srv4 secrets
 │   │   └── ceph/            # Ceph cluster secrets (by FSID)
 │   │       └── <fsid>/
@@ -125,8 +128,8 @@ The pattern supports multiple resolution strategies:
 
 | Profile | Description | Hosts |
 |---------|-------------|-------|
-| personal | Personal infrastructure | tux, tab, srv1, srv4 |
-| work | Customer/work infrastructure | mac, docker-host-01 |
+| personal | Personal infrastructure | tux, tab, lenovo, srv4, srv1, srv2, srv3, srv5-k3s-stg1, srv6-k3s-stg2, srv7-k3s-stg3 |
+| work | Customer/work infrastructure | mac, docker-host-01, timebutler-test-vm |
 
 ## Best Practices
 

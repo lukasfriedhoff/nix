@@ -49,10 +49,16 @@ customer-facing servers.
 | lenovo-h4xx-04 | Desktop | GNOME | Lenovo ThinkPad P15 Gen 2i (clone) |
 | srv4-vm-01 | Desktop | Plasma | Virtual machine |
 | virtual-05 | Desktop | GNOME | Virtual desktop (Moonlight target) |
+| virtual-05-container | Desktop | GNOME | Container image of virtual-05 |
 | srv1 | Server | Homelab | Personal homelab (Ceph, k3s) |
 | srv2 | Server | Homelab | Personal homelab node |
+| srv3 | Server | Homelab | Personal homelab node |
+| srv5-k3s-stg1 | Server | Homelab | Staging cluster node 1 |
+| srv6-k3s-stg2 | Server | Homelab | Staging cluster node 2 |
+| srv7-k3s-stg3 | Server | Homelab | Staging cluster node 3 |
 | macbook-pro | Darwin | macOS | Work MacBook |
 | docker-host-01 | Server | Work | Customer Docker host |
+| lf-timebutler-testvm-01 | Server | Work | Timebutler test VM |
 
 ## Features
 
@@ -77,7 +83,7 @@ customer-facing servers.
 
 This repo provides a pre-commit hook that:
 1. Blocks committing unencrypted secrets or raw private keys
-2. Validates Nix formatting via nixfmt-tree
+2. Validates Nix formatting via treefmt (nixfmt + statix + deadnix)
 3. Runs `nix flake check` for syntax validation
 
 Enable it locally:
@@ -135,6 +141,8 @@ material into the correct secret directories.
 - `scripts/servers/deploy-from-iso.sh` - nixos-anywhere wrapper for fresh installs
 - `scripts/servers/create-management-key.sh` - Generate SSH keys with SOPS encryption
 - `scripts/servers/setup-srv4-llm-runtime.sh` - Configure ollama + open-webui on RHEL srv4 via podman/systemd
+- `scripts/homelab/probe-installer.sh` - Fetch hardware config and disk/NIC info from installer ISO
+- `scripts/homelab/add-testing-resources.sh` - Add testing resources to the homelab cluster
 
 ### Related Projects
 

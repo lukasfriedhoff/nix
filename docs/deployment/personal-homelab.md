@@ -55,20 +55,20 @@ unless you flip `usePasswordAuth`).
        personal = personalServerRoot "${host}";
      };
      ```
-   - Add a nixosConfiguration using `personalHomelabServerModules`:
+   - Add a nixosConfiguration using `homelabServerModules`:
      ```nix
      ${host} = mkNixosHost "${host}" (
-       personalHomelabServerModules ++ [
+       homelabServerModules ++ [
          ./hosts/homelab/${host}/configuration.nix
        ]
      );
      ```
 6. Deploy from the installer with nixos-anywhere
    ```bash
-  scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
-    --identity ~/.ssh/personal/${host}-personal-mgmt \
-    --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt"
-  ```
+   scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
+     --identity ~/.ssh/personal/${host}-personal-mgmt \
+     --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt"
+   ```
    This wrapper defaults to `--phases disko,install,reboot` (no kexec). Add
    `--with-kexec` only when you explicitly need that phase.
    For additional encrypted volumes, pass extra key files explicitly:

@@ -18,13 +18,11 @@ Hosts are built from composable module sets defined in `flake.nix`:
 
 ```
 coreModules            → Feature modules (`modules/features/**/nixos.nix`) + sops/comin/facter
-baseDesktopModules     → coreModules + stylix + Home Manager
-├── plasmaDesktopModules  → + KDE Plasma
-└── gnomeDesktopModules   → + GNOME + laptop power management
-
-baseServerModules      → coreModules + server defaults
-├── homelabServerModules  → + Kubernetes, GitOps
-└── personalHomelabServerModules → + Personal server profile
+├── baseDesktopModules → + stylix + Home Manager
+│   ├── plasmaDesktopModules  → + KDE Plasma
+│   └── gnomeDesktopModules   → + GNOME + laptop power management
+├── baseServerModules  → + server defaults (+ dacoso defaults, for work servers)
+└── homelabServerModules → + server defaults (homelab personal servers; no dacoso)
 ```
 
 ### Secret Routing
@@ -39,7 +37,7 @@ Hosts are assigned profiles that determine:
 - Whether `workSystem = true` (affects SSH config, etc.)
 - Default configuration values
 
-Profiles: `tux`, `tab`, `srv4`, `srv1`, `mac`, `docker-host-01`, `timebutler-test-vm`
+Profiles: `tux`, `tab`, `lenovo`, `srv4`, `srv1`, `srv2`, `srv3`, `srv5-k3s-stg1`, `srv6-k3s-stg2`, `srv7-k3s-stg3`, `mac`, `docker-host-01`, `timebutler-test-vm`
 
 ### Library Functions
 
