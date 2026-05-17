@@ -8,6 +8,8 @@
 
 let
   hostName = "srv3";
+  builderUser = "nixbuilder";
+  builderUid = 31000;
   homelabDisks = import ../../../resources/homelab/disks.nix;
   cephTopology = import ../../../resources/homelab/ceph.nix;
   cephHost = cephTopology.hosts.${hostName};
@@ -43,6 +45,30 @@ in
     # Keep bootstrap SSH key from initrd-authorized.pub; avoid blocking install on this secret.
     managementPubKey = null;
     usePasswordAuth = false;
+  };
+
+  users.groups.${builderUser} = { };
+  users.users.${builderUser} = {
+    isSystemUser = true;
+    uid = builderUid;
+    group = builderUser;
+    createHome = true;
+    home = "/var/lib/${builderUser}";
+    shell = pkgs.bashInteractive;
+    openssh.authorizedKeys.keyFiles = [ ./initrd-authorized.pub ];
+  };
+
+  nix.settings = {
+    max-jobs = lib.mkForce 2;
+    cores = lib.mkForce 2;
+    trusted-users = lib.mkAfter [ builderUser ];
+  };
+
+  # Limit remote build sessions without throttling other services.
+  systemd.slices."user-${toString builderUid}".sliceConfig = {
+    CPUQuota = "500%";
+    MemoryHigh = "48G";
+    MemoryMax = "64G";
   };
 
   lukasf.nixCache = {

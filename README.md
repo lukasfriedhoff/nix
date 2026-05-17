@@ -66,6 +66,7 @@ customer-facing servers.
 - **Kubernetes**: k3s with FluxCD GitOps
 - **WireGuard**: Homelab mesh VPN
 - **Remote builders**: Distributed Nix builds
+  - Runbook: `docs/deployment/remote-builders.md`
 
 ### Secrets
 - **SOPS + Age**: Per-host encryption keys

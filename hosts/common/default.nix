@@ -37,9 +37,11 @@ in
       lukasf.remoteBuilds = {
         # Use WG-reachable lab DNS directly; the public testing hostname is Cloudflare-proxied.
         hostName = lib.mkDefault "srv3.lab.h4xx.io";
+        sshUser = lib.mkDefault "nixbuilder";
         sshKeyFile = lib.mkDefault config.sops.secrets."srv3-builder-key".path;
         publicHostKey = lib.mkForce nixBuilderHostKeyB64;
         connectTimeout = lib.mkDefault 3;
+        maxJobs = lib.mkDefault 2;
       };
 
       lukasf.nixCache = {
