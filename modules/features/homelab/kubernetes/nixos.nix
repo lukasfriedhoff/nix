@@ -156,6 +156,8 @@ in
     systemd.tmpfiles.rules = lib.optionals cfg.longhorn.enable [
       "L+ /bin/mount - - - - /run/wrappers/bin/mount"
       "L+ /usr/bin/mount - - - - /run/wrappers/bin/mount"
+      "L+ /usr/bin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
+      "L+ /sbin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
       "L+ /sbin/mount.nfs - - - - /run/current-system/sw/bin/mount.nfs"
       "L+ /sbin/mount.nfs4 - - - - /run/current-system/sw/bin/mount.nfs4"
     ];
