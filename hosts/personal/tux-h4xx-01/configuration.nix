@@ -39,13 +39,9 @@
     cephClientName = "tux";
   };
 
-  # Manage homelab WireGuard through NetworkManager profiles instead of the
-  # custom system/user unit orchestration.
-  lukasf.wireguard.homelab = {
-    enable = lib.mkForce false;
-    userUnit.enable = lib.mkForce false;
-  };
-  desktop.wireguardHomelab.enable = lib.mkForce false;
+  # Keep WireGuard managed by the homelab module, but start from user session
+  # to avoid boot-time Wi-Fi ordering issues on laptops.
+  lukasf.wireguard.homelab.userUnit.enable = true;
 
   desktop.gaming.defaultRenderer = "nvidia";
 
