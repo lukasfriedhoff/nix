@@ -29,7 +29,7 @@ in
         default = true;
         description = "Install the Proton VPN GTK app.";
       };
-      package = lib.mkPackageOption pkgs "protonvpn-gui" { };
+      package = lib.mkPackageOption pkgs "proton-vpn" { };
       autostart = lib.mkOption {
         type = lib.types.bool;
         default = false;

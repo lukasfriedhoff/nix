@@ -87,7 +87,7 @@ in
         vkbasalt
         protontricks
         lutris
-        wineWowPackages.full
+        wineWow64Packages.full
         discord
         steam-tui
         steamGameWrapper

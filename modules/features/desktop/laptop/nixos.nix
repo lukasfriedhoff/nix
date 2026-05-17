@@ -79,8 +79,8 @@ in
       "vm.laptop_mode" = lib.mkDefault 5;
     };
 
-    # Backlight control
-    programs.light.enable = lib.mkDefault true;
+    # Backlight control (replaces deprecated programs.light)
+    hardware.acpilight.enable = lib.mkDefault true;
 
     # Power monitoring tools
     environment.systemPackages = with pkgs; [
