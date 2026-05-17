@@ -51,7 +51,7 @@ let
   launcher = pkgs.writeShellApplication {
     name = "icarus-mod-manager";
     runtimeInputs = [
-      pkgs.wineWowPackages.full
+      pkgs.wineWow64Packages.full
       pkgs.coreutils
     ]
     ++ (if cfg.autoInstallDotnet80 then [ pkgs.winetricks ] else [ ]);
@@ -81,7 +81,7 @@ let
       ''}
 
       cd "$app_dir"
-      exec ${pkgs.wineWowPackages.full}/bin/wine "$app_dir/IcarusModManager.exe" "$@"
+      exec ${pkgs.wineWow64Packages.full}/bin/wine "$app_dir/IcarusModManager.exe" "$@"
     '';
   };
 in
@@ -91,7 +91,7 @@ in
 
     version = mkOption {
       type = types.str;
-      default = "2.3.6";
+      default = "2.4.0";
       description = "Upstream release version to download.";
     };
 
@@ -103,7 +103,7 @@ in
 
     hash = mkOption {
       type = types.str;
-      default = "sha256-kMivyO1tYblxhCtsFuSG5ZUUHSYs1sIZ5U8fhY0b6z0=";
+      default = "sha256-z4Ns76YtaWgCzUtvddOu7dWJdpCxTpywVoAxLDAynck=";
       description = "Hash of the downloaded archive (SRI format).";
     };
 
