@@ -19,12 +19,17 @@ This directory contains hardware-specific documentation for each managed device.
 
 ### TUXEDO InfinityBook Pro 16 Gen8 (tux-h4xx-01)
 
-- **ACPI GPE storm**: Requires `acpi_mask_gpe=0x6F` kernel parameter
-- **NVIDIA Prime**: Use offload mode with Intel iGPU as primary
-- **Thunderbolt**: Needs udev rules for user access
-- **Audio**: Use PipeWire with higher quantum for stability
+- **TUXEDO platform stack**: `hardware.tuxedo-drivers` + TUXEDO control center (`tccd`) enabled
+- **NVIDIA PRIME**: Sync mode with NVIDIA renderer by default (host overrideable)
+- **Wi-Fi defaults**: Keep TUXEDO-like NM settings (`wifi.powersave=3`, no scan MAC randomization)
+- **Audio**: PipeWire tuned with higher quantum for stability on this host profile
 
 See [`tux-h4xx-01.md`](tux-h4xx-01.md) for full hardware inventory.
+
+Additional TUXEDO analysis:
+
+- [`tuxedo-kernel-diff-report.md`](tuxedo-kernel-diff-report.md) (commit-level + module-level delta report)
+- [`tuxedo-missing-modules-implementation-plan.md`](tuxedo-missing-modules-implementation-plan.md) (regression verification runbook)
 
 ### ASUS Vivobook T3300 (tab-h4xx-02)
 
