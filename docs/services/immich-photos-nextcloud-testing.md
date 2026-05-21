@@ -34,7 +34,7 @@ This runbook deploys a **second isolated Immich instance** for photos (`immich-p
 - `immich_photos_suspend: "false"`
 - testing Longhorn classes and PVC sizes
 - `immich_photos_postgres_backup_endpoint_url: http://storage01.storage.lab.h4xx.io:9000`
-- `nextcloud_external_photos_enabled: "true"`
+- `nextcloud_external_photos_enabled: "enabled"`
 - `nextcloud_external_photos_url: https://photos-testing.h4xx.io`
 
 ## Secrets (testing overlay)
@@ -95,4 +95,3 @@ Expected:
 - `immich-photos` pods ready
 - CNPG cluster `immich-photos-postgres` ready
 - Nextcloud external sites JSON contains an entry with URL `https://photos-testing.h4xx.io`
-
