@@ -49,18 +49,18 @@ This is done using qBittorrent Web API `torrents/setLocation` (GitOps-controlled
 In `base-config`:
 
 - `media_download_promotion_enabled` (`disabled|enabled`)
-- `media_download_promotion_dry_run` (`true|false`)
+- `media_download_promotion_dry_run` (`enabled|disabled`)
 - `media_download_promotion_cron`
-- `media_download_promotion_min_age_hours`
+- `media_download_promotion_min_age_hours` (e.g. `72h`, starts with numeric hours)
 - `media_download_promotion_category_regex`
 - `media_download_promotion_target_base`
 
 Testing overlay currently enables promotion with:
 
 - `media_download_promotion_enabled: "enabled"`
-- `media_download_promotion_dry_run: "false"`
+- `media_download_promotion_dry_run: "disabled"`
 - `media_download_promotion_cron: "15 */6 * * *"`
-- `media_download_promotion_min_age_hours: "120"`
+- `media_download_promotion_min_age_hours: "120h"`
 - `media_download_promotion_target_base: "/media/staged"`
 
 ## Rollout commands (testing)
@@ -106,4 +106,3 @@ kubectl --context=homelab-testing -n media get pod -l app.kubernetes.io/instance
 To disable without deleting resources:
 
 - set `media_download_promotion_enabled: "disabled"` in overlay/base and reconcile.
-
