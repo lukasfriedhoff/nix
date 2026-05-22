@@ -31,6 +31,9 @@
 
     witr.url = "github:pranshuparmar/witr";
     witr.inputs.nixpkgs.follows = "nixpkgs";
+
+    nix-vscode-extensions.url = "github:nix-community/nix-vscode-extensions";
+    nix-vscode-extensions.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -108,8 +111,8 @@
         let
           linuxSystem = "x86_64-linux";
           # Skip flaky openldap tests (test017-syncreplication-refresh)
-          openldapOverlay = final: prev: {
-            openldap = prev.openldap.overrideAttrs (old: {
+          openldapOverlay = _final: prev: {
+            openldap = prev.openldap.overrideAttrs (_old: {
               doCheck = false;
             });
           };
@@ -544,9 +547,14 @@
                   useGlobalPkgs = false;
                   useUserPackages = true;
                   backupFileExtension = "nixbak";
-                  extraSpecialArgs = mkSpecialArgs "mac";
+                  extraSpecialArgs = mkSpecialArgs "mac" // {
+                    inherit inputs;
+                  };
                   users.${macUser} = {
                     nixpkgs.config.allowUnfree = true;
+                    nixpkgs.overlays = [
+                      inputs.nix-vscode-extensions.overlays.default
+                    ];
                     imports = featureModules.home ++ [
                       stylix.homeModules.stylix
                     ];
