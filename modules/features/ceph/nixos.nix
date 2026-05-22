@@ -2238,7 +2238,7 @@ in
                 if command -v virsh >/dev/null 2>&1; then
                   ${
                     if cfg.healthCheck.libvirtPools == [ ] then
-                      ''pools_to_check=$(virsh pool-list --name 2>/dev/null | grep -v '^$' || true)''
+                      "pools_to_check=$(virsh pool-list --name 2>/dev/null | grep -v '^$' || true)"
                     else
                       ''pools_to_check="${poolsArg}"''
                   }

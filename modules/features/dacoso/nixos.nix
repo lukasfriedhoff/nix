@@ -148,7 +148,7 @@ in
     secretsDirectory = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = primaryRoot;
-      description = ''Base directory containing work secrets; relative file references resolve against this path.'';
+      description = "Base directory containing work secrets; relative file references resolve against this path.";
     };
 
     hashedPasswords = {
