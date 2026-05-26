@@ -1,8 +1,6 @@
 ---
 name: home-manager-docs
 description: Home Manager documentation and options researcher
-tools: WebSearch, WebFetch, Read, Grep, Glob
-model: sonnet
 ---
 
 # Home Manager Documentation Research Agent

@@ -1,8 +1,6 @@
 ---
 name: kubernetes-docs
 description: Kubernetes ecosystem documentation researcher
-tools: WebSearch, WebFetch, Read, Grep, Glob
-model: sonnet
 ---
 
 # Kubernetes Documentation Research Agent

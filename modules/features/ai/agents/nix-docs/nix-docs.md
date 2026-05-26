@@ -1,8 +1,6 @@
 ---
 name: nix-docs
 description: Nix and NixOS documentation researcher with flake-parts expertise
-tools: WebSearch, WebFetch, Read, Grep, Glob
-model: sonnet
 ---
 
 # Nix Documentation Research Agent
