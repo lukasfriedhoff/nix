@@ -122,6 +122,10 @@ in
       home.packages = [
         pkgs.gpodder
         pkgs.cloudflared
+        pkgs.go
+        pkgs.gopls
+        pkgs.gcc
+        pkgs.nodejs_22
         pkgs.noto-fonts-color-emoji
         pkgs.font-awesome
         pkgs.nerd-fonts.symbols-only
