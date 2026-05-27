@@ -18,6 +18,8 @@
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
+    # VA-API support for Jasper Lake iGPU
+    extraPackages = [ pkgs.intel-media-driver ];
   };
   boot.kernelParams = [ "sdhci.debug_quirks=0x20000" ];
 
@@ -27,6 +29,8 @@
   };
 
   services.openssh.settings.PasswordAuthentication = false;
+
+  environment.sessionVariables.LIBVA_DRIVER_NAME = "iHD";
 
   environment.systemPackages = with pkgs; [
     adwaita-icon-theme
