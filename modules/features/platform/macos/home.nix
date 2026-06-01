@@ -20,6 +20,13 @@
 
       # Development tools
       iproute2mac # ip command for macOS (renamed from darwin.iproute2mac)
+      nodejs_22 # includes npm
+      go
+      rustc
+      cargo
+      python3
+      python3Packages.pip
+      uv
 
       # System utilities
       pstree # process tree viewer
