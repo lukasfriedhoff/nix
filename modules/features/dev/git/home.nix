@@ -63,9 +63,6 @@ in
           "includeIf \"gitdir:${homeDir}/git/chaospott/\"" = {
             path = "~/.gitconfig-chaospott";
           };
-          "includeIf \"gitdir:${homeDir}/git/lukasfriedhoff/nix/\"" = {
-            path = "~/.gitconfig-nix-hooks";
-          };
         };
       };
 
@@ -79,6 +76,8 @@ in
           gpgSign = true
         [gpg]
           program = gpg
+        [core]
+          hooksPath = .githooks
       '';
 
       # org per-path config (fill in your org key fingerprint)
@@ -91,6 +90,8 @@ in
           gpgSign = true
         [gpg]
           program = gpg
+        [core]
+          hooksPath = .githooks
       '';
 
       # chaospott per-path config
@@ -103,12 +104,6 @@ in
           gpgSign = true
         [gpg]
           program = gpg
-      '';
-
-      # Repo-local hooks config: enable .githooks for the nix repo
-      home.file.".gitconfig-nix-hooks".text = ''
-        [core]
-          hooksPath = .githooks
       '';
     })
   ];
