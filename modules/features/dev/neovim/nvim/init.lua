@@ -122,7 +122,23 @@ end
 -- Lazygit
 local lazygit_ok = pcall(require, "lazygit")
 if lazygit_ok then
-  vim.keymap.set("n", "<leader>gg", ":LazyGit<CR>", { desc = "LazyGit" })
+  vim.keymap.set("n", "<leader>gg", "<cmd>LazyGit<CR>", { desc = "LazyGit" })
+
+  -- Keep lazygit usable inside terminal buffers:
+  -- 1) Always re-enter terminal input mode when focusing lazygit.
+  -- 2) Send <Esc> to lazygit itself (use <C-\\><C-n> to leave terminal mode).
+  local lazygit_group = vim.api.nvim_create_augroup("LazygitTerminalFixes", { clear = true })
+  vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter" }, {
+    group = lazygit_group,
+    pattern = "term://*lazygit*",
+    callback = function()
+      vim.cmd.startinsert()
+      vim.opt_local.number = false
+      vim.opt_local.relativenumber = false
+      vim.opt_local.cursorline = false
+      vim.keymap.set("t", "<Esc>", "<Esc>", { buffer = true, nowait = true, silent = true })
+    end,
+  })
 end
 
 -- LSP configuration
