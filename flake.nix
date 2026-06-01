@@ -542,26 +542,42 @@
               home-manager.darwinModules.home-manager
               nix-homebrew.darwinModules.nix-homebrew
               sops-nix.darwinModules.sops
-              {
-                home-manager = {
-                  useGlobalPkgs = false;
-                  useUserPackages = true;
-                  backupFileExtension = "nixbak";
-                  extraSpecialArgs = mkSpecialArgs "mac" // {
-                    inherit inputs;
+              (
+                { pkgs, ... }:
+                {
+                  home-manager = {
+                    useGlobalPkgs = false;
+                    useUserPackages = true;
+                    backupFileExtension = "nixbak";
+                    backupCommand = pkgs.writeShellScript "home-manager-backup" ''
+                      set -eu
+                      target="$1"
+                      ext="''${HOME_MANAGER_BACKUP_EXT:-nixbak}"
+                      ts="$(date +%Y%m%d-%H%M%S)"
+                      backup="$target.$ts.$ext"
+                      i=1
+                      while [ -e "$backup" ]; do
+                        backup="$target.$ts-$i.$ext"
+                        i=$((i + 1))
+                      done
+                      mv "$target" "$backup"
+                    '';
+                    extraSpecialArgs = mkSpecialArgs "mac" // {
+                      inherit inputs;
+                    };
+                    users.${macUser} = {
+                      nixpkgs.config.allowUnfree = true;
+                      nixpkgs.overlays = [
+                        inputs.nix-vscode-extensions.overlays.default
+                      ];
+                      imports = featureModules.home ++ [
+                        stylix.homeModules.stylix
+                      ];
+                    };
                   };
-                  users.${macUser} = {
-                    nixpkgs.config.allowUnfree = true;
-                    nixpkgs.overlays = [
-                      inputs.nix-vscode-extensions.overlays.default
-                    ];
-                    imports = featureModules.home ++ [
-                      stylix.homeModules.stylix
-                    ];
-                  };
-                };
-                nix-homebrew.user = macUser;
-              }
+                  nix-homebrew.user = macUser;
+                }
+              )
             ];
             specialArgs = mkSpecialArgs "mac" // {
               inherit self;
