@@ -38,6 +38,23 @@ in
       programs.stylix.enable = lib.mkDefault true;
     }
     (lib.mkIf cfg.enable {
+      # Stylix/Kvantum sometimes leaves a legacy symlinked Base16Kvantum dir from
+      # older generations. HM then tries to back up files inside /nix/store and
+      # fails with "Read-only file system". Normalize before link checks.
+      home.activation.fixKvantumBase16Symlink = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+        kv_dir="$HOME/.config/Kvantum/Base16Kvantum"
+        if [ -L "$kv_dir" ]; then
+          target="$(readlink -f "$kv_dir" || true)"
+          case "$target" in
+            /nix/store/*) rm -f "$kv_dir" ;;
+          esac
+        fi
+      '';
+
+      # Stylix manages the whole Kvantum tree as xdg.configFile."Kvantum".
+      # Force replacement to avoid HM backup moves into store-backed paths.
+      xdg.configFile."Kvantum".force = true;
+
       # Adopt new 26.05 default: GTK4 apps use their own theme, not gtk.theme
       gtk.gtk4.theme = null;
 

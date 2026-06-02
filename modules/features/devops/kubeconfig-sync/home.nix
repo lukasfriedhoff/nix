@@ -285,6 +285,7 @@ in
     home.file.".local/bin/kubeconfig-refresh" = {
       source = "${refreshScript}/bin/kubeconfig-refresh";
       executable = true;
+      force = true;
     };
 
     home.sessionVariables.KUBECONFIG = cfg.configPath;
