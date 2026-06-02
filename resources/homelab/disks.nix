@@ -53,21 +53,6 @@
     purpose = "swap";
     type = "virtual";
   };
-  "virtio-srv3-ceph1" = {
-    host = "srv3";
-    purpose = "ceph";
-    type = "virtual";
-  };
-  "virtio-srv3-ceph2" = {
-    host = "srv3";
-    purpose = "ceph";
-    type = "virtual";
-  };
-  "virtio-srv3-ceph3" = {
-    host = "srv3";
-    purpose = "ceph";
-    type = "virtual";
-  };
   "virtio-srv3-longhorn1" = {
     host = "srv3";
     purpose = "longhorn";
@@ -106,11 +91,15 @@
   "ata-ST4000VX016-3CV104_WW60911A" = {
     host = "srv2";
     purpose = "storage";
+    luksKeyFile = "luks/srv2-mdraid.txt";
+    luksPasswordFile = "/tmp/luks-mdraid.key";
     type = "hdd";
   };
   "ata-WDC_WD40EFRX-68N32N0_WD-WCC7K2FFFP9P" = {
     host = "srv2";
     purpose = "storage";
+    luksKeyFile = "luks/srv2-mdraid.txt";
+    luksPasswordFile = "/tmp/luks-mdraid.key";
     type = "hdd";
   };
 }
