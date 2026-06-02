@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -41,6 +42,15 @@ in
       description = "Hydra notification sender.";
     };
 
+    package = mkOption {
+      type = types.package;
+      default = pkgs.hydra.overrideAttrs (_: {
+        doCheck = false;
+      });
+      defaultText = "pkgs.hydra with checks disabled";
+      description = "Hydra package to run.";
+    };
+
     openFirewall = mkOption {
       type = types.bool;
       default = false;
@@ -63,6 +73,7 @@ in
   config = mkIf cfg.enable {
     services.hydra = {
       enable = true;
+      inherit (cfg) package;
       inherit (cfg)
         hydraURL
         listenHost
