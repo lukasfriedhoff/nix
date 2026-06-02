@@ -47,6 +47,8 @@ in
     trusted-users = lib.mkAfter [ builderUser ];
   };
 
+  lukasf.remoteBuilds.enable = false;
+
   # Limit remote build sessions without throttling other services.
   systemd.slices."user-${toString builderUid}".sliceConfig = {
     CPUQuota = "500%";
