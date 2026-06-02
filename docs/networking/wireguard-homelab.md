@@ -54,6 +54,9 @@ sudo systemctl status wireguard-wg-homelab.service
 The interface is declaratively defined, so it will auto-start on boot and
 set the DNS search domain pulled from `domain.txt` via `resolvectl`.
 
+Current defaults use DNS via the WireGuard gateway first (`10.1.90.1`)
+and health checks target `10.1.90.1`.
+
 ### Start from the user session (laptops)
 
 If Wi-Fi is not available at boot, you can defer startup to the user session:
@@ -67,3 +70,6 @@ Then check from your session:
 ```bash
 systemctl --user status wireguard-wg-homelab.service
 ```
+
+When user-mode startup is enabled, the periodic system refresh timer is
+disabled to avoid restarting the tunnel every few minutes.

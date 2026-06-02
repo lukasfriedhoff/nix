@@ -12,8 +12,15 @@
     };
     dns = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "10.1.30.1" ];
+      default = [
+        "10.1.90.1"
+      ];
       description = "DNS servers pushed to homelab VPN clients.";
+    };
+    healthcheckTarget = lib.mkOption {
+      type = lib.types.str;
+      default = "10.1.90.1";
+      description = "Reachability target over the homelab WireGuard tunnel used for health checks.";
     };
     allowedIPs = lib.mkOption {
       type = lib.types.listOf lib.types.str;
