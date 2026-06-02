@@ -44,8 +44,15 @@ Store it in a root-only environment file on the Attic host:
 ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64="..."
 ```
 
-Enable `services.atticd` on `srv3`, using local SQLite/storage for the first
-homelab iteration. Put it behind HTTPS before exposing it outside the lab.
+`srv3` enables `services.atticd` via `lukasf.atticCache` and currently exposes
+it on the lab URL:
+
+```text
+http://srv3.lab.h4xx.io:8080
+```
+
+It uses local SQLite/storage for the first homelab iteration. Put it behind
+HTTPS before exposing it outside the lab.
 
 After `atticd` starts, create a cache and token:
 
@@ -58,18 +65,24 @@ sudo atticd-atticadm make-token \
   --create-cache homelab \
   --configure-cache homelab
 
-attic login srv3 https://attic.h4xx.io <TOKEN>
+attic login srv3 http://srv3.lab.h4xx.io:8080 <TOKEN>
 attic cache create srv3:homelab --public --priority 30
 attic cache info srv3:homelab
 ```
 
-Then configure clients declaratively with the cache endpoint and public key from
-`attic cache info`:
+Then write the public key from `attic cache info` to:
+
+```text
+resources/attic-cache/homelab.pub
+```
+
+Clients migrate automatically once that file exists. Until then, they keep using
+the legacy `nix-serve` cache.
 
 ```nix
 nix.settings = {
   substituters = [
-    "https://attic.h4xx.io/homelab?priority=30"
+    "http://srv3.lab.h4xx.io:8080/homelab?priority=30"
     "https://cache.nixos.org"
   ];
   trusted-public-keys = [

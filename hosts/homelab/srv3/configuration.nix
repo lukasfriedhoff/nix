@@ -65,6 +65,26 @@ in
     cacheUrl = "http://127.0.0.1:5000";
   };
 
+  lukasf.atticCache = {
+    enable = true;
+    serve = true;
+    configureClient = false;
+    environmentFile = "attic/server.env";
+    serverUrl = "http://srv3.lab.h4xx.io:8080";
+    cacheName = "homelab";
+    listenAddress = "0.0.0.0:8080";
+    port = 8080;
+    openFirewall = true;
+  };
+
+  lukasf.hydraBuilder = {
+    enable = true;
+    hydraURL = "http://srv3.lab.h4xx.io:3000";
+    listenHost = "0.0.0.0";
+    port = 3000;
+    openFirewall = true;
+  };
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelParams = [
