@@ -1619,7 +1619,7 @@ in
                                 if [ -n "$connect_addrs" ] && [ -s "$keyring" ]; then
                                   "$ceph_bin" -m "$connect_addrs" -n client.admin -k "$keyring" "$@"
                                 else
-                                  ${cephadm} shell -- ceph "$@"
+                                  run_cephadm shell -- ceph "$@"
                                 fi
                               }
 
