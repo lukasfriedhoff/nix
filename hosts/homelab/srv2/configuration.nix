@@ -1,4 +1,5 @@
 {
+  config,
   inputs,
   lib,
   pkgs,
@@ -85,13 +86,76 @@ in
   systemd.network.networks."30-brvlan30" = {
     matchConfig.Name = "brvlan30";
     networkConfig.DHCP = "yes";
-    dhcpV4Config.ClientIdentifier = "mac";
+    dhcpV4Config = {
+      ClientIdentifier = "mac";
+      RouteMetric = 100;
+    };
+    routes = [
+      {
+        Destination = "0.0.0.0/0";
+        Gateway = "10.1.30.1";
+        Metric = 100;
+      }
+      {
+        Destination = "10.1.90.0/24";
+        Gateway = "10.1.30.1";
+      }
+    ];
+  };
+
+  # Keep server/storage VLAN addresses, but avoid competing default routes.
+  systemd.network.networks."20-brvlan20" = {
+    matchConfig.Name = "brvlan20";
+    networkConfig.DHCP = "yes";
+    dhcpV4Config.RouteMetric = 200;
+  };
+  systemd.network.networks."40-brvlan40" = {
+    matchConfig.Name = "brvlan40";
+    networkConfig.DHCP = "yes";
+    dhcpV4Config.RouteMetric = 300;
   };
 
   homelab.personalServer = {
     enable = true;
     managementPubKey = null;
     usePasswordAuth = false;
+  };
+
+  sops.secrets."flux-cluster-token" = {
+    sopsFile = ../../../secrets/profiles/personal/servers/srv2/flux-cluster-bootstrap-token.txt;
+    owner = "root";
+    format = "binary";
+    mode = "0400";
+  };
+
+  sops.secrets."flux-sops-age-key" = {
+    sopsFile = ../../../secrets/profiles/personal/servers/srv2/flux-sops-age.key;
+    format = "binary";
+    mode = "0400";
+    owner = "root";
+  };
+
+  homelab.kubernetes = {
+    enable = true;
+    longhorn.enable = true;
+    extraK3sFlags = [
+      "--tls-san srv2.lab.h4xx.io"
+      "--tls-san srv2"
+      "--tls-san 10.1.30.26"
+      "--node-ip=10.1.30.26"
+      "--kubelet-arg=max-pods=250"
+    ];
+    gitops = {
+      enable = true;
+      repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
+      branch = "develop";
+      path = "./overlays/homelab";
+      tokenFile = config.sops.secrets."flux-cluster-token".path;
+      sopsAgeKeyFile = config.sops.secrets."flux-sops-age-key".path;
+      username = "lukasfriedhoff";
+      sourceName = "flux-cluster";
+      kustomizationName = "homelab";
+    };
   };
 
   boot.loader.systemd-boot.enable = true;
