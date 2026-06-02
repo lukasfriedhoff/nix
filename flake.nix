@@ -542,6 +542,10 @@
             );
           };
 
+          hydraJobs.nixosConfigurations = builtins.mapAttrs (
+            _name: nixosConfiguration: nixosConfiguration.config.system.build.toplevel
+          ) self.nixosConfigurations;
+
           darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {
             system = darwinSystem;
             modules = featureModules.darwin ++ [
