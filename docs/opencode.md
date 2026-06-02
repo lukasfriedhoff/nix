@@ -5,6 +5,7 @@ This document covers the OpenCode AI coding agent setup for this NixOS monorepo.
 ## Configuration
 
 Configuration is stored in `~/.config/opencode/opencode.json`.
+Project-specific defaults live in `opencode.jsonc` at the repository root.
 
 For personal Linux desktops, Home Manager enforces the Ollama backend on each activation via `modules/features/profile/desktop/home.nix`:
 
@@ -27,8 +28,19 @@ If `~/.config/opencode/skills` is empty, Home Manager bootstraps it once from:
 |------|---------|
 | `~/.config/opencode/opencode.json` | Main config (model, plugins, agents) |
 | `~/.config/opencode/oh-my-opencode.json` | Oh-My-OpenCode agent mappings |
+| `opencode.jsonc` | Repo instructions, compaction, watcher ignores, safety permissions |
+| `.opencode/agents/review.md` | Read-only repo review subagent |
 | `.opencode/skills/*/SKILL.md` | Project-specific skills |
 | `.opencode/rules.md` | Project-specific rules |
+
+### Project Defaults
+
+The checked-in `opencode.jsonc` follows current OpenCode config patterns:
+
+- loads `AGENTS.md` and key repo docs through `instructions`
+- enables automatic compaction with tool-output pruning
+- ignores noisy local paths such as `.git`, `.direnv`, build results, and `.opencode/node_modules`
+- asks before local commits, pushes, and NixOS switches; denies broad `rm -rf *`
 
 ## Installed Plugins
 
