@@ -14,22 +14,38 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # Firmware & device support
+    # Firmware & platform services
     hardware.enableAllFirmware = true;
     services.fwupd.enable = true;
-    services.power-profiles-daemon.enable = false; # Conflicts with tccd
+    # TUXEDO OS runs power-profiles-daemon alongside tccd.
+    services.power-profiles-daemon.enable = lib.mkDefault true;
     services.thermald.enable = true;
     services.hardware.bolt.enable = true;
+    services.logind.settings.Login.KillUserProcesses = false;
 
     hardware.sensor.iio.enable = true;
     hardware.bluetooth.enable = true;
+    # Mirror TUXEDO OS kernel module stack (tuxedo_keyboard + related modules).
+    hardware.tuxedo-drivers.enable = true;
 
     hardware.tuxedo-rs = {
       enable = false; # Use tccd instead for full TDP/fan/cTGP control
       tailor-gui.enable = false;
     };
 
-    hardware.acpilight.enable = true; # Brightness control (replaces deprecated programs.light)
+    # TUXEDO OS uses kernel/systemd backlight handling, not acpilight.
+    hardware.acpilight.enable = lib.mkForce false;
+
+    # Match TUXEDO OS NetworkManager defaults for Intel CNVi Wi-Fi.
+    networking.networkmanager.wifi = {
+      powersave = lib.mkDefault true;
+      scanRandMacAddress = lib.mkDefault false;
+    };
+    # Match TUXEDO OS GRUB kernel verbosity defaults.
+    boot.kernelParams = [
+      "loglevel=3"
+      "udev.log_level=3"
+    ];
 
     # Graphics: Intel iGPU + NVIDIA RTX 4070 Max-Q (01:00.0)
     hardware.graphics = {
@@ -57,15 +73,22 @@ in
       };
     };
 
-    # Lower swappiness for better gaming performance (Tuxedo OS uses 10)
-    boot.kernel.sysctl."vm.swappiness" = 10;
+    # Match TUXEDO OS sysctl defaults.
+    boot.kernel.sysctl = {
+      "vm.swappiness" = 10;
+      "vm.max_map_count" = lib.mkForce 1048576;
+    };
 
     services.xserver.videoDrivers = [
       "nvidia"
       "modesetting"
     ];
 
-    boot.blacklistedKernelModules = [ "nouveau" ];
+    boot.blacklistedKernelModules = [
+      "nouveau"
+      "snd-mixer-oss"
+      "snd-pcm-oss"
+    ];
 
     environment.systemPackages = with pkgs; [
       mesa-demos # provides glxinfo for quick renderer checks
@@ -74,20 +97,5 @@ in
     ];
 
     programs.gamemode.enable = true;
-
-    services.udev.extraRules =
-      let
-        chmodBin = lib.getExe' pkgs.coreutils "chmod";
-      in
-      ''
-        # Allow access to thunderbolt controller for logged-in users.
-        ACTION=="add", SUBSYSTEM=="thunderbolt", RUN+="${chmodBin} 0660 /sys/%p/device"
-
-        # Keep USB input devices awake to avoid losing keyboard/mouse on autosuspend.
-        ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030101:*", TEST=="power/control", ATTR{power/control}="on"
-        ACTION=="add", SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:030102:*", TEST=="power/control", ATTR{power/control}="on"
-        ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="c539", TEST=="power/control", ATTR{power/control}="on"
-        ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0951", ATTR{idProduct}=="16be", TEST=="power/control", ATTR{power/control}="on"
-      '';
   };
 }
