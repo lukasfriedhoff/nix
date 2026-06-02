@@ -38,7 +38,7 @@ in
     createHome = true;
     home = "/var/lib/${builderUser}";
     shell = pkgs.bashInteractive;
-    openssh.authorizedKeys.keyFiles = [ ./initrd-authorized.pub ];
+    openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
   };
 
   nix.settings = {
