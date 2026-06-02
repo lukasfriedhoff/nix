@@ -51,22 +51,12 @@ in
       lukasf.nixCache = {
         enable = lib.mkDefault true;
         serve = lib.mkDefault false;
-        configureClient = lib.mkDefault (!hasAtticCachePublicKey);
+        configureClient = lib.mkDefault true;
         cacheHost = lib.mkDefault "nix-testing.h4xx.io";
         cacheUrl = lib.mkDefault "https://nix-testing.h4xx.io";
         publicKey = lib.mkDefault testingCachePublicKey;
         connectTimeout = lib.mkDefault 2;
         fallbackToOfficial = lib.mkDefault true;
-      };
-
-      lukasf.atticCache = lib.mkIf hasAtticCachePublicKey {
-        enable = lib.mkDefault true;
-        serve = lib.mkDefault false;
-        configureClient = lib.mkDefault true;
-        serverUrl = lib.mkDefault "http://attic.lab.h4xx.io:8080";
-        cacheName = lib.mkDefault "homelab";
-        publicKey = lib.mkDefault atticCachePublicKey;
-        priority = lib.mkDefault 30;
       };
 
       nix.settings.fallback = lib.mkDefault true;
@@ -77,6 +67,19 @@ in
           "nix-builder-testing.h4xx.io"
         ];
         publicKey = nixBuilderHostKey;
+      };
+    })
+    (lib.mkIf ((desktopDefaults || homelabDefaults) && hasAtticCachePublicKey) {
+      lukasf.nixCache.configureClient = lib.mkDefault false;
+
+      lukasf.atticCache = lib.mkIf hasAtticCachePublicKey {
+        enable = lib.mkDefault true;
+        serve = lib.mkDefault false;
+        configureClient = lib.mkDefault true;
+        serverUrl = lib.mkDefault "http://attic.lab.h4xx.io:8080";
+        cacheName = lib.mkDefault "homelab";
+        publicKey = lib.mkDefault atticCachePublicKey;
+        priority = lib.mkDefault 30;
       };
     })
     (lib.mkIf homelabDefaults {
