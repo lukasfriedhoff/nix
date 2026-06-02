@@ -44,7 +44,7 @@ in
 
     dns = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [ "10.1.30.1" ];
+      default = [ "10.1.90.1" ];
       description = "Resolvers to push via resolvectl once the interface is up.";
     };
 
@@ -102,7 +102,7 @@ in
 
       target = lib.mkOption {
         type = lib.types.str;
-        default = "10.1.30.1";
+        default = "10.1.90.1";
         description = "Reachability target over the VPN used by the health check.";
       };
     };
@@ -131,6 +131,7 @@ in
         allowedIPs = lib.mkDefault shared.allowedIPs;
         persistentKeepalive = lib.mkDefault shared.persistentKeepalive;
         mtu = lib.mkDefault shared.mtu;
+        healthcheck.target = lib.mkDefault shared.healthcheckTarget;
       };
 
       assertions = [
@@ -337,7 +338,7 @@ in
         # skip peer application as well to avoid a failing switch transaction.
         systemd.services.${peerServiceName}.unitConfig.ConditionPathExists = "/sys/class/net/${iface}";
 
-        systemd.timers.${refreshServiceName} = {
+        systemd.timers.${refreshServiceName} = lib.mkIf (!cfg.userUnit.enable) {
           wantedBy = [ "timers.target" ];
           timerConfig = {
             Unit = "${refreshServiceName}.service";
