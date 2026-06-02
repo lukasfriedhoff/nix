@@ -2,12 +2,12 @@
   description = "Lukas Friedhoff's Nix monorepo";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
-    home-manager.url = "github:nix-community/home-manager/master";
+    home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
     stylix.url = "github:nix-community/stylix/master";
@@ -110,16 +110,21 @@
       flake =
         let
           linuxSystem = "x86_64-linux";
+          nixpkgsWorkaroundsOverlay = import ./overlays/nixpkgs-workarounds.nix;
           # Skip flaky openldap tests (test017-syncreplication-refresh)
           openldapOverlay = _final: prev: {
             openldap = prev.openldap.overrideAttrs (_old: {
               doCheck = false;
             });
           };
+          linuxOverlays = [
+            nixpkgsWorkaroundsOverlay
+            openldapOverlay
+          ];
           linuxPkgs = import nixpkgs {
             system = linuxSystem;
             config.allowUnfree = true;
-            overlays = [ openldapOverlay ];
+            overlays = linuxOverlays;
           };
           darwinSystem = "aarch64-darwin";
 
@@ -394,7 +399,7 @@
                 inherit inputs;
               };
               modules = extraModules ++ [
-                { nixpkgs.overlays = [ openldapOverlay ]; }
+                { nixpkgs.overlays = linuxOverlays; }
               ];
             };
 
