@@ -48,7 +48,7 @@ ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64="..."
 it on the lab URL:
 
 ```text
-http://srv3.lab.h4xx.io:8080
+http://attic.lab.h4xx.io:8080
 ```
 
 It uses local SQLite/storage for the first homelab iteration. Put it behind
@@ -65,7 +65,7 @@ sudo atticd-atticadm make-token \
   --create-cache homelab \
   --configure-cache homelab
 
-attic login srv3 http://srv3.lab.h4xx.io:8080 <TOKEN>
+attic login srv3 http://attic.lab.h4xx.io:8080 <TOKEN>
 attic cache create srv3:homelab --public --priority 30
 attic cache info srv3:homelab
 ```
@@ -82,7 +82,7 @@ the legacy `nix-serve` cache.
 ```nix
 nix.settings = {
   substituters = [
-    "http://srv3.lab.h4xx.io:8080/homelab?priority=30"
+    "http://attic.lab.h4xx.io:8080/homelab?priority=30"
     "https://cache.nixos.org"
   ];
   trusted-public-keys = [

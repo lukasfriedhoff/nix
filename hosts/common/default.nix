@@ -63,7 +63,7 @@ in
         enable = lib.mkDefault true;
         serve = lib.mkDefault false;
         configureClient = lib.mkDefault true;
-        serverUrl = lib.mkDefault "http://srv3.lab.h4xx.io:8080";
+        serverUrl = lib.mkDefault "http://attic.lab.h4xx.io:8080";
         cacheName = lib.mkDefault "homelab";
         publicKey = lib.mkDefault atticCachePublicKey;
         priority = lib.mkDefault 30;
