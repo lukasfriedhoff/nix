@@ -104,6 +104,9 @@ let
       set -euo pipefail
       prefix="${cfg.winePrefix}"
       mutable_dir="${cfg.mutableDataDir}"
+      wine_bin="${pkgs.wineWow64Packages.full}/bin/wine"
+      wineboot_bin="${pkgs.wineWow64Packages.full}/bin/wineboot"
+      wineserver_bin="${pkgs.wineWow64Packages.full}/bin/wineserver"
 
       mkdir -p "$mutable_dir"
       if [ ! -e "$mutable_dir/IcarusModManager.exe" ]; then
@@ -125,12 +128,29 @@ let
       export GTK_IM_MODULE=xim
       export QT_IM_MODULE=xim
       export XMODIFIERS='@im=none'
+      export WINE="$wine_bin"
+      export WINEBOOT="$wineboot_bin"
+      export WINESERVER="$wineserver_bin"
+
+      ensure_wine_prefix_ready() {
+        "$wineboot_bin" -u >/dev/null 2>&1 || true
+        "$wineserver_bin" -w
+
+        appdata="$("$wine_bin" cmd.exe /c echo '%AppData%' 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
+        if [ -z "$appdata" ] || [ "$appdata" = "%AppData%" ]; then
+          echo "Icarus Mod Manager Wine prefix is not initialized correctly: %AppData% is empty." >&2
+          echo "Move $prefix aside and rerun icarus-mod-manager to recreate the prefix." >&2
+          exit 1
+        fi
+      }
+
+      ensure_wine_prefix_ready
 
       # Prefer Wine's X11 path for IMM; Wayland driver can cause broken input/widgets.
-      ${pkgs.wineWow64Packages.full}/bin/wine reg add \
+      "$wine_bin" reg add \
         'HKCU\Software\Wine\Drivers' \
         /v 'Graphics' /t REG_SZ /d 'x11' /f >/dev/null 2>&1 || true
-      ${pkgs.wineWow64Packages.full}/bin/wine reg add \
+      "$wine_bin" reg add \
         'HKCU\Software\Wine\AppDefaults\IcarusModManager.exe\DllOverrides' \
         /v 'winewayland.drv' /t REG_SZ /d 'disabled' /f >/dev/null 2>&1 || true
 
@@ -147,7 +167,7 @@ let
         local path="$1"
         local converted=""
 
-        converted="$(${pkgs.wineWow64Packages.full}/bin/winepath -w "$path" 2>/dev/null || true)"
+        converted="$("${pkgs.wineWow64Packages.full}/bin/winepath" -w "$path" 2>/dev/null || true)"
         if [ -n "$converted" ]; then
           printf '%s\n' "$converted"
         else
@@ -204,24 +224,24 @@ let
         for pair in "''${font_substitutions[@]}"; do
           name="''${pair%%|*}"
           value="''${pair#*|}"
-          ${pkgs.wineWow64Packages.full}/bin/wine reg add "$hive" /v "$name" /t REG_SZ /d "$value" /f >/dev/null 2>&1 || true
+          "$wine_bin" reg add "$hive" /v "$name" /t REG_SZ /d "$value" /f >/dev/null 2>&1 || true
         done
       done
 
       # Additional font registry workaround:
       # Make MS Sans Serif resolve to Tahoma TTF to avoid Wine bitmap font usage.
-      ${pkgs.wineWow64Packages.full}/bin/wine reg add \
+      "$wine_bin" reg add \
         'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Fonts' \
         /v 'MS Sans Serif' /t REG_SZ /d 'tahoma.ttf' /f >/dev/null 2>&1 || true
-      ${pkgs.wineWow64Packages.full}/bin/wine reg add \
+      "$wine_bin" reg add \
         'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Fonts' \
         /v 'MS Sans Serif Bold' /t REG_SZ /d 'tahomabd.ttf' /f >/dev/null 2>&1 || true
 
       # Keep WinForms layout stable under HiDPI desktop scaling.
-      ${pkgs.wineWow64Packages.full}/bin/wine reg add \
+      "$wine_bin" reg add \
         'HKCU\Control Panel\Desktop' \
         /v LogPixels /t REG_DWORD /d 96 /f >/dev/null 2>&1 || true
-      ${pkgs.wineWow64Packages.full}/bin/wine reg add \
+      "$wine_bin" reg add \
         'HKCU\Control Panel\Desktop' \
         /v Win8DpiScaling /t REG_DWORD /d 0 /f >/dev/null 2>&1 || true
 
@@ -234,7 +254,7 @@ let
       ''}
 
       cd "$app_dir"
-      exec ${pkgs.wineWow64Packages.full}/bin/wine "$app_dir/IcarusModManager.exe" "$@"
+      exec "$wine_bin" "$app_dir/IcarusModManager.exe" "$@"
     '';
   };
 in
