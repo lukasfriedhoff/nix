@@ -2,6 +2,12 @@
 
 This runbook deploys a **second isolated Immich instance** for photos (`immich-photos`) and links it into Nextcloud as an External Site.
 
+## Important behavior
+
+- This integration is a **navigation link only**.
+- Uploading files to Nextcloud does **not** automatically import them into Immich.
+- Immich and Nextcloud currently use separate storage and ingestion paths.
+
 ## Scope
 
 - Cluster: `homelab-testing` (`testing-srv3`)
