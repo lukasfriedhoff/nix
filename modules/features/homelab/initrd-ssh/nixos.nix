@@ -54,6 +54,8 @@ in
           authorizedKey = builtins.readFile cfg.authorizedKeyFile;
         in
         {
+          boot.initrd.systemd.enable = lib.mkDefault false;
+
           boot.initrd.network = {
             enable = true;
             ssh = {
