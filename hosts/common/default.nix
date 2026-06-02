@@ -70,7 +70,7 @@ in
       };
     })
     (lib.mkIf ((desktopDefaults || homelabDefaults) && hasAtticCachePublicKey) {
-      lukasf.nixCache.configureClient = lib.mkDefault false;
+      lukasf.nixCache.configureClient = lib.mkForce false;
 
       lukasf.atticCache = lib.mkIf hasAtticCachePublicKey {
         enable = lib.mkDefault true;
