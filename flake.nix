@@ -412,6 +412,8 @@
               {
                 # docker-image profile defaults to host resolv.conf, which conflicts
                 # with systemd-resolved from the desktop profile.
+                boot.loader.systemd-boot.enable = lib.mkForce false;
+                boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
                 networking.useHostResolvConf = lib.mkForce false;
                 services.resolved.enable = lib.mkForce false;
                 documentation.doc.enable = lib.mkForce false;

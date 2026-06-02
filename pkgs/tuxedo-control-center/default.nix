@@ -6,7 +6,7 @@
   findutils,
   git,
   makeWrapper,
-  nodejs_20,
+  nodejs_22,
   pkg-config,
   python3,
   stdenv,
@@ -31,7 +31,7 @@ buildNpmPackage rec {
   };
 
   npmDepsHash = "sha256-Hp7x+ojs0xE3hGp9qcGM1dqJ1xLLx/yYv7U1AZQCbrU=";
-  nodejs = nodejs_20;
+  nodejs = nodejs_22;
   npmBuildScript = "build-prod";
 
   makeCacheWritable = true;
