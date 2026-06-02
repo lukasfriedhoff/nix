@@ -127,27 +127,16 @@ in
         }
       ];
 
-      sops.secrets."attic-server-token-rs256-secret-base64" = {
+      sops.secrets."attic-server-env" = {
         sopsFile = resolveSecret cfg.environmentFile;
         format = "dotenv";
-        key = "ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64";
-        mode = "0400";
-        owner = "root";
-      };
-
-      sops.templates."attic-server.env" = {
-        content = ''
-          ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64=${
-            config.sops.placeholder."attic-server-token-rs256-secret-base64"
-          }
-        '';
         mode = "0400";
         owner = "root";
       };
 
       services.atticd = {
         enable = true;
-        environmentFile = config.sops.templates."attic-server.env".path;
+        environmentFile = config.sops.secrets."attic-server-env".path;
         settings = {
           listen = cfg.listenAddress;
           "api-endpoint" = cfg.serverUrl;
