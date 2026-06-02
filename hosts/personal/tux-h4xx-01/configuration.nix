@@ -39,9 +39,9 @@
     cephClientName = "tux";
   };
 
-  # Keep WireGuard managed by the homelab module, but start from user session
-  # to avoid boot-time Wi-Fi ordering issues on laptops.
-  lukasf.wireguard.homelab.userUnit.enable = true;
+  # Keep WireGuard system-managed so homelab DNS and remote builders are
+  # available before rebuilds and other privileged automation.
+  lukasf.wireguard.homelab.userUnit.enable = false;
 
   desktop.gaming.defaultRenderer = "nvidia";
 
