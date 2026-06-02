@@ -70,7 +70,7 @@ in
     serve = true;
     configureClient = false;
     environmentFile = "attic/server.env";
-    serverUrl = "http://srv3.lab.h4xx.io:8080";
+    serverUrl = "http://attic.lab.h4xx.io:8080";
     cacheName = "homelab";
     listenAddress = "0.0.0.0:8080";
     port = 8080;
