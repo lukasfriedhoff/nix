@@ -76,8 +76,8 @@ in
           {
             name = "homelab-prod";
             mode = "ssh";
-            sshHost = "srv1";
-            apiServer = "https://srv1.lab.h4xx.io:6443";
+            sshHost = "srv2";
+            apiServer = "https://srv2.lab.h4xx.io:6443";
             contextName = "homelab-prod";
           }
           {
