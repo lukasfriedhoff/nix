@@ -119,7 +119,7 @@ material into the correct secret directories.
 ## Documentation
 
 | Topic | Location |
-|-------|----------|
+|-----|----------|
 | Hardware inventory | [`docs/hardware/`](docs/hardware/) |
 | Ceph module | [`docs/services/ceph.md`](docs/services/ceph.md) |
 | Backup procedures | [`docs/services/backup.md`](docs/services/backup.md) |
@@ -127,6 +127,8 @@ material into the correct secret directories.
 | srv4 LLM runtime (RHEL) | [`docs/deployment/srv4-llm-runtime.md`](docs/deployment/srv4-llm-runtime.md) |
 | QEMU VM bootstrap | [`docs/deployment/qemu-vm-bootstrap.md`](docs/deployment/qemu-vm-bootstrap.md) |
 | Architecture decisions | [`docs/architecture/`](docs/architecture/) |
+| Module development | [`docs/development/module_development.md`](docs/development/module_development.md) |
+| Host onboarding | [`docs/development/host_onboarding.md`](docs/development/host_onboarding.md) |
 
 ### Architecture Documents
 

@@ -30,6 +30,7 @@
 - Offer `openFirewall`, `extraConfig` (`types.lines`), or `extraArgs` (`listOf str`) where relevant.
 - Guard with `lib.mkIf cfg.enable`, default with `lib.mkDefault`, and combine with `lib.mkMerge`.
 - Prefer `lib.getExe cfg.package` for executables; add assertions when extra inputs are required.
+- For host-specific patterns, consider creating shared base modules that can be reused rather than copying repeated configurations across hosts.
 
 ## Secrets and sops (docs/architecture/secrets-routing.md, docs/analysis/secrets_map.md)
 - Secrets are routed via `secretsByProfile` in `flake.nix` and passed as `specialArgs`.
