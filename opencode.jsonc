@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "docs/analysis/module_style.md",
+    "docs/architecture/secrets-routing.md"
+  ],
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  "watcher": {
+    "ignore": [
+      ".git/**",
+      ".direnv/**",
+      ".opencode/node_modules/**",
+      "result",
+      "result-*",
+      "secrets/**"
+    ]
+  },
+  "permission": {
+    "bash": {
+      "rm -rf *": "deny",
+      "git push*": "ask",
+      "git commit*": "ask",
+      "nixos-rebuild switch*": "ask"
+    }
+  }
+}
