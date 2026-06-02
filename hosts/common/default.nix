@@ -16,6 +16,10 @@ let
   nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGciKlKcfvt/Q6IGxJ2MSD80426WIlpGFsJrei+GpBX/ nix-builder-srv3";
   nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUdjaUtsS2NmdnQvUTZJR3hKMk1TRDgwNDI2V0lscEdGc0pyZWkrR3BCWC8gbml4LWJ1aWxkZXItc3J2Mwo=";
   testingCachePublicKey = builtins.readFile ../../resources/nix-cache/testing-cache.pub;
+  atticCachePublicKeyFile = ../../resources/attic-cache/homelab.pub;
+  hasAtticCachePublicKey = builtins.pathExists atticCachePublicKeyFile;
+  atticCachePublicKey =
+    if hasAtticCachePublicKey then builtins.readFile atticCachePublicKeyFile else null;
 in
 {
   config = lib.mkMerge [
@@ -47,12 +51,22 @@ in
       lukasf.nixCache = {
         enable = lib.mkDefault true;
         serve = lib.mkDefault false;
-        configureClient = lib.mkDefault true;
+        configureClient = lib.mkDefault (!hasAtticCachePublicKey);
         cacheHost = lib.mkDefault "nix-testing.h4xx.io";
         cacheUrl = lib.mkDefault "https://nix-testing.h4xx.io";
         publicKey = lib.mkDefault testingCachePublicKey;
         connectTimeout = lib.mkDefault 2;
         fallbackToOfficial = lib.mkDefault true;
+      };
+
+      lukasf.atticCache = lib.mkIf hasAtticCachePublicKey {
+        enable = lib.mkDefault true;
+        serve = lib.mkDefault false;
+        configureClient = lib.mkDefault true;
+        serverUrl = lib.mkDefault "http://srv3.lab.h4xx.io:8080";
+        cacheName = lib.mkDefault "homelab";
+        publicKey = lib.mkDefault atticCachePublicKey;
+        priority = lib.mkDefault 30;
       };
 
       nix.settings.fallback = lib.mkDefault true;
