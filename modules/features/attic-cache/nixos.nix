@@ -165,6 +165,12 @@ in
         default = "/var/lib/attic-upload";
         description = "State directory for the generated token and Attic client config.";
       };
+
+      uploadInterval = mkOption {
+        type = types.str;
+        default = "1min";
+        description = "Interval for draining queued post-build upload paths.";
+      };
     };
   };
 
@@ -174,11 +180,15 @@ in
         postBuildStateDir = cfg.postBuildUpload.stateDir;
         postBuildTokenFile = "${postBuildStateDir}/token";
         postBuildConfigHome = "${postBuildStateDir}/config";
+        postBuildQueueDir = "${postBuildStateDir}/queue";
         postBuildCache = "${cfg.postBuildUpload.serverAlias}:${cfg.cacheName}";
         postBuildLogin = pkgs.writeShellScript "attic-post-build-login" ''
           set -euo pipefail
 
-          install -d -m 0700 ${lib.escapeShellArg postBuildStateDir} ${lib.escapeShellArg postBuildConfigHome}
+          install -d -m 0700 \
+            ${lib.escapeShellArg postBuildStateDir} \
+            ${lib.escapeShellArg postBuildConfigHome} \
+            ${lib.escapeShellArg postBuildQueueDir}
 
           if [ ! -s ${lib.escapeShellArg postBuildTokenFile} ]; then
             token_tmp="$(mktemp ${lib.escapeShellArg postBuildTokenFile}.XXXXXX)"
@@ -206,25 +216,59 @@ in
               >/dev/null
         '';
         postBuildHook = pkgs.writeShellScript "attic-post-build-upload" ''
-          set -u
+          set -eu
 
           if [ -z "''${OUT_PATHS:-}" ]; then
             exit 0
           fi
 
+          install -d -m 0700 ${lib.escapeShellArg postBuildQueueDir}
+
+          queue_file="$(${pkgs.coreutils}/bin/mktemp ${lib.escapeShellArg postBuildQueueDir}/paths.XXXXXXXXXX)"
+          printf '%s\n' $OUT_PATHS > "$queue_file"
+          chmod 0600 "$queue_file"
+        '';
+        postBuildUploader = pkgs.writeShellScript "attic-post-build-drain" ''
+          set -euo pipefail
+
           if [ ! -s ${lib.escapeShellArg postBuildTokenFile} ]; then
             exit 0
           fi
 
+          install -d -m 0700 ${lib.escapeShellArg postBuildQueueDir}
+
+          mapfile -t queue_files < <(
+            ${pkgs.findutils}/bin/find ${lib.escapeShellArg postBuildQueueDir} \
+              -maxdepth 1 \
+              -type f \
+              -name 'paths.*' \
+              -print \
+              | ${pkgs.coreutils}/bin/sort
+          )
+
+          if [ "''${#queue_files[@]}" -eq 0 ]; then
+            exit 0
+          fi
+
+          batch_file="$(${pkgs.coreutils}/bin/mktemp ${lib.escapeShellArg postBuildStateDir}/batch.XXXXXXXXXX)"
+          trap 'rm -f "$batch_file"' EXIT
+
+          ${pkgs.coreutils}/bin/cat "''${queue_files[@]}" \
+            | ${pkgs.coreutils}/bin/sort -u \
+            > "$batch_file"
+
           export HOME=${lib.escapeShellArg postBuildStateDir}
           export XDG_CONFIG_HOME=${lib.escapeShellArg postBuildConfigHome}
 
-          printf '%s\n' $OUT_PATHS \
-            | ${getExe pkgs.attic-client} push \
-                --stdin \
-                --jobs ${toString cfg.postBuildUpload.uploadJobs} \
-                ${lib.escapeShellArg postBuildCache} \
-            >> /var/log/attic-post-build-upload.log 2>&1 || true
+          if ${getExe pkgs.attic-client} push \
+            --stdin \
+            --jobs ${toString cfg.postBuildUpload.uploadJobs} \
+            ${lib.escapeShellArg postBuildCache} \
+            < "$batch_file" \
+            >> /var/log/attic-post-build-upload.log 2>&1
+          then
+            rm -f "''${queue_files[@]}"
+          fi
         '';
       in
       {
@@ -232,15 +276,13 @@ in
 
         assertions = [
           {
-            assertion = cfg.postBuildUpload.enable -> cfg.serve;
-            message = "lukasf.atticCache.postBuildUpload requires lukasf.atticCache.serve = true.";
+            assertion = cfg.postBuildUpload.enable -> cfg.environmentFile != null;
+            message = "lukasf.atticCache.postBuildUpload requires lukasf.atticCache.environmentFile for token signing.";
           }
         ];
 
         systemd.services.attic-post-build-login = mkIf cfg.postBuildUpload.enable {
           description = "Prepare Attic credentials for Nix post-build uploads";
-          requires = [ "atticd.service" ];
-          after = [ "atticd.service" ];
           before = [ "nix-daemon.service" ];
           wantedBy = [ "multi-user.target" ];
           serviceConfig = {
@@ -250,9 +292,41 @@ in
           };
         };
 
+        systemd.services.attic-post-build-drain = mkIf cfg.postBuildUpload.enable {
+          description = "Drain queued Nix post-build uploads to Attic";
+          after = [
+            "network-online.target"
+            "attic-post-build-login.service"
+          ];
+          wants = [ "network-online.target" ];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = postBuildUploader;
+          };
+        };
+
+        systemd.timers.attic-post-build-drain = mkIf cfg.postBuildUpload.enable {
+          description = "Periodically drain queued Nix post-build uploads to Attic";
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnBootSec = "2min";
+            OnUnitActiveSec = cfg.postBuildUpload.uploadInterval;
+            Unit = "attic-post-build-drain.service";
+          };
+        };
+
         nix.settings.post-build-hook = mkIf cfg.postBuildUpload.enable postBuildHook;
       }
     )
+
+    (mkIf ((cfg.serve || cfg.postBuildUpload.enable) && cfg.environmentFile != null) {
+      sops.secrets."attic-server-env" = {
+        sopsFile = resolveSecret cfg.environmentFile;
+        format = "dotenv";
+        mode = "0400";
+        owner = "root";
+      };
+    })
 
     (mkIf cfg.serve {
       assertions = [
@@ -261,13 +335,6 @@ in
           message = "lukasf.atticCache.environmentFile must point at an Attic server environment secret.";
         }
       ];
-
-      sops.secrets."attic-server-env" = {
-        sopsFile = resolveSecret cfg.environmentFile;
-        format = "dotenv";
-        mode = "0400";
-        owner = "root";
-      };
 
       services.atticd = {
         enable = true;

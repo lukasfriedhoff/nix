@@ -42,8 +42,8 @@ in
   };
 
   nix.settings = {
-    max-jobs = lib.mkForce 2;
-    cores = lib.mkForce 11;
+    max-jobs = lib.mkForce 5;
+    cores = lib.mkForce 4;
     experimental-features = lib.mkAfter [ "cgroups" ];
     use-cgroups = true;
     trusted-users = lib.mkAfter [ builderUser ];
@@ -85,14 +85,12 @@ in
 
   lukasf.atticCache = {
     enable = true;
-    serve = true;
-    configureClient = true;
+    serve = false;
+    configureClient = false;
     environmentFile = "attic/server.env";
-    serverUrl = "http://attic.lab.h4xx.io:8080";
+    serverUrl = "https://attic-testing.h4xx.io";
     cacheName = "homelab";
-    listenAddress = "0.0.0.0:8080";
-    port = 8080;
-    openFirewall = true;
+    openFirewall = false;
     postBuildUpload = {
       enable = true;
       serverAlias = "srv3";
