@@ -93,6 +93,7 @@ in
     openFirewall = false;
     postBuildUpload = {
       enable = true;
+      automaticDrain = false;
       batchFileLimit = 16;
       serverAlias = "srv3";
       serverUrl = "http://10.43.206.159:8080";
