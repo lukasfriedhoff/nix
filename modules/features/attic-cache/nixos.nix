@@ -33,6 +33,12 @@ let
   serverSettings = {
     listen = cfg.listenAddress;
     "api-endpoint" = cfg.serverUrl;
+    chunking = {
+      "nar-size-threshold" = 65536;
+      "min-size" = 16384;
+      "avg-size" = 65536;
+      "max-size" = 262144;
+    };
     database.url = cfg.databaseUrl;
     storage = {
       type = "local";
