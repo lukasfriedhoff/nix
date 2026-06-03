@@ -93,11 +93,17 @@ nix.settings = {
 
 ## Populating Attic
 
-Hydra does not push to Attic automatically unless configured to do so. The
-minimal bridge is a post-build/upload job that pushes completed result paths:
+`srv3` enables `lukasf.atticCache.postBuildUpload`, which prepares a local
+Attic upload token and configures the Nix daemon `post-build-hook`. Hydra builds
+run locally on `srv3`, so completed output paths are uploaded to
+`srv3:homelab` automatically.
+
+Check the upload bridge with:
 
 ```bash
-attic push srv3:homelab ./result
+systemctl status attic-post-build-login.service
+journalctl -u nix-daemon.service -g attic-post-build-upload
+tail -f /var/log/attic-post-build-upload.log
 ```
 
 For manual prewarming without Hydra:
