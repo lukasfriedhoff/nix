@@ -239,8 +239,9 @@ in
   };
 
   networking.extraHosts = ''
-    # Route attic uploads through local Traefik instead of Cloudflare tunnel.
+    # Route attic uploads through Traefik (ClusterIP) instead of Cloudflare tunnel.
     # Cloudflare free tier rejects bodies >100MB; large NARs must bypass it.
-    127.0.0.1 attic-testing.h4xx.io
+    # Traefik handles TLS termination; cert is valid for attic-testing.h4xx.io.
+    10.43.66.105 attic-testing.h4xx.io
   '';
 }
