@@ -8,15 +8,18 @@ This runbook documents how remote builds are wired for personal desktops and how
 - SSH build user: `nixbuilder` (dedicated system user)
 - Client-side builder scheduling cap: `maxJobs = 2`
 - Builder-side execution caps:
-  - `nix.settings.max-jobs = 2`
-  - `nix.settings.cores = 11`
+  - `nix.settings.max-jobs = 5`
+  - `nix.settings.cores = 4`
 - Cgroup resource caps:
   - remote SSH build sessions stay in `user-31000.slice`
   - local Hydra builds run through `nix-daemon.service` in `hydra-builds.slice`
   - `CPUQuota = "2200%"`
   - `MemoryHigh = "60G"`
   - `MemoryMax = "64G"`
-- Cache remains enabled (`nix-serve` on `srv3`), no artifact migration required.
+- `srv3` keeps Hydra local and queues/uploads build outputs to Kubernetes Attic
+  at `https://attic-testing.h4xx.io`.
+- Client defaults must stay on the old cache URL until the new Kubernetes Attic
+  cache public key is committed to `resources/attic-cache/homelab.pub`.
 
 ## Why dedicated user
 
@@ -67,7 +70,13 @@ ssh nixbuilder@srv3.lab.h4xx.io 'id'
 - Existing `/nix/store` content is unchanged.
 - Existing `/nix/var/nix` database is unchanged.
 - `nix-serve` keeps serving existing and new artifacts.
-- No cache key rotation needed for this change.
+- Kubernetes Attic starts with a fresh cache signing key unless its database is
+  migrated; update `resources/attic-cache/homelab.pub` before moving clients to
+  `https://attic-testing.h4xx.io`.
+- Attic uploads are queued by the Nix post-build hook and drained by
+  `attic-post-build-drain.timer`; the hook no longer blocks Hydra build slots.
+- No cache key rotation is needed if the Kubernetes Attic deployment reuses the
+  existing server token secret.
 
 ## Troubleshooting
 
@@ -79,3 +88,7 @@ ssh nixbuilder@srv3.lab.h4xx.io 'id'
   - check `ssh srv3 'journalctl -u nix-daemon -n 200 --no-pager'`
 - If cgroup limits not applied:
   - `ssh srv3 'systemctl status user-31000.slice --no-pager -l'`
+- If Attic uploads lag:
+  - `ssh srv3 'systemctl status attic-post-build-drain.timer attic-post-build-drain.service --no-pager -l'`
+  - `ssh srv3 'find /var/lib/attic-upload/queue -type f | wc -l'`
+  - `ssh srv3 'tail -n 200 /var/log/attic-post-build-upload.log'`
