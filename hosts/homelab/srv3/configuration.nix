@@ -94,6 +94,7 @@ in
     postBuildUpload = {
       enable = true;
       serverAlias = "srv3";
+      serverUrl = "http://10.43.206.159:8080";
       tokenSubject = "hydra";
     };
   };
