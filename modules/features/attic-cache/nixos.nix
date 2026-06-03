@@ -183,6 +183,12 @@ in
         default = "1min";
         description = "Interval for draining queued post-build upload paths.";
       };
+
+      automaticDrain = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Enable the periodic timer that drains queued post-build upload paths.";
+      };
     };
   };
 
@@ -321,15 +327,17 @@ in
           };
         };
 
-        systemd.timers.attic-post-build-drain = mkIf cfg.postBuildUpload.enable {
-          description = "Periodically drain queued Nix post-build uploads to Attic";
-          wantedBy = [ "timers.target" ];
-          timerConfig = {
-            OnBootSec = "2min";
-            OnUnitActiveSec = cfg.postBuildUpload.uploadInterval;
-            Unit = "attic-post-build-drain.service";
-          };
-        };
+        systemd.timers.attic-post-build-drain =
+          mkIf (cfg.postBuildUpload.enable && cfg.postBuildUpload.automaticDrain)
+            {
+              description = "Periodically drain queued Nix post-build uploads to Attic";
+              wantedBy = [ "timers.target" ];
+              timerConfig = {
+                OnBootSec = "2min";
+                OnUnitActiveSec = cfg.postBuildUpload.uploadInterval;
+                Unit = "attic-post-build-drain.service";
+              };
+            };
 
         nix.settings.post-build-hook = mkIf cfg.postBuildUpload.enable postBuildHook;
       }
