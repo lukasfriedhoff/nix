@@ -15,11 +15,16 @@ let
   hasSrv3BuilderKey = srv3BuilderKeyFile != null && builtins.pathExists srv3BuilderKeyFile;
   nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGciKlKcfvt/Q6IGxJ2MSD80426WIlpGFsJrei+GpBX/ nix-builder-srv3";
   nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUdjaUtsS2NmdnQvUTZJR3hKMk1TRDgwNDI2V0lscEdGc0pyZWkrR3BCWC8gbml4LWJ1aWxkZXItc3J2Mwo=";
-  testingCachePublicKey = builtins.readFile ../../resources/nix-cache/testing-cache.pub;
+  testingCachePublicKey = lib.removeSuffix "\n" (
+    builtins.readFile ../../resources/nix-cache/testing-cache.pub
+  );
   atticCachePublicKeyFile = ../../resources/attic-cache/homelab.pub;
   hasAtticCachePublicKey = builtins.pathExists atticCachePublicKeyFile;
   atticCachePublicKey =
-    if hasAtticCachePublicKey then builtins.readFile atticCachePublicKeyFile else null;
+    if hasAtticCachePublicKey then
+      lib.removeSuffix "\n" (builtins.readFile atticCachePublicKeyFile)
+    else
+      null;
 in
 {
   config = lib.mkMerge [
@@ -76,7 +81,7 @@ in
         enable = lib.mkDefault true;
         serve = lib.mkDefault false;
         configureClient = lib.mkDefault true;
-        serverUrl = lib.mkDefault "http://attic.lab.h4xx.io:8080";
+        serverUrl = lib.mkDefault "https://attic-testing.h4xx.io";
         cacheName = lib.mkDefault "homelab";
         publicKey = lib.mkDefault atticCachePublicKey;
         priority = lib.mkDefault 30;
