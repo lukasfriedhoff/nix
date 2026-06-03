@@ -43,7 +43,9 @@ in
 
   nix.settings = {
     max-jobs = lib.mkForce 2;
-    cores = lib.mkForce 2;
+    cores = lib.mkForce 11;
+    experimental-features = lib.mkAfter [ "cgroups" ];
+    use-cgroups = true;
     trusted-users = lib.mkAfter [ builderUser ];
   };
 
@@ -51,10 +53,24 @@ in
 
   # Limit remote build sessions without throttling other services.
   systemd.slices."user-${toString builderUid}".sliceConfig = {
-    CPUQuota = "500%";
-    MemoryHigh = "48G";
+    CPUQuota = "2200%";
+    MemoryHigh = "60G";
     MemoryMax = "64G";
   };
+
+  # Hydra runs as dedicated service users, but actual build processes are
+  # spawned by nix-daemon as nixbld users. Put those builds behind an explicit
+  # cgroup budget so Kubernetes and host services retain headroom.
+  systemd.slices.hydra-builds = {
+    description = "Hydra and Nix build workload budget";
+    sliceConfig = {
+      CPUQuota = "2200%";
+      MemoryHigh = "60G";
+      MemoryMax = "64G";
+    };
+  };
+
+  systemd.services.nix-daemon.serviceConfig.Slice = "hydra-builds.slice";
 
   lukasf.nixCache = {
     enable = true;
