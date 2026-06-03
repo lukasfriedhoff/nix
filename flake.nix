@@ -126,6 +126,21 @@
             config.allowUnfree = true;
             overlays = linuxOverlays;
           };
+          mkHomeManagerBackupCommand =
+            pkgs: defaultExtension:
+            pkgs.writeShellScript "home-manager-backup" ''
+              set -eu
+              target="$1"
+              ext="''${HOME_MANAGER_BACKUP_EXT:-${defaultExtension}}"
+              ts="$(date +%Y%m%d-%H%M%S)"
+              backup="$target.$ts.$ext"
+              i=1
+              while [ -e "$backup" ]; do
+                backup="$target.$ts-$i.$ext"
+                i=$((i + 1))
+              done
+              mv "$target" "$backup"
+            '';
           darwinSystem = "aarch64-darwin";
 
           myLib = import ./lib { inherit (nixpkgs) lib; };
@@ -288,6 +303,7 @@
             home-manager.useGlobalPkgs = false;
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "hm-backup";
+            home-manager.backupCommand = mkHomeManagerBackupCommand linuxPkgs "hm-backup";
             home-manager.extraSpecialArgs = mkSpecialArgs profile // {
               pkgs = linuxPkgs;
             };
@@ -302,6 +318,7 @@
             home-manager.useGlobalPkgs = false;
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "hm-backup";
+            home-manager.backupCommand = mkHomeManagerBackupCommand linuxPkgs "hm-backup";
             home-manager.extraSpecialArgs = mkSpecialArgs profile // {
               pkgs = linuxPkgs;
             };
@@ -560,19 +577,7 @@
                     useGlobalPkgs = false;
                     useUserPackages = true;
                     backupFileExtension = "nixbak";
-                    backupCommand = pkgs.writeShellScript "home-manager-backup" ''
-                      set -eu
-                      target="$1"
-                      ext="''${HOME_MANAGER_BACKUP_EXT:-nixbak}"
-                      ts="$(date +%Y%m%d-%H%M%S)"
-                      backup="$target.$ts.$ext"
-                      i=1
-                      while [ -e "$backup" ]; do
-                        backup="$target.$ts-$i.$ext"
-                        i=$((i + 1))
-                      done
-                      mv "$target" "$backup"
-                    '';
+                    backupCommand = mkHomeManagerBackupCommand pkgs "nixbak";
                     extraSpecialArgs = mkSpecialArgs "mac" // {
                       inherit inputs;
                     };
