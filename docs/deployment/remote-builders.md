@@ -9,10 +9,12 @@ This runbook documents how remote builds are wired for personal desktops and how
 - Client-side builder scheduling cap: `maxJobs = 2`
 - Builder-side execution caps:
   - `nix.settings.max-jobs = 2`
-  - `nix.settings.cores = 2`
-- Cgroup resource cap (builder user only):
-  - `systemd.slices."user-31000".sliceConfig.CPUQuota = "500%"`
-  - `MemoryHigh = "48G"`
+  - `nix.settings.cores = 11`
+- Cgroup resource caps:
+  - remote SSH build sessions stay in `user-31000.slice`
+  - local Hydra builds run through `nix-daemon.service` in `hydra-builds.slice`
+  - `CPUQuota = "2200%"`
+  - `MemoryHigh = "60G"`
   - `MemoryMax = "64G"`
 - Cache remains enabled (`nix-serve` on `srv3`), no artifact migration required.
 
@@ -20,6 +22,7 @@ This runbook documents how remote builds are wired for personal desktops and how
 
 Root-based remote builds run in `user-0.slice`, which would throttle all root SSH sessions if capped.
 Using `nixbuilder` isolates only remote build traffic into `user-31000.slice`.
+Hydra itself already runs as dedicated `hydra` and `hydra-queue-runner` users, but the actual builds are spawned by `nix-daemon` as `nixbld*` users. For that reason, local Hydra build pressure is capped by moving `nix-daemon.service` into `hydra-builds.slice`.
 
 ## Files involved
 
@@ -42,6 +45,7 @@ ssh srv3 'journalctl -u comin.service -n 120 --no-pager -l'
 ssh srv3 'id nixbuilder'
 ssh srv3 'nix show-config | grep -E "^(max-jobs|cores|builders)"'
 ssh srv3 'systemctl show user-31000.slice -p CPUQuotaPerSecUSec -p MemoryHigh -p MemoryMax'
+ssh srv3 'systemctl show hydra-builds.slice nix-daemon.service -p Slice -p CPUQuotaPerSecUSec -p MemoryHigh -p MemoryMax'
 ```
 
 4. Verify client-side effective config (example: tux):
