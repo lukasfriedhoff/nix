@@ -102,12 +102,29 @@ in
     };
   };
 
+  sops.secrets."hydra-admin-password" = {
+    sopsFile = ../../../secrets/profiles/personal/servers/srv3/hydra/admin-password.txt;
+    format = "binary";
+    mode = "0400";
+    owner = "hydra";
+  };
+
   lukasf.hydraBuilder = {
     enable = true;
     hydraURL = "http://srv3.lab.h4xx.io:3000";
     listenHost = "0.0.0.0";
     port = 3000;
     openFirewall = true;
+    adminPasswordFile = config.sops.secrets."hydra-admin-password".path;
+    declarativeProjects.nixos-configs = {
+      displayName = "NixOS Configurations";
+      jobsets.all = {
+        flake = "git+https://github.com/lukasfriedhoff/nix.git?ref=develop";
+        description = "All NixOS host configurations";
+        checkInterval = 3600;
+        keepNr = 3;
+      };
+    };
   };
 
   boot.loader.systemd-boot.enable = true;
