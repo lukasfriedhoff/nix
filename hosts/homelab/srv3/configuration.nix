@@ -239,6 +239,8 @@ in
   };
 
   networking.extraHosts = ''
-    # srv3 srv3.lab.h4xx.io
+    # Route attic uploads through local Traefik instead of Cloudflare tunnel.
+    # Cloudflare free tier rejects bodies >100MB; large NARs must bypass it.
+    127.0.0.1 attic-testing.h4xx.io
   '';
 }
