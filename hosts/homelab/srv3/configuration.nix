@@ -70,13 +70,18 @@ in
   lukasf.atticCache = {
     enable = true;
     serve = true;
-    configureClient = false;
+    configureClient = true;
     environmentFile = "attic/server.env";
     serverUrl = "http://attic.lab.h4xx.io:8080";
     cacheName = "homelab";
     listenAddress = "0.0.0.0:8080";
     port = 8080;
     openFirewall = true;
+    postBuildUpload = {
+      enable = true;
+      serverAlias = "srv3";
+      tokenSubject = "hydra";
+    };
   };
 
   lukasf.hydraBuilder = {
