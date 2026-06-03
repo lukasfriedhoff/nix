@@ -160,6 +160,12 @@ in
         description = "Maximum number of parallel Attic upload jobs.";
       };
 
+      batchFileLimit = mkOption {
+        type = types.ints.positive;
+        default = 25;
+        description = "Maximum number of queued post-build hook files to drain in one Attic push.";
+      };
+
       stateDir = mkOption {
         type = types.str;
         default = "/var/lib/attic-upload";
@@ -258,10 +264,12 @@ in
             exit 0
           fi
 
+          selected_queue_files=( "''${queue_files[@]:0:${toString cfg.postBuildUpload.batchFileLimit}}" )
+
           batch_file="$(${pkgs.coreutils}/bin/mktemp ${lib.escapeShellArg postBuildStateDir}/batch.XXXXXXXXXX)"
           trap 'rm -f "$batch_file"' EXIT
 
-          ${pkgs.coreutils}/bin/cat "''${queue_files[@]}" \
+          ${pkgs.coreutils}/bin/cat "''${selected_queue_files[@]}" \
             | ${pkgs.coreutils}/bin/sort -u \
             > "$batch_file"
 
@@ -275,7 +283,7 @@ in
             < "$batch_file" \
             >> /var/log/attic-post-build-upload.log 2>&1
           then
-            rm -f "''${queue_files[@]}"
+            rm -f "''${selected_queue_files[@]}"
           fi
         '';
       in

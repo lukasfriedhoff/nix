@@ -93,9 +93,11 @@ in
     openFirewall = false;
     postBuildUpload = {
       enable = true;
+      batchFileLimit = 16;
       serverAlias = "srv3";
       serverUrl = "http://10.43.206.159:8080";
       tokenSubject = "hydra";
+      uploadJobs = 1;
     };
   };
 
