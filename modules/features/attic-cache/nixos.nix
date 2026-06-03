@@ -166,6 +166,12 @@ in
         description = "State directory for the generated token and Attic client config.";
       };
 
+      serverUrl = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Optional Attic server URL used only by post-build uploads.";
+      };
+
       uploadInterval = mkOption {
         type = types.str;
         default = "1min";
@@ -182,6 +188,8 @@ in
         postBuildConfigHome = "${postBuildStateDir}/config";
         postBuildQueueDir = "${postBuildStateDir}/queue";
         postBuildCache = "${cfg.postBuildUpload.serverAlias}:${cfg.cacheName}";
+        postBuildServerUrl =
+          if cfg.postBuildUpload.serverUrl != null then cfg.postBuildUpload.serverUrl else cfg.serverUrl;
         postBuildLogin = pkgs.writeShellScript "attic-post-build-login" ''
           set -euo pipefail
 
@@ -211,7 +219,7 @@ in
           XDG_CONFIG_HOME=${lib.escapeShellArg postBuildConfigHome} \
             ${getExe pkgs.attic-client} login \
               ${lib.escapeShellArg cfg.postBuildUpload.serverAlias} \
-              ${lib.escapeShellArg cfg.serverUrl} \
+              ${lib.escapeShellArg postBuildServerUrl} \
               "$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg postBuildTokenFile})" \
               >/dev/null
         '';
