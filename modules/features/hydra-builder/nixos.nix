@@ -102,7 +102,7 @@ let
 
       # Wait for the Hydra web server (up to 150s).
       for i in $(seq 1 30); do
-        ${pkgs.curl}/bin/curl -sf "$HYDRA_URL/api/projects" > /dev/null 2>&1 && break
+        ${pkgs.curl}/bin/curl -sf "$HYDRA_URL/" > /dev/null 2>&1 && break
         echo "Waiting for Hydra web server ($i/30)..."
         sleep 5
         [ "$i" = "30" ] && { echo "Hydra web server not available"; exit 1; }
