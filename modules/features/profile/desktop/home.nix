@@ -267,7 +267,6 @@ in
 
       programs.icarusModManager = {
         enable = true;
-        autoInstallDotnet80 = true;
       };
     })
   ];

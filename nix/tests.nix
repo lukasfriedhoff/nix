@@ -89,6 +89,74 @@
           machine.succeed("test -u /run/wrappers/bin/chrome-sandbox || test -u /run/wrappers/bin/shadow-chrome-sandbox")
         '';
       };
+
+      icarusVmRunner = pkgs.writeShellScriptBin "run-imm-xvfb" ''
+        set -euo pipefail
+
+        display="''${IMM_XVFB_DISPLAY:-:99}"
+        ${pkgs.xvfb}/bin/Xvfb "$display" -screen 0 1280x720x24 -nolisten tcp >/tmp/imm-xvfb.log 2>&1 &
+        xvfb_pid="$!"
+
+        cleanup() {
+          ${pkgs.procps}/bin/pkill -u "$(id -u)" -f 'wineserver|wine|wineboot|explorer\.exe|services\.exe|rpcss\.exe|winedevice\.exe|IcarusModManager\.exe' >/dev/null 2>&1 || true
+          kill "$xvfb_pid" >/dev/null 2>&1 || true
+        }
+        trap cleanup EXIT
+
+        sleep 1
+        export DISPLAY="$display"
+        "$@"
+      '';
+
+      icarusModManagerTest = pkgs.testers.nixosTest {
+        name = "icarus-mod-manager";
+        nodes.machine =
+          { ... }:
+          {
+            imports = [
+              inputs.home-manager.nixosModules.home-manager
+            ];
+
+            users.users.icarus = {
+              isNormalUser = true;
+              password = "icarus-test";
+            };
+
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.icarus = {
+              imports = [
+                ../modules/features/gaming/icarus-mod-manager/home.nix
+              ];
+
+              home.stateVersion = "26.05";
+              programs.icarusModManager = {
+                enable = true;
+                mutableDataDir = "/home/icarus/.local/share/icarus-mod-manager-test";
+                winePrefix = "/home/icarus/.local/share/wineprefixes/icarus-mod-manager-test";
+                smokeTestSeconds = 15;
+              };
+            };
+
+            environment.systemPackages = [
+              icarusVmRunner
+              pkgs.procps
+              pkgs.xvfb
+            ];
+
+            virtualisation = {
+              cores = 2;
+              memorySize = 4096;
+            };
+
+            system.stateVersion = "26.05";
+          };
+        testScript = ''
+          machine.wait_for_unit("multi-user.target")
+          machine.wait_for_unit("home-manager-icarus.service")
+          machine.succeed("su - icarus -c 'IMM_VERBOSE=1 run-imm-xvfb sh -c \"timeout 240s icarus-mod-manager --self-test && timeout 180s icarus-mod-manager --smoke-test\"'")
+        '';
+      };
     in
     {
       checks = {
@@ -96,6 +164,7 @@
         nix-gc-roots-cleaner = gcRootsCleanerTest;
         nix-registry = nixRegistryTest;
         shadow-client-appimage = shadowClientTest;
+        icarus-mod-manager = icarusModManagerTest;
       }
       // collectAndMerge extractIntegrationTests;
     };
