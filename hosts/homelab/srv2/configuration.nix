@@ -21,7 +21,6 @@ in
   ];
 
   networking.hostName = "srv2";
-  boot.swraid.mdadmConf = "PROGRAM ${pkgs.coreutils}/bin/true";
   networking.useNetworkd = true;
   networking.networkmanager.enable = false;
   networking.defaultGateway = lib.mkForce null;
@@ -133,6 +132,55 @@ in
     format = "binary";
     mode = "0400";
     owner = "root";
+  };
+
+  sops.secrets."srv2-longhorn-luks-key" = {
+    sopsFile = ../../../secrets/profiles/personal/shared/luks/srv2-mdraid.txt;
+    format = "binary";
+    mode = "0400";
+    owner = "root";
+  };
+
+  systemd.services.srv2-longhorn-disks = {
+    description = "Unlock and mount srv2 Longhorn data disks";
+    after = [
+      "sops-install-secrets.service"
+      "systemd-udev-settle.service"
+    ];
+    before = [ "k3s.service" ];
+    wantedBy = [ "multi-user.target" ];
+    path = [
+      pkgs.coreutils
+      pkgs.cryptsetup
+      pkgs.util-linux
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      unlock_mount() {
+        local device="$1"
+        local mapper="$2"
+        local mountpoint="$3"
+
+        mkdir -p "$mountpoint"
+
+        if ! cryptsetup status "$mapper" >/dev/null 2>&1; then
+          cryptsetup open "$device" "$mapper" \
+            --key-file ${config.sops.secrets."srv2-longhorn-luks-key".path}
+        fi
+
+        if ! findmnt -rn "$mountpoint" >/dev/null 2>&1; then
+          mount "/dev/mapper/$mapper" "$mountpoint"
+        fi
+
+        chmod 0700 "$mountpoint"
+      }
+
+      unlock_mount /dev/disk/by-id/ata-T-FORCE_1TB_TPBF2209020040602781-part1 cryptlonghorn1 /var/lib/longhorn-disk1
+      unlock_mount /dev/disk/by-id/ata-CT1000BX500SSD1_2216E629C77B-part1 cryptlonghorn2 /var/lib/longhorn-disk2
+    '';
   };
 
   homelab.kubernetes = {
