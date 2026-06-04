@@ -19,7 +19,7 @@ secrets/profiles/
 │   └── shared/                          [tux, tab, lenovo, srv4, macbook-pro]
 │       (reserved for cross-profile secrets)
 ├── personal/
-│   ├── shared/                          [tux, tab, lenovo, srv4, srv1]
+│   ├── shared/                          [tux, tab, lenovo, srv4, srv1, srv2]
 │   │   ├── cloudflare/                  (Cloudflare API tokens for personal infra automation)
 │   │   ├── authelia/                    (shared Authelia test users by environment/cluster)
 │   │   ├── homelab/                     (shared personal homelab secrets)
@@ -61,7 +61,7 @@ secrets/profiles/
 
 ### Why each scope can decrypt
 - **common/shared**: intended for secrets used by both personal and work setups, so both personal devices and the work desktop are recipients.
-- **personal/shared**: used across personal desktops and homelab infra; srv1 is included for server-side automation.
+- **personal/shared**: used across personal desktops and homelab infra; srv1 and srv2 are included for server-side automation.
 - **personal/desktops/**: per-desktop secrets restricted to the specific device; `ssh` subtrees are shared between personal desktops for admin convenience.
 - **personal/servers/**: decryptable by personal desktops plus homelab server keys so both admins and server automation can access.
 - **work/shared, work/desktops, work/servers**: work-only scope, decryptable solely by the work macbook.
