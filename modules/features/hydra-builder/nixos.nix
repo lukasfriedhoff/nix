@@ -67,14 +67,14 @@ let
           inherit projectName jobsetName;
           projectPayload = builtins.toJSON {
             displayname = project.displayName;
-            description = project.description;
+            inherit (project) description;
             enabled = "1";
             visible = "1";
           };
           jobsetPayload = builtins.toJSON {
             type = 1;
-            flake = jobset.flake;
-            description = jobset.description;
+            inherit (jobset) flake;
+            inherit (jobset) description;
             checkinterval = jobset.checkInterval;
             schedulingshares = jobset.schedulingShares;
             keepnr = jobset.keepNr;
