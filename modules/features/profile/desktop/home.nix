@@ -125,6 +125,7 @@ in
         pkgs.go
         pkgs.gopls
         pkgs.gcc
+        pkgs.masterpdfeditor
         pkgs.nodejs_22
         pkgs.noto-fonts-color-emoji
         pkgs.font-awesome
