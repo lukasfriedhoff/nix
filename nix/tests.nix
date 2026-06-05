@@ -132,6 +132,7 @@
               home.stateVersion = "26.05";
               programs.icarusModManager = {
                 enable = true;
+                icarusContentDir = "/home/icarus/Icarus/Icarus/Content";
                 mutableDataDir = "/home/icarus/.local/share/icarus-mod-manager-test";
                 winePrefix = "/home/icarus/.local/share/wineprefixes/icarus-mod-manager-test";
                 smokeTestSeconds = 15;
@@ -154,7 +155,11 @@
         testScript = ''
           machine.wait_for_unit("multi-user.target")
           machine.wait_for_unit("home-manager-icarus.service")
+          machine.succeed("su - icarus -c 'mkdir -p /home/icarus/Icarus/Icarus/Content/Data /home/icarus/Icarus/Icarus/Content/Paks/mods && touch /home/icarus/Icarus/Icarus/Content/Data/data.pak'")
           machine.succeed("su - icarus -c 'IMM_VERBOSE=1 run-imm-xvfb sh -c \"timeout 240s icarus-mod-manager --self-test && timeout 180s icarus-mod-manager --smoke-test\"'")
+          machine.succeed("su - icarus -c 'test -f /home/icarus/.local/share/icarus-mod-manager-test/UnrealPak/Engine/Binaries/Win64/UnrealPak.exe'")
+          machine.succeed("su - icarus -c 'grep -F \"IcarusContent=Z:\\\\home\\\\icarus\\\\Icarus\\\\Icarus\\\\Content\" /home/icarus/.local/share/icarus-mod-manager-test/IcarusModManager.ini'")
+          machine.succeed("su - icarus -c 'grep -F \"UE4PakEXE=Z:\\\\home\\\\icarus\\\\.local\\\\share\\\\icarus-mod-manager-test\\\\UnrealPak\\\\Engine\\\\Binaries\\\\Win64\\\\UnrealPak.exe\" /home/icarus/.local/share/icarus-mod-manager-test/IcarusModManager.ini'")
         '';
       };
     in

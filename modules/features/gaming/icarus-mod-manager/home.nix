@@ -41,6 +41,12 @@ let
     '';
   };
 
+  unrealPakPackage = pkgs.fetchzip {
+    url = "https://github.com/Jimk72/Icarus_Software/raw/main/UnrealPak.zip";
+    stripRoot = false;
+    hash = "sha256-1NovjtmDQsKvFAEOHCgy7c1qvLsX0TQp/uqEcqSd+V4=";
+  };
+
   iniSetScript = pkgs.writeText "icarus-mod-manager-ini-set.py" ''
     import sys
     from pathlib import Path
@@ -135,6 +141,9 @@ let
       app_dir="$mutable_dir"
       ini_file="$app_dir/IcarusModManager.ini"
       smoke_seconds="${toString cfg.smokeTestSeconds}"
+      configured_content_dir="${cfg.icarusContentDir}"
+      unreal_pak_dir="$app_dir/UnrealPak"
+      unreal_pak_exe="$unreal_pak_dir/Engine/Binaries/Win64/UnrealPak.exe"
 
       export WINEPREFIX="$prefix"
       export WINEDEBUG="''${WINEDEBUG:--all}"
@@ -219,13 +228,18 @@ let
       }
 
       configure_app_files() {
-        if [ -f "$ini_file" ] && [ "''${IMM_WINE_KEEP_NEW_SKIN:-0}" != "1" ]; then
-          local orig_skin_dir="$app_dir/Skins_Folder/Original Skin"
-          if [ -d "$orig_skin_dir" ]; then
-            set_ini_value "$ini_file" Folder Skin "$(windows_path "$orig_skin_dir")"
-          fi
+        if [ "''${IMM_SKIP_FIRST_RUN_BOOTSTRAP:-0}" != "1" ]; then
+          install_unreal_pak
+          preseed_first_run_settings
+        fi
 
-          local skin_ini="$orig_skin_dir/Skin.ini"
+        local orig_skin_dir="$app_dir/Skins_Folder/Original Skin"
+        if [ -d "$orig_skin_dir" ]; then
+          set_ini_value "$ini_file" Folder Skin "$(windows_path "$orig_skin_dir")"
+        fi
+
+        local skin_ini="$orig_skin_dir/Skin.ini"
+        if [ "''${IMM_WINE_KEEP_NEW_SKIN:-0}" != "1" ]; then
           if [ -f "$skin_ini" ]; then
             set_ini_value "$skin_ini" Colors FontColors "#FFB420"
             set_ini_value "$skin_ini" Colors UassetFontColors "#D3E5AE"
@@ -237,6 +251,59 @@ let
 
         if [ -f "$ini_file" ] && [ "''${IMM_WINE_KEEP_4KUI:-0}" != "1" ]; then
           set_ini_value "$ini_file" Settings 4KUI false
+        fi
+      }
+
+      install_unreal_pak() {
+        if [ -f "$unreal_pak_exe" ]; then
+          progress "UnrealPak already installed"
+          return
+        fi
+
+        progress "installing UnrealPak"
+        mkdir -p "$unreal_pak_dir"
+        cp -R --no-preserve=mode,ownership "${unrealPakPackage}/UnrealPak/." "$unreal_pak_dir/"
+      }
+
+      find_icarus_content_dir() {
+        if [ -n "$configured_content_dir" ]; then
+          if [ -d "$configured_content_dir" ]; then
+            printf '%s\n' "$configured_content_dir"
+            return
+          fi
+          echo "Warning: configured Icarus content directory does not exist: $configured_content_dir" >&2
+        fi
+
+        local candidate
+        for candidate in \
+          "$HOME/media/SteamLibrary/steamapps/common/Icarus/Icarus/Content" \
+          "$HOME/.local/share/Steam/steamapps/common/Icarus/Icarus/Content" \
+          "$HOME/.steam/steam/steamapps/common/Icarus/Icarus/Content" \
+          "$HOME/.steam/root/steamapps/common/Icarus/Icarus/Content" \
+          "$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Icarus/Icarus/Content"
+        do
+          if [ -d "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return
+          fi
+        done
+      }
+
+      preseed_first_run_settings() {
+        local content_dir
+        content_dir="$(find_icarus_content_dir)"
+
+        set_ini_value "$ini_file" App Left 0
+        set_ini_value "$ini_file" App Top 0
+        set_ini_value "$ini_file" Folder IMM "$(windows_path "$app_dir")\\"
+        set_ini_value "$ini_file" File UE4PakEXE "$(windows_path "$unreal_pak_exe")"
+        set_ini_value "$ini_file" Settings AltDownloader true
+        set_ini_value "$ini_file" Settings LocalFolder true
+
+        if [ -n "$content_dir" ]; then
+          set_ini_value "$ini_file" Folder IcarusContent "$(windows_path "$content_dir")"
+        else
+          echo "Warning: could not auto-detect the Icarus content directory; set programs.icarusModManager.icarusContentDir." >&2
         fi
       }
 
@@ -365,6 +432,12 @@ in
       type = types.bool;
       default = false;
       description = "Deprecated no-op. Icarus Mod Manager is a native Win32 executable and does not need dotnetdesktop8.";
+    };
+
+    icarusContentDir = mkOption {
+      type = types.str;
+      default = "";
+      description = "Optional native Linux path to the Icarus game Content directory. If empty, the launcher tries common Steam library paths.";
     };
   };
 

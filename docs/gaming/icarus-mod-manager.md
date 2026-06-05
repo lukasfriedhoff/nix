@@ -16,6 +16,17 @@ the standalone upstream `IcarusModManager.exe`.
 - Font packages are installed through Home Manager and copied into the prefix on
   first launch. Registry substitutions map legacy Windows bitmap fonts to
   Liberation/DejaVu/Noto fonts to avoid unreadable glyphs.
+- First launch is pre-seeded before the GUI starts: the launcher installs the
+  upstream `UnrealPak.zip`, writes `UE4PakEXE`, and auto-detects the Icarus
+  `Content` directory from common Steam library paths. This avoids the Wine file
+  chooser path, which currently creates hidden/blocking dialogs.
+
+If auto-detection does not find the game, set the content path explicitly:
+
+```nix
+programs.icarusModManager.icarusContentDir =
+  "/home/lukasf/media/SteamLibrary/steamapps/common/Icarus/Icarus/Content";
+```
 
 ## Commands
 
