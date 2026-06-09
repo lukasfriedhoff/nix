@@ -162,6 +162,16 @@ in
     ];
   };
 
+  fileSystems."/var/lib/longhorn-disk2" = {
+    device = "/dev/disk/by-id/virtio-srv3-longhorn2";
+    fsType = "ext4";
+    options = [
+      "defaults"
+      "nofail"
+      "discard"
+    ];
+  };
+
   lukasf.kvm = {
     enable = true;
     storage = {
