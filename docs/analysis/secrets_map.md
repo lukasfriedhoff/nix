@@ -9,6 +9,7 @@ Source of truth: `.sops.yaml` `creation_rules` and current directory layout unde
 - **srv4-vm-01**: personal server key labeled `srv4` (age1yff2…)
 - **srv1**: homelab server (age1qms8…)
 - **srv2**: homelab server (age1jgca…)
+- **srv8**: homelab server (age1f4w9…)
 - **macbook-pro**: work desktop (age1dqt5…)
 
 ## Markdown tree: paths, who can decrypt, and why
@@ -19,7 +20,7 @@ secrets/profiles/
 │   └── shared/                          [tux, tab, lenovo, srv4, macbook-pro]
 │       (reserved for cross-profile secrets)
 ├── personal/
-│   ├── shared/                          [tux, tab, lenovo, srv4, srv1, srv2]
+│   ├── shared/                          [tux, tab, lenovo, srv4, srv1, srv2, srv8]
 │   │   ├── cloudflare/                  (Cloudflare API tokens for personal infra automation)
 │   │   ├── authelia/                    (shared Authelia test users by environment/cluster)
 │   │   ├── homelab/                     (shared personal homelab secrets)
@@ -37,7 +38,7 @@ secrets/profiles/
 │   │   │   └── wireguard/
 │   │   └── tab-h4xx-02/                 [tab]
 │   │       └── wireguard/
-│   └── servers/                         [tux, tab, lenovo, srv4, srv1, srv2]
+│   └── servers/                         [tux, tab, lenovo, srv4, srv1, srv2, srv8]
 │       ├── ceph/
 │       │   └── 83897024-e964-11f0-9d5c-0cc47a6c3802/
 │       ├── srv1/
@@ -45,6 +46,8 @@ secrets/profiles/
 │       │   ├── seaweedfs/
 │       │   └── ssh/
 │       ├── srv2/
+│       │   └── ssh/
+│       ├── srv8/
 │       │   └── ssh/
 │       ├── srv3/
 │       │   └── nix-cache/
@@ -61,7 +64,7 @@ secrets/profiles/
 
 ### Why each scope can decrypt
 - **common/shared**: intended for secrets used by both personal and work setups, so both personal devices and the work desktop are recipients.
-- **personal/shared**: used across personal desktops and homelab infra; srv1 and srv2 are included for server-side automation.
+- **personal/shared**: used across personal desktops and homelab infra; srv1, srv2, and srv8 are included for server-side automation.
 - **personal/desktops/**: per-desktop secrets restricted to the specific device; `ssh` subtrees are shared between personal desktops for admin convenience.
 - **personal/servers/**: decryptable by personal desktops plus homelab server keys so both admins and server automation can access.
 - **work/shared, work/desktops, work/servers**: work-only scope, decryptable solely by the work macbook.

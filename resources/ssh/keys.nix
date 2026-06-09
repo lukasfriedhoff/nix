@@ -131,4 +131,9 @@
     path = ".ssh/personal/srv7-k3s-stg3-personal-mgmt";
     scope = "personal";
   }
+  {
+    secret = "ssh/srv8-personal-mgmt.priv";
+    path = ".ssh/personal/srv8-personal-mgmt";
+    scope = "personal";
+  }
 ]
