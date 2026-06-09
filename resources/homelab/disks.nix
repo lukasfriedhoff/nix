@@ -58,6 +58,11 @@
     purpose = "longhorn";
     type = "virtual";
   };
+  "virtio-srv3-longhorn2" = {
+    host = "srv3";
+    purpose = "longhorn";
+    type = "virtual";
+  };
   "virtio-srv5-k3s-stg1-root" = {
     host = "srv5-k3s-stg1";
     purpose = "root";
