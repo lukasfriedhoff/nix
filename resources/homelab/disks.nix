@@ -30,10 +30,10 @@
     type = "ssd";
   };
   "ata-T-FORCE_1TB_TPBF2209020040602781" = {
-    host = "srv2";
+    host = "srv8";
     purpose = "longhorn";
-    luksKeyFile = "luks/srv2-mdraid.txt";
-    luksPasswordFile = "/tmp/luks-mdraid.key";
+    luksKeyFile = "luks/srv8-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "ssd";
   };
   "ata-CT1000BX500SSD1_2216E629C77B" = {
@@ -96,10 +96,17 @@
     type = "hdd";
   };
   "ata-WDC_WD40EFRX-68N32N0_WD-WCC7K2FFFP9P" = {
-    host = "srv2";
-    purpose = "storage";
-    luksKeyFile = "luks/srv2-mdraid.txt";
-    luksPasswordFile = "/tmp/luks-mdraid.key";
+    host = "srv8";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv8-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "hdd";
+  };
+  "usb-Seagate_BUP_Slim_BK_NA7WEQ6F-0:0" = {
+    host = "srv8";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv8-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "hdd";
   };
 }

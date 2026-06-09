@@ -283,6 +283,15 @@
               root = personalServerRoot "srv7-k3s-stg3";
               personal = personalServerRoot "srv7-k3s-stg3";
             };
+
+            srv8 = {
+              primary = personalServerRoot "srv8";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
+              root = personalServerRoot "srv8";
+              personal = personalServerRoot "srv8";
+            };
           };
 
           workProfiles = [
@@ -555,6 +564,13 @@
               homelabServerModules
               ++ [
                 ./hosts/homelab/srv7-k3s-stg3/configuration.nix
+              ]
+            );
+
+            srv8 = mkNixosHost "srv8" (
+              homelabServerModules
+              ++ [
+                ./hosts/homelab/srv8/configuration.nix
               ]
             );
           };

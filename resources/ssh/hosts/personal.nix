@@ -172,6 +172,21 @@
     keyName = "srv7-k3s-stg3-personal-mgmt";
   }
   {
+    match = "srv8";
+    alias = "srv8";
+    hostName = "srv8.lab.h4xx.io";
+    user = "root";
+    keyName = "srv8-personal-mgmt";
+  }
+  {
+    match = "unlock-srv8";
+    alias = "unlock-srv8";
+    hostName = "srv8.lab.h4xx.io";
+    port = 2222;
+    user = "root";
+    keyName = "srv8-personal-mgmt";
+  }
+  {
     match = "nix-builder";
     alias = "nix-builder";
     hostName = "srv3.lab.h4xx.io";
