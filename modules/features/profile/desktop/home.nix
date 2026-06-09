@@ -152,6 +152,7 @@ in
         pkgs.go
         pkgs.gopls
         pkgs.gcc
+        pkgs.jameica
         masterpdfeditorLicenseCompatible
         pkgs.nodejs_22
         pkgs.noto-fonts-color-emoji
