@@ -26,14 +26,14 @@ let
 in
 {
   options.lukasf.remoteBuilds = {
-    enable = mkEnableOption "distributed builds via the srv1 builder" // {
+    enable = mkEnableOption "distributed builds via the srv3 builder" // {
       default = !workSystem;
     };
 
     hostName = mkOption {
       type = types.str;
-      default = "srv1.lab.h4xx.io";
-      description = "Builder hostname (srv1).";
+      default = "srv3.lab.h4xx.io";
+      description = "Builder hostname (srv3).";
     };
 
     sshUser = mkOption {
