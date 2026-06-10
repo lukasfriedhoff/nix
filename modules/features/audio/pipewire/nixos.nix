@@ -26,6 +26,9 @@ in
       alsa.enable = true;
       alsa.support32Bit = cfg.support32Bit;
       pulse.enable = true;
+      extraConfig."pipewire-pulse"."pulse.properties" = {
+        "pulse.cmd.stream-restore" = false;
+      };
     };
   };
 }
