@@ -18,13 +18,15 @@ let
 
   # PAC CLI 2.x ships as a net10 tool and is currently unreliable with
   # buildDotnetGlobalTool in this pinned nixpkgs; package it directly.
+  # 2.6.x and newer currently crash on macOS when MSAL's broker is unavailable:
+  # https://github.com/microsoft/powerplatform-build-tools/issues/1352
   pac = pkgs.stdenvNoCC.mkDerivation {
     pname = "pac";
-    version = "2.7.4";
+    version = "2.5.1";
 
     src = pkgs.fetchurl {
-      url = "https://api.nuget.org/v3-flatcontainer/microsoft.powerapps.cli.tool/2.7.4/microsoft.powerapps.cli.tool.2.7.4.nupkg";
-      hash = "sha256-cPl4+MuF+A+8CzJPLR+0c/BZ1xDG/aX4ROHj6kTHRZU=";
+      url = "https://api.nuget.org/v3-flatcontainer/microsoft.powerapps.cli.tool/2.5.1/microsoft.powerapps.cli.tool.2.5.1.nupkg";
+      hash = "sha256-EJqptV3cbK/P6TQzWJHg3e6OxAAwMahe/uxIM9X2JLs=";
     };
 
     nativeBuildInputs = [
@@ -39,8 +41,14 @@ let
       unzip -q "$src" "tools/net10.0/any/*" -d "$TMPDIR/pac"
       cp -R "$TMPDIR/pac/tools/net10.0/any/." "$out/lib/pac/"
       ln -sf "${pkgs.dotnetCorePackages.sdk_10_0}/bin/dotnet" "$out/lib/pac/bt-uploader/dotnet"
+      logSource='$'"{basedir}/logs"
+      logTarget='$'"{environment:variable=PAC_LOG_DIR}"
+      substituteInPlace "$out/lib/pac/nlog.config" \
+        --replace-fail "$logSource" "$logTarget"
       makeWrapper "${pkgs.dotnetCorePackages.sdk_10_0}/bin/dotnet" "$out/bin/pac" \
         --set DOTNET_ROOT "${pkgs.dotnetCorePackages.sdk_10_0}/share/dotnet" \
+        --run 'export PAC_LOG_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/pac/logs"' \
+        --run 'mkdir -p "$PAC_LOG_DIR"' \
         --add-flags "$out/lib/pac/pac.dll"
       runHook postInstall
     '';
