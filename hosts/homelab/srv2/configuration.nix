@@ -259,6 +259,17 @@ in
     "r8152"
   ];
 
+  # Only cryptroot is unlocked in initrd. Disko registers every LUKS content
+  # type in boot.initrd.luks.devices unconditionally, which makes stage 1
+  # stall waiting for the longhorn data partitions. Those are unlocked in
+  # stage 2 by srv2-longhorn-disks.service.
+  boot.initrd.luks.devices = lib.mkForce {
+    cryptroot = {
+      device = "/dev/disk/by-partlabel/disk-main-root";
+      allowDiscards = true;
+    };
+  };
+
   networking.extraHosts = ''
     # srv2 srv2.lab.h4xx.io 10.42.1.91
   '';
