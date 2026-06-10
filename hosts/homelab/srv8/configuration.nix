@@ -233,6 +233,8 @@ in
       RemainAfterExit = true;
     };
     script = ''
+      set -euo pipefail
+
       unlock_mount() {
         local device="$1"
         local mapper="$2"
@@ -241,8 +243,13 @@ in
         mkdir -p "$mountpoint"
 
         if ! cryptsetup status "$mapper" >/dev/null 2>&1; then
-          cryptsetup open "$device" "$mapper" \
-            --key-file ${config.sops.secrets."srv8-longhorn-luks-key".path}
+          # Strip CR/LF before feeding to cryptsetup so the on-disk passphrase
+          # matches what deploy-from-iso.sh / new-host.sh wrote at install time
+          # (both apply `tr -d '\r\n'` to the SOPS payload). Same pattern as
+          # srv5-bootstrap-password.service.
+          ${pkgs.coreutils}/bin/tr -d '\r\n' \
+            < ${config.sops.secrets."srv8-longhorn-luks-key".path} \
+            | cryptsetup open "$device" "$mapper" --key-file=-
         fi
 
         if ! findmnt -rn "$mountpoint" >/dev/null 2>&1; then
