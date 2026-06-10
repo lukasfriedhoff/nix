@@ -170,7 +170,14 @@ in
   };
 
   boot.initrd.network.udhcpc.enable = true;
+  # Pin udhcpc to enp4s0 (igc, mgmt MAC 1c:83:41:33:1b:37). The wrapper script
+  # in nixpkgs initrd-network.nix runs `udhcpc -i $iface … ${udhcpcArgs}` and
+  # iterates over every NIC found in /sys/class/net; a trailing `-i enp4s0`
+  # overrides the loop variable so DHCP always goes out the cabled port instead
+  # of eno1 (r8169) which currently has no carrier.
   boot.initrd.network.udhcpc.extraArgs = [
+    "-i"
+    "enp4s0"
     "-t"
     "20"
     "-T"
@@ -185,6 +192,10 @@ in
     "r8169"
     "r8152"
   ];
+  # Force-load the Intel 2.5G driver early so enp4s0 is in /sys/class/net by
+  # the time the DHCP loop runs (availableKernelModules waits for a udev
+  # device-trigger match, which has been racing the network setup).
+  boot.initrd.kernelModules = [ "igc" ];
 
   sops.secrets."srv8-longhorn-luks-key" = {
     sopsFile = ../../../secrets/profiles/personal/shared/luks/srv8-longhorn.txt;
