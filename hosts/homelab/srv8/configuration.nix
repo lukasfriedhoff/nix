@@ -197,6 +197,17 @@ in
   # device-trigger match, which has been racing the network setup).
   boot.initrd.kernelModules = [ "igc" ];
 
+  # Only cryptroot is unlocked in initrd. Disko registers every LUKS content
+  # type in boot.initrd.luks.devices unconditionally, which makes stage 1
+  # prompt for three longhorn passphrases before the root prompt. Those are
+  # unlocked in stage 2 by srv8-longhorn-disks.service.
+  boot.initrd.luks.devices = lib.mkForce {
+    cryptroot = {
+      device = "/dev/disk/by-partlabel/disk-main-root";
+      allowDiscards = true;
+    };
+  };
+
   sops.secrets."srv8-longhorn-luks-key" = {
     sopsFile = ../../../secrets/profiles/personal/shared/luks/srv8-longhorn.txt;
     format = "binary";
