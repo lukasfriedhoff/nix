@@ -15,13 +15,13 @@ let
     types
     ;
 
-  versionUnderscored = lib.replaceStrings [ "." ] [ "_" ] cfg.version;
+  baseVersionUnderscored = lib.replaceStrings [ "." ] [ "_" ] cfg.baseVersion;
 
   sourceUrl =
     if cfg.source != null then
       cfg.source
     else
-      "https://github.com/Jimk72/Icarus_Software/raw/main/Icarus_Mod_Manager_${versionUnderscored}.zip";
+      "https://github.com/Jimk72/Icarus_Software/raw/main/Icarus_Mod_Manager_${baseVersionUnderscored}.zip";
 
   dataPackage = pkgs.stdenvNoCC.mkDerivation {
     pname = "icarus-mod-manager-data";
@@ -33,10 +33,21 @@ let
       inherit (cfg) hash;
     };
 
+    patchZip = lib.optionalString (cfg.patchSource != null) (
+      pkgs.fetchzip {
+        url = cfg.patchSource;
+        stripRoot = false;
+        hash = cfg.patchHash;
+      }
+    );
+
     installPhase = ''
       runHook preInstall
       mkdir -p "$out/share/icarus-mod-manager"
       cp -R . "$out/share/icarus-mod-manager"
+      if [ -n "$patchZip" ]; then
+        cp -R --no-preserve=mode,ownership "$patchZip/." "$out/share/icarus-mod-manager/"
+      fi
       runHook postInstall
     '';
   };
@@ -45,6 +56,12 @@ let
     url = "https://github.com/Jimk72/Icarus_Software/raw/main/UnrealPak.zip";
     stripRoot = false;
     hash = "sha256-1NovjtmDQsKvFAEOHCgy7c1qvLsX0TQp/uqEcqSd+V4=";
+  };
+
+  dataArchivePackage = pkgs.fetchzip {
+    url = "https://github.com/Jimk72/Icarus_Software/raw/main/data.zip";
+    stripRoot = false;
+    hash = "sha256-twjpwf9J6EAq4uZqKz/UFjng0rW1bsURGg/IoMBu30Y=";
   };
 
   iniSetScript = pkgs.writeText "icarus-mod-manager-ini-set.py" ''
@@ -147,7 +164,7 @@ let
 
       export WINEPREFIX="$prefix"
       export WINEDEBUG="''${WINEDEBUG:--all}"
-      export WINEDLLOVERRIDES="winewayland.drv=d,''${WINEDLLOVERRIDES:-}"
+      export WINEDLLOVERRIDES="mscoree=d,mshtml=d,winewayland.drv=d,''${WINEDLLOVERRIDES:-}"
       export WINEESYNC=1
       export WINEFSYNC=1
       export GDK_SCALE=1
@@ -227,11 +244,255 @@ let
         touch "$prefix/.icarus-registry-configured"
       }
 
+      json_valid() {
+        python3 - "$1" <<'PY'
+      import json
+      import sys
+
+      try:
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              json.load(handle)
+      except Exception:
+          sys.exit(1)
+      PY
+      }
+
+      database_stale() {
+        local path="$1"
+        local max_age_seconds="$2"
+
+        if [ ! -f "$path" ] || ! json_valid "$path"; then
+          return 0
+        fi
+
+        local now modified
+        now="$(date +%s)"
+        modified="$(stat -c %Y "$path" 2>/dev/null || echo 0)"
+        [ $((now - modified)) -gt "$max_age_seconds" ]
+      }
+
+      repair_json_file() {
+        local path="$1"
+
+        if [ ! -f "$path" ] || json_valid "$path"; then
+          return
+        fi
+
+        local backup
+        backup="$path.corrupt.$(date +%s)"
+        progress "backing up corrupt $(basename "$path") to $(basename "$backup")"
+        mv "$path" "$backup"
+      }
+
+      update_database_files() {
+        local repos_path="$app_dir/repos.json"
+        local mods_path="$app_dir/mods.json"
+        local repos_tmp="$app_dir/repos.json.tmp"
+        local mods_tmp="$app_dir/mods.json.tmp"
+
+        repair_json_file "$repos_path"
+        repair_json_file "$mods_path"
+
+        progress "fetching Icarus Mod Manager database"
+        if python3 - "$repos_tmp" "$mods_tmp" <<'PY'
+      import json
+      import sys
+      import urllib.parse
+      import urllib.request
+
+      repos_path = sys.argv[1]
+      mods_path = sys.argv[2]
+      base = "https://firestore.googleapis.com/v1/projects/projectdaedalus-fb09f/databases/(default)/documents"
+
+      def fetch_json(url):
+          with urllib.request.urlopen(url, timeout=30) as response:
+              return json.loads(response.read().decode("utf-8"))
+
+      repos = fetch_json(f"{base}/meta/repos?pageSize=300")
+
+      documents = []
+      page_token = None
+      while True:
+          query = {"pageSize": "300"}
+          if page_token:
+              query["pageToken"] = page_token
+          url = f"{base}/mods?{urllib.parse.urlencode(query)}"
+          page = fetch_json(url)
+          documents.extend(page.get("documents", []))
+          page_token = page.get("nextPageToken")
+          if not page_token:
+              break
+
+      with open(repos_path, "w", encoding="utf-8") as handle:
+          json.dump(repos, handle, ensure_ascii=False, separators=(",", ":"))
+          handle.write("\n")
+      with open(mods_path, "w", encoding="utf-8") as handle:
+          json.dump({"documents": documents}, handle, ensure_ascii=False, separators=(",", ":"))
+          handle.write("\n")
+      PY
+        then
+          if json_valid "$repos_tmp" && json_valid "$mods_tmp"; then
+            mv "$repos_tmp" "$repos_path"
+            mv "$mods_tmp" "$mods_path"
+            progress "Icarus Mod Manager database refreshed"
+            return
+          fi
+        fi
+
+        rm -f "$repos_tmp" "$mods_tmp"
+        if [ ! -f "$repos_path" ] || [ ! -f "$mods_path" ]; then
+          echo "Warning: could not refresh Icarus Mod Manager database; the in-app Update Database button is known to hang under Wine." >&2
+        else
+          echo "Warning: using existing Icarus Mod Manager database; refresh failed." >&2
+        fi
+      }
+
+      download_mod() {
+        local query="''${1:-}"
+        if [ -z "$query" ]; then
+          echo "Usage: icarus-mod-manager --download-mod <mod name>" >&2
+          return 2
+        fi
+
+        repair_database_files
+
+        python3 - "$app_dir" "$query" <<'PY'
+      import json
+      import shutil
+      import sys
+      import tempfile
+      import urllib.parse
+      import urllib.request
+      import zipfile
+      from pathlib import Path
+
+      app_dir = Path(sys.argv[1])
+      query = sys.argv[2].strip()
+      mods_path = app_dir / "mods.json"
+      downloads_dir = app_dir / "Downloaded_Mods"
+
+      def string_value(value):
+          if isinstance(value, dict):
+              return value.get("stringValue") or ""
+          return ""
+
+      def normalize_url(url):
+          parsed = urllib.parse.urlsplit(url)
+          path = urllib.parse.quote(urllib.parse.unquote(parsed.path), safe="/%")
+          query = urllib.parse.quote(urllib.parse.unquote(parsed.query), safe="=&%")
+          return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, path, query, parsed.fragment))
+
+      def safe_extract(archive, destination):
+          destination = destination.resolve()
+          for member in archive.infolist():
+              target = (destination / member.filename).resolve()
+              if destination != target and destination not in target.parents:
+                  raise RuntimeError(f"Refusing unsafe archive member: {member.filename}")
+          archive.extractall(destination)
+
+      def merge_tree(source, destination):
+          if not source.exists():
+              return
+          destination.mkdir(parents=True, exist_ok=True)
+          for child in source.iterdir():
+              target = destination / child.name
+              if child.is_dir():
+                  merge_tree(child, target)
+              else:
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(child, target)
+
+      with mods_path.open(encoding="utf-8") as handle:
+          documents = json.load(handle).get("documents", [])
+
+      mods = []
+      for document in documents:
+          fields = document.get("fields", {})
+          files = fields.get("files", {}).get("mapValue", {}).get("fields", {})
+          urls = {name: string_value(value) for name, value in files.items() if string_value(value)}
+          if not urls:
+              continue
+          name = string_value(fields.get("name"))
+          author = string_value(fields.get("author"))
+          compatibility = string_value(fields.get("compatibility"))
+          version = string_value(fields.get("version"))
+          mods.append(
+              {
+                  "name": name,
+                  "author": author,
+                  "compatibility": compatibility,
+                  "version": version,
+                  "urls": urls,
+              }
+          )
+
+      query_lower = query.lower()
+      exact = [
+          mod
+          for mod in mods
+          if mod["name"].lower() == query_lower
+          or f'{mod["author"]}:{mod["name"]}'.lower() == query_lower
+      ]
+      matches = exact or [mod for mod in mods if query_lower in mod["name"].lower()]
+
+      if not matches:
+          raise SystemExit(f"No mod found matching: {query}")
+      if len(matches) > 1:
+          print(f"Multiple mods match {query!r}; use the exact mod name:", file=sys.stderr)
+          for mod in matches[:25]:
+              print(f'  - {mod["name"]} ({mod["author"]}, {mod["compatibility"]})', file=sys.stderr)
+          raise SystemExit(2)
+
+      mod = matches[0]
+      url_kind = "exmodz" if "exmodz" in mod["urls"] else "pak" if "pak" in mod["urls"] else next(iter(mod["urls"]))
+      url = normalize_url(mod["urls"][url_kind])
+      filename = Path(urllib.parse.unquote(urllib.parse.urlsplit(url).path)).name or f'{mod["name"]}.{url_kind}'
+      downloads_dir.mkdir(parents=True, exist_ok=True)
+      output_path = downloads_dir / filename
+      for stale_path in downloads_dir.glob(f".{filename}.*"):
+          stale_path.unlink(missing_ok=True)
+
+      request = urllib.request.Request(url, headers={"User-Agent": "icarus-mod-manager-nix-wrapper"})
+      with tempfile.NamedTemporaryFile(prefix=f".{filename}.", dir=downloads_dir, delete=False) as tmp:
+          tmp_path = Path(tmp.name)
+          try:
+              with urllib.request.urlopen(request, timeout=120) as response:
+                  shutil.copyfileobj(response, tmp)
+          except Exception:
+              tmp_path.unlink(missing_ok=True)
+              raise
+      tmp_path.replace(output_path)
+
+      print(f'Downloaded {mod["name"]} {mod["version"]} from {url}')
+      print(f"Saved {output_path}")
+
+      if url_kind.lower() == "exmodz" or zipfile.is_zipfile(output_path):
+          with zipfile.ZipFile(output_path) as archive:
+              safe_extract(archive, app_dir)
+          merge_tree(app_dir / "Extracted Mods", app_dir / "Extracted_Mods")
+          print(f"Extracted {output_path.name} into {app_dir}")
+      else:
+          print("Downloaded a PAK file only; import/install it through Icarus Mod Manager.")
+      PY
+      }
+
+      repair_database_files() {
+        if database_stale "$app_dir/repos.json" 86400 || database_stale "$app_dir/mods.json" 86400; then
+          update_database_files
+          return
+        fi
+
+        repair_json_file "$app_dir/repos.json"
+        repair_json_file "$app_dir/mods.json"
+      }
+
       configure_app_files() {
         if [ "''${IMM_SKIP_FIRST_RUN_BOOTSTRAP:-0}" != "1" ]; then
           install_unreal_pak
           preseed_first_run_settings
         fi
+
+        repair_database_files
 
         local orig_skin_dir="$app_dir/Skins_Folder/Original Skin"
         if [ -d "$orig_skin_dir" ]; then
@@ -265,6 +526,17 @@ let
         cp -R --no-preserve=mode,ownership "${unrealPakPackage}/UnrealPak/." "$unreal_pak_dir/"
       }
 
+      install_data_archive() {
+        if [ -d "$app_dir/data" ] && find "$app_dir/data" -type f -name '*.json' -print -quit | grep -q .; then
+          progress "Icarus data archive already installed"
+          return
+        fi
+
+        progress "installing bundled Icarus data archive"
+        rm -rf "$app_dir/data"
+        cp -R --no-preserve=mode,ownership "${dataArchivePackage}/data" "$app_dir/data"
+      }
+
       find_icarus_content_dir() {
         if [ -n "$configured_content_dir" ]; then
           if [ -d "$configured_content_dir" ]; then
@@ -293,6 +565,7 @@ let
         local content_dir
         content_dir="$(find_icarus_content_dir)"
 
+        install_data_archive
         set_ini_value "$ini_file" App Left 0
         set_ini_value "$ini_file" App Top 0
         set_ini_value "$ini_file" Folder IMM "$(windows_path "$app_dir")\\"
@@ -370,6 +643,13 @@ let
           test -f "$app_dir/IcarusModManager.exe"
           echo "Icarus Mod Manager prefix and app files are ready."
           ;;
+        --update-db)
+          update_database_files
+          ;;
+        --download-mod)
+          shift
+          download_mod "$*"
+          ;;
         --smoke-test)
           run_smoke_test
           ;;
@@ -387,8 +667,14 @@ in
 
     version = mkOption {
       type = types.str;
-      default = "2.4.0";
+      default = "2.4.7";
       description = "Upstream release version to download.";
+    };
+
+    baseVersion = mkOption {
+      type = types.str;
+      default = "2.4.0";
+      description = "Base standalone zip version used before applying the optional patch archive.";
     };
 
     source = mkOption {
@@ -401,6 +687,18 @@ in
       type = types.str;
       default = "sha256-z4Ns76YtaWgCzUtvddOu7dWJdpCxTpywVoAxLDAynck=";
       description = "Hash of the downloaded archive in SRI format.";
+    };
+
+    patchSource = mkOption {
+      type = types.nullOr types.str;
+      default = "https://github.com/Jimk72/Icarus-Mod-Manager-Beta/raw/main/IcarusModManagerPATCH247.zip";
+      description = "Optional upstream patch zip overlaid onto the standalone release.";
+    };
+
+    patchHash = mkOption {
+      type = types.str;
+      default = "sha256-p9puDr1/AhMXDGIfnq+ph7DwV3unSf/ZoR8UmAl7FUI=";
+      description = "Hash of the optional patch archive in SRI format.";
     };
 
     winePackage = mkOption {
