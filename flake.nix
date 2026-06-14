@@ -10,7 +10,15 @@
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    stylix.url = "github:nix-community/stylix/master";
+    # Pinned just before two stylix changes that broke against nixos-26.05:
+    #   - #2330 (2026-06-03): explicit `gtk.gtk4.theme = config.gtk.theme`
+    #     conflicts with our `gtk.gtk4.theme = null` 26.05 default in
+    #     modules/features/theming/stylix/home.nix.
+    #   - #2337 (2026-06-04): kmscon target switched to the new
+    #     `services.kmscon.config` attrset, which only exists on
+    #     nixpkgs-unstable. 26.05 still ships the old `fonts`/`extraConfig`.
+    # Bump past 879889a4 once both upstream changes are reconciled with 26.05.
+    stylix.url = "github:nix-community/stylix/879889a4e5243b73fecac1f54bd636f35bc97b06";
     stylix.inputs.nixpkgs.follows = "nixpkgs";
 
     darwin.url = "github:lnl7/nix-darwin";
