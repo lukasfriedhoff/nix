@@ -193,5 +193,16 @@
     user = "root";
     keyName = "srv3-personal-mgmt";
   }
+  {
+    match = "nix-builder-testing";
+    alias = "nix-builder-testing";
+    hostName = "srv3.lab.h4xx.io";
+    port = 30610;
+    user = "root";
+    keyName = "srv3-personal-mgmt";
+    extraOptions = {
+      StrictHostKeyChecking = "yes";
+    };
+  }
 
 ]

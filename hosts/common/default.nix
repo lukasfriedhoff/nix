@@ -13,8 +13,8 @@ let
   srv3BuilderKeyFile =
     if profileCommonRoot != null then "${profileCommonRoot}/ssh/srv3-personal-mgmt.priv" else null;
   hasSrv3BuilderKey = srv3BuilderKeyFile != null && builtins.pathExists srv3BuilderKeyFile;
-  nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGciKlKcfvt/Q6IGxJ2MSD80426WIlpGFsJrei+GpBX/ nix-builder-srv3";
-  nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUdjaUtsS2NmdnQvUTZJR3hKMk1TRDgwNDI2V0lscEdGc0pyZWkrR3BCWC8gbml4LWJ1aWxkZXItc3J2Mwo=";
+  nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIUnp+yz5VYFwdQUSlGDI3KfC+7hyGi2KHWRqLfxCCFf nix-builder-testing";
+  nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUlVbnAreXo1VllGd2RRVVNsR0RJM0tmQys3aHlHaTJLSFdScUxmeENDRmYgbml4LWJ1aWxkZXItdGVzdGluZw==";
   testingCachePublicKey = lib.removeSuffix "\n" (
     builtins.readFile ../../resources/nix-cache/testing-cache.pub
   );
@@ -44,9 +44,11 @@ in
       };
 
       lukasf.remoteBuilds = {
-        # Use WG-reachable lab DNS directly; the public testing hostname is Cloudflare-proxied.
-        hostName = lib.mkDefault "srv3.lab.h4xx.io";
-        sshUser = lib.mkDefault "nixbuilder";
+        # Use the Kubernetes SSH builder through the VPN-only NodePort on srv3.
+        hostName = lib.mkDefault "nix-builder-testing";
+        sshHostName = lib.mkDefault "srv3.lab.h4xx.io";
+        sshPort = lib.mkDefault 30610;
+        sshUser = lib.mkDefault "root";
         sshKeyFile = lib.mkDefault config.sops.secrets."srv3-builder-key".path;
         publicHostKey = lib.mkForce nixBuilderHostKeyB64;
         connectTimeout = lib.mkDefault 3;
@@ -68,8 +70,9 @@ in
 
       shared.ssh.knownHosts.nix-builder = {
         hostNames = [
-          "srv3.lab.h4xx.io"
-          "nix-builder-testing.h4xx.io"
+          "nix-builder-testing"
+          "[srv3.lab.h4xx.io]:30610"
+          "[10.1.20.111]:30610"
         ];
         publicKey = nixBuilderHostKey;
       };
