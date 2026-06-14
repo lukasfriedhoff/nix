@@ -204,6 +204,26 @@ in
     '';
   };
 
+  fileSystems."/var/lib/longhorn-disk2" = {
+    device = "/dev/disk/by-uuid/9e956847-70aa-45b2-bcfa-ce7282bb0965";
+    fsType = "ext4";
+    options = [
+      "defaults"
+      "nofail"
+      "x-systemd.device-timeout=30s"
+    ];
+  };
+
+  fileSystems."/var/lib/longhorn-disk3" = {
+    device = "/dev/disk/by-uuid/8736b05a-badf-423a-b5fb-29ae8ff4d215";
+    fsType = "ext4";
+    options = [
+      "defaults"
+      "nofail"
+      "x-systemd.device-timeout=30s"
+    ];
+  };
+
   homelab.kubernetes = {
     enable = true;
     longhorn.enable = true;
