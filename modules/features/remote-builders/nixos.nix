@@ -33,7 +33,19 @@ in
     hostName = mkOption {
       type = types.str;
       default = "srv3.lab.h4xx.io";
-      description = "Builder hostname (srv3).";
+      description = "Logical builder hostname used by Nix.";
+    };
+
+    sshHostName = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Actual SSH hostname for the builder. Defaults to hostName.";
+    };
+
+    sshPort = mkOption {
+      type = types.port;
+      default = 22;
+      description = "SSH port used for the builder connection.";
     };
 
     sshUser = mkOption {
@@ -148,6 +160,12 @@ in
         # Configure SSH with connection timeout for the builder
         programs.ssh.extraConfig = ''
           Host ${cfg.hostName}
+            HostName ${if cfg.sshHostName != null then cfg.sshHostName else cfg.hostName}
+            Port ${toString cfg.sshPort}
+            User ${cfg.sshUser}
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ${lib.optionalString (cfg.sshKeyFile != null) "IdentityFile ${cfg.sshKeyFile}"}
             ConnectTimeout ${toString cfg.connectTimeout}
             ServerAliveInterval 10
             ServerAliveCountMax 3
