@@ -1,15 +1,12 @@
 {
   config,
   inputs,
-  lib,
   pkgs,
   ...
 }:
 
 let
   hostName = "srv3";
-  builderUser = "nixbuilder";
-  builderUid = 31000;
 in
 {
   imports = [
@@ -30,50 +27,10 @@ in
     usePasswordAuth = false;
   };
 
-  users.groups.${builderUser} = { };
-  users.users.${builderUser} = {
-    isSystemUser = true;
-    uid = builderUid;
-    group = builderUser;
-    createHome = true;
-    home = "/var/lib/${builderUser}";
-    shell = pkgs.bashInteractive;
-    openssh.authorizedKeys.keys = [ (builtins.readFile ./initrd-authorized.pub) ];
-  };
-
-  nix.settings = {
-    max-jobs = lib.mkForce 5;
-    cores = lib.mkForce 4;
-    experimental-features = lib.mkAfter [ "cgroups" ];
-    use-cgroups = true;
-    trusted-users = lib.mkAfter [ builderUser ];
-  };
-
   lukasf.remoteBuilds.enable = false;
 
-  # Limit remote build sessions without throttling other services.
-  systemd.slices."user-${toString builderUid}".sliceConfig = {
-    CPUQuota = "2200%";
-    MemoryHigh = "60G";
-    MemoryMax = "64G";
-  };
-
-  # Hydra runs as dedicated service users, but actual build processes are
-  # spawned by nix-daemon as nixbld users. Put those builds behind an explicit
-  # cgroup budget so Kubernetes and host services retain headroom.
-  systemd.slices.hydra-builds = {
-    description = "Hydra and Nix build workload budget";
-    sliceConfig = {
-      CPUQuota = "2200%";
-      MemoryHigh = "60G";
-      MemoryMax = "64G";
-    };
-  };
-
-  systemd.services.nix-daemon.serviceConfig.Slice = "hydra-builds.slice";
-
   lukasf.nixCache = {
-    enable = true;
+    enable = false;
     secretKeyFile = "nix-cache/nix-serve.key";
     publicKey = builtins.readFile ../../../resources/nix-cache/testing-cache.pub;
     openFirewall = true;
@@ -84,7 +41,7 @@ in
   };
 
   lukasf.atticCache = {
-    enable = true;
+    enable = false;
     serve = false;
     configureClient = false;
     environmentFile = "attic/server.env";
@@ -92,7 +49,7 @@ in
     cacheName = "homelab";
     openFirewall = false;
     postBuildUpload = {
-      enable = true;
+      enable = false;
       automaticDrain = true;
       uploadInterval = "5min";
       batchFileLimit = 100;
@@ -103,20 +60,12 @@ in
     };
   };
 
-  sops.secrets."hydra-admin-password" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv3/hydra/admin-password.txt;
-    format = "binary";
-    mode = "0400";
-    owner = "hydra";
-  };
-
   lukasf.hydraBuilder = {
-    enable = true;
+    enable = false;
     hydraURL = "http://srv3.lab.h4xx.io:3000";
     listenHost = "0.0.0.0";
     port = 3000;
     openFirewall = true;
-    adminPasswordFile = config.sops.secrets."hydra-admin-password".path;
     declarativeProjects.nixos-configs = {
       displayName = "NixOS Configurations";
       jobsets.all = {
