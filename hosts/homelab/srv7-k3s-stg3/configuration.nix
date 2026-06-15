@@ -30,6 +30,10 @@ in
     10.1.30.19 srv6-k3s-stg2 srv6-k3s-stg2.lab.h4xx.io
     10.1.30.22 srv7-k3s-stg3 srv7-k3s-stg3.lab.h4xx.io
   '';
+  networking.defaultGateway = {
+    address = "10.1.30.1";
+    interface = "enp1s0";
+  };
   shared.network.domain = clusterDomain;
 
   homelab.personalServer = {
@@ -71,6 +75,8 @@ in
       "--tls-san ${stagingApiHost}"
       "--tls-san ${hostName}"
       "--tls-san ${hostName}.${clusterDomain}"
+      "--node-ip 10.1.30.22"
+      "--flannel-iface enp1s0"
       "--kubelet-arg=max-pods=250"
     ]
     ++ map (node: "--tls-san ${node}") clusterNodes;
