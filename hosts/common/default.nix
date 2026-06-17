@@ -13,8 +13,9 @@ let
   srv3BuilderKeyFile =
     if profileCommonRoot != null then "${profileCommonRoot}/ssh/srv3-personal-mgmt.priv" else null;
   hasSrv3BuilderKey = srv3BuilderKeyFile != null && builtins.pathExists srv3BuilderKeyFile;
-  nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDUAq2vzYFMRDHO2UVka2fCVXoOwrMWauy6JjlVeIbl5 nix-remote-builder-prod";
-  nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURVQXEydnpZRk1SREhPMlVWa2EyZkNWWG9Pd3JNV2F1eTZKamxWZUlibDUgbml4LXJlbW90ZS1idWlsZGVyLXByb2Q=";
+  nixBuilderProdHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDUAq2vzYFMRDHO2UVka2fCVXoOwrMWauy6JjlVeIbl5 nix-remote-builder-prod";
+  nixBuilderProdHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURVQXEydnpZRk1SREhPMlVWa2EyZkNWWG9Pd3JNV2F1eTZKamxWZUlibDUgbml4LXJlbW90ZS1idWlsZGVyLXByb2Q=";
+  nixBuilderTestingHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIUnp+yz5VYFwdQUSlGDI3KfC+7hyGi2KHWRqLfxCCFf nix-builder-testing";
   testingCachePublicKey = lib.removeSuffix "\n" (
     builtins.readFile ../../resources/nix-cache/testing-cache.pub
   );
@@ -29,7 +30,7 @@ in
 {
   config = lib.mkMerge [
     {
-      lukasf.remoteBuilds.publicHostKey = lib.mkDefault nixBuilderHostKeyB64;
+      lukasf.remoteBuilds.publicHostKey = lib.mkDefault nixBuilderProdHostKeyB64;
     }
     (lib.mkIf desktopDefaults {
       sops.age.keyFile = lib.mkDefault "/home/lukasf/.config/sops/age/keys.txt";
@@ -50,7 +51,7 @@ in
         sshPort = lib.mkDefault 30610;
         sshUser = lib.mkDefault "root";
         sshKeyFile = lib.mkDefault config.sops.secrets."srv3-builder-key".path;
-        publicHostKey = lib.mkForce nixBuilderHostKeyB64;
+        publicHostKey = lib.mkForce nixBuilderProdHostKeyB64;
         connectTimeout = lib.mkDefault 3;
         maxJobs = lib.mkDefault 2;
       };
@@ -70,14 +71,23 @@ in
 
       shared.ssh.knownHosts.nix-builder = {
         hostNames = [
-          "nix-builder-testing"
+          "nix-builder"
           "nix-builder-prod"
-          "[srv3.lab.h4xx.io]:30610"
-          "[10.1.20.111]:30610"
           "[srv8.lab.h4xx.io]:30610"
           "[10.1.30.27]:30610"
+          "[srv2.lab.h4xx.io]:30610"
+          "[10.1.30.26]:30610"
         ];
-        publicKey = nixBuilderHostKey;
+        publicKey = nixBuilderProdHostKey;
+      };
+
+      shared.ssh.knownHosts.nix-builder-testing = {
+        hostNames = [
+          "nix-builder-testing"
+          "[srv3.lab.h4xx.io]:30610"
+          "[10.1.20.111]:30610"
+        ];
+        publicKey = nixBuilderTestingHostKey;
       };
     })
     (lib.mkIf ((desktopDefaults || homelabDefaults) && hasAtticCachePublicKey) {
