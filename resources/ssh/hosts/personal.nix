@@ -189,9 +189,24 @@
   {
     match = "nix-builder";
     alias = "nix-builder";
-    hostName = "srv3.lab.h4xx.io";
+    hostName = "srv8.lab.h4xx.io";
+    port = 30610;
     user = "root";
     keyName = "srv3-personal-mgmt";
+    extraOptions = {
+      StrictHostKeyChecking = "yes";
+    };
+  }
+  {
+    match = "nix-builder-prod";
+    alias = "nix-builder-prod";
+    hostName = "srv8.lab.h4xx.io";
+    port = 30610;
+    user = "root";
+    keyName = "srv3-personal-mgmt";
+    extraOptions = {
+      StrictHostKeyChecking = "yes";
+    };
   }
   {
     match = "nix-builder-testing";
