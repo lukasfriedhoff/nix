@@ -13,8 +13,8 @@ let
   srv3BuilderKeyFile =
     if profileCommonRoot != null then "${profileCommonRoot}/ssh/srv3-personal-mgmt.priv" else null;
   hasSrv3BuilderKey = srv3BuilderKeyFile != null && builtins.pathExists srv3BuilderKeyFile;
-  nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIUnp+yz5VYFwdQUSlGDI3KfC+7hyGi2KHWRqLfxCCFf nix-builder-testing";
-  nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUlVbnAreXo1VllGd2RRVVNsR0RJM0tmQys3aHlHaTJLSFdScUxmeENDRmYgbml4LWJ1aWxkZXItdGVzdGluZw==";
+  nixBuilderHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDUAq2vzYFMRDHO2UVka2fCVXoOwrMWauy6JjlVeIbl5 nix-remote-builder-prod";
+  nixBuilderHostKeyB64 = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURVQXEydnpZRk1SREhPMlVWa2EyZkNWWG9Pd3JNV2F1eTZKamxWZUlibDUgbml4LXJlbW90ZS1idWlsZGVyLXByb2Q=";
   testingCachePublicKey = lib.removeSuffix "\n" (
     builtins.readFile ../../resources/nix-cache/testing-cache.pub
   );
@@ -44,9 +44,9 @@ in
       };
 
       lukasf.remoteBuilds = {
-        # Use the Kubernetes SSH builder through the VPN-only NodePort on srv3.
-        hostName = lib.mkDefault "nix-builder-testing";
-        sshHostName = lib.mkDefault "srv3.lab.h4xx.io";
+        # Use the production Kubernetes SSH builder through the VPN-only NodePort.
+        hostName = lib.mkDefault "nix-builder-prod";
+        sshHostName = lib.mkDefault "srv8.lab.h4xx.io";
         sshPort = lib.mkDefault 30610;
         sshUser = lib.mkDefault "root";
         sshKeyFile = lib.mkDefault config.sops.secrets."srv3-builder-key".path;
@@ -71,8 +71,11 @@ in
       shared.ssh.knownHosts.nix-builder = {
         hostNames = [
           "nix-builder-testing"
+          "nix-builder-prod"
           "[srv3.lab.h4xx.io]:30610"
           "[10.1.20.111]:30610"
+          "[srv8.lab.h4xx.io]:30610"
+          "[10.1.30.27]:30610"
         ];
         publicKey = nixBuilderHostKey;
       };
