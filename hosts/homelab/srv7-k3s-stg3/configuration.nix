@@ -30,6 +30,9 @@ in
     10.1.30.19 srv6-k3s-stg2 srv6-k3s-stg2.lab.h4xx.io
     10.1.30.22 srv7-k3s-stg3 srv7-k3s-stg3.lab.h4xx.io
   '';
+  networking.useDHCP = false;
+  networking.interfaces.enp1s0.useDHCP = true;
+  networking.dhcpcd.allowInterfaces = [ "enp1s0" ];
   networking.defaultGateway = {
     address = "10.1.30.1";
     interface = "enp1s0";
