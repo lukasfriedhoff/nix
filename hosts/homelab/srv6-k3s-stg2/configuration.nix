@@ -85,6 +85,25 @@ in
     ++ map (node: "--tls-san ${node}") clusterNodes;
   };
 
+  systemd.services.longhorn-data-disk-bind = {
+    description = "Bind Longhorn default data path to srv6 data disk";
+    before = [ "k3s.service" ];
+    requiredBy = [ "k3s.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.RequiresMountsFor = "/var/lib/longhorn-disk1";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+      mkdir -p /var/lib/longhorn-disk1/longhorn /var/lib/longhorn
+      if ! ${pkgs.util-linux}/bin/mountpoint -q /var/lib/longhorn; then
+        ${pkgs.util-linux}/bin/mount --bind /var/lib/longhorn-disk1/longhorn /var/lib/longhorn
+      fi
+    '';
+  };
+
   sops.secrets."k3s-server-token" = {
     sopsFile = ../../../secrets/profiles/personal/servers/srv6-k3s-stg2/k3s-server-token.txt;
     format = "binary";
