@@ -148,14 +148,24 @@ Environment variables used by Neovim:
 
 Current desktop profile wiring sets these in `modules/features/profile/desktop/home.nix`.
 
-### OpenCode (opencode.nvim + srv4 Ollama)
+### OpenCode (opencode.nvim + Ollama)
 
 | Mapping / Command | Mode | What it does |
 | --- | --- | --- |
-| `<leader>oa` | Normal/Visual | OpenCode ask (`@this`) + submit |
-| `<leader>op` | Normal/Visual | OpenCode ask draft (`@this`) without submit |
-| `<leader>os` | Normal/Visual | OpenCode action picker |
-| `<leader>ot` | Normal/Terminal | Toggle OpenCode pane |
+| `<leader>oa` | Normal/Visual | Ask OpenCode about `@this` immediately |
+| `<leader>op` | Normal/Visual | Open an editable OpenCode prompt |
+| `<leader>os` | Normal/Visual | Select an OpenCode prompt or command |
+| `<leader>oc` | Normal/Terminal | Toggle the OpenCode pane |
+| `<leader>ot` | Normal/Terminal | Toggle the OpenCode pane |
+| `<leader>on` | Normal | Start a new OpenCode session |
+| `<leader>ol` | Normal | Select an OpenCode session |
+| `<leader>oi` | Normal | Interrupt the current OpenCode session |
+| `<leader>ou` | Normal | Scroll OpenCode up half a page |
+| `<leader>od` | Normal | Scroll OpenCode down half a page |
+| `<leader>oo` | Normal/Visual | Send an operator range or selection to OpenCode |
+
+The OpenCode pane auto-enters terminal input mode when opened or focused. Use
+`<C-\><C-n>` to leave terminal input mode.
 
 Home Manager now enforces OpenCode backend/model for personal desktops by patching:
 
