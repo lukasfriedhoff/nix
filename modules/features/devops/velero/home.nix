@@ -20,6 +20,7 @@ in
     (lib.mkIf cfg.enable {
       home.packages = [
         pkgs.velero
+        pkgs.velero_1_9_4
       ];
     })
   ];
