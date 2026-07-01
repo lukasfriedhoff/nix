@@ -72,14 +72,17 @@
         {
           _module.args.pkgs = import nixpkgs {
             inherit system;
-            overlays = [ ];
+            overlays = [ (import ./overlays/local-packages.nix) ];
             config = {
               allowUnfree = false;
               allowUnfreePredicate = pkg: lib.getName pkg == "shadow-client-appimage";
             };
           };
 
-          packages = lib.optionalAttrs pkgs.stdenv.isLinux {
+          packages = {
+            inherit (pkgs) velero_1_9_4;
+          }
+          // lib.optionalAttrs pkgs.stdenv.isLinux {
             ceph-wrapped = pkgs.callPackage ./pkgs/ceph-wrapped { };
             shadow-client-appimage = pkgs.callPackage ./pkgs/shadow-client-appimage { };
             tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
@@ -111,6 +114,7 @@
       flake =
         let
           linuxSystem = "x86_64-linux";
+          localPackagesOverlay = import ./overlays/local-packages.nix;
           nixpkgsWorkaroundsOverlay = import ./overlays/nixpkgs-workarounds.nix;
           # Skip flaky openldap tests (test017-syncreplication-refresh)
           openldapOverlay = _final: prev: {
@@ -119,6 +123,7 @@
             });
           };
           linuxOverlays = [
+            localPackagesOverlay
             nixpkgsWorkaroundsOverlay
             openldapOverlay
           ];
@@ -601,6 +606,7 @@
                     users.${macUser} = {
                       nixpkgs.config.allowUnfree = true;
                       nixpkgs.overlays = [
+                        localPackagesOverlay
                         inputs.nix-vscode-extensions.overlays.default
                       ];
                       imports = featureModules.home ++ [
@@ -639,6 +645,7 @@
                 let
                   hmPkgs = import nixpkgs {
                     inherit system;
+                    overlays = [ localPackagesOverlay ];
                     config.allowUnfree = true;
                   };
                 in
