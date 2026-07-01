@@ -1,11 +1,14 @@
 { config, pkgs, ... }:
 let
   jdk = pkgs.temurin-bin-17;
-  jdkHome = "${jdk}/lib/openjdk";
+  jdkHome = "${jdk}";
 in
 {
   imports = [
     ./alias-completions.nix
+  ];
+  home.sessionPath = [
+    "${jdkHome}/bin"
   ];
   programs.bash = {
     enable = true;
@@ -19,7 +22,7 @@ in
       fi
 
       # Ensure JDK bin is always first in PATH, even on macOS
-      if [ -d "${jdkHome}/bin" ] && [[ ":$PATH:" != *":${jdkHome}/bin:"* ]]; then
+      if [ -d "${jdkHome}/bin" ]; then
         export PATH="${jdkHome}/bin:$PATH"
       fi
       export JAVA_HOME="${jdkHome}"
