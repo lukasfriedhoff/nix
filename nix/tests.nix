@@ -234,16 +234,23 @@
           machine.succeed("su - icarus -c 'grep -F \"test readme\" /home/icarus/.local/share/icarus-mod-manager-test/Test_Mod/readme.txt'")
         '';
       };
-    in
-    {
-      checks = {
-        pipewire-stack = pipewireTest;
-        nix-gc-roots-cleaner = gcRootsCleanerTest;
-        nix-registry = nixRegistryTest;
+
+      x86_64LinuxOnlyChecks = lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
         shadow-client-appimage = shadowClientTest;
         icarus-mod-manager = icarusModManagerTest;
-      }
-      // collectAndMerge extractIntegrationTests;
+      };
+      linuxChecks = lib.optionalAttrs pkgs.stdenv.isLinux (
+        {
+          pipewire-stack = pipewireTest;
+          nix-gc-roots-cleaner = gcRootsCleanerTest;
+          nix-registry = nixRegistryTest;
+        }
+        // x86_64LinuxOnlyChecks
+        // collectAndMerge extractIntegrationTests
+      );
+    in
+    {
+      checks = linuxChecks;
     };
 
   flake.nixosModules.integrationTests =
