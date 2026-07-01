@@ -290,28 +290,43 @@ ssh srv4 "/opt/rocm-6.4.1/bin/rocm-smi"
 
 ## Neovim Integration
 
-OpenCode is integrated with neovim via `opencode.nvim`.
+OpenCode is integrated with Neovim through `opencode.nvim`. Neovim starts
+`opencode --port` in a right-side pane and talks to the OpenCode server through
+the plugin API. Avoid routing this through CodeCompanion ACP; that creates a
+separate CodeCompanion chat buffer and has been fragile in split-heavy layouts.
 
 ### Keybindings
 
 | Key | Mode | Action |
 |-----|------|--------|
-| `<leader>oa` | n/v | OpenCode ask (auto-submit) |
-| `<leader>os` | n/v | OpenCode select menu |
-| `<leader>ot` | n/t | Toggle OpenCode terminal |
-| `<leader>op` | n/v | OpenCode prompt draft (no submit) |
+| `<leader>oa` | n/v | Ask OpenCode about `@this` immediately |
+| `<leader>op` | n/v | Open an editable OpenCode prompt |
+| `<leader>os` | n/v | Select an OpenCode prompt or command |
+| `<leader>oc` | n/t | Toggle the OpenCode pane |
+| `<leader>ot` | n/t | Toggle the OpenCode pane |
+| `<leader>on` | n | Start a new OpenCode session |
+| `<leader>ol` | n | Select an OpenCode session |
+| `<leader>oi` | n | Interrupt the current OpenCode session |
+| `<leader>ou` | n | Scroll OpenCode up half a page |
+| `<leader>od` | n | Scroll OpenCode down half a page |
+| `<leader>oo` | n/v | Send an operator range or selection to OpenCode |
+
+The OpenCode pane auto-enters terminal input mode when opened or focused. Use
+`<C-\><C-n>` to leave terminal input mode and use Neovim window commands.
 
 ### Context Placeholders
 
-Use in prompts to inject context:
+Use `opencode.nvim` context tokens in prompts:
 
-| Placeholder | Content |
+| Token | Content |
 |-------------|---------|
-| `@this` | Current selection or cursor position |
-| `@buffer` | Entire buffer content |
-| `@diagnostics` | LSP errors in current file |
-| `@diff` | Git diff output |
-| `@visible` | Currently visible text |
+| `@this` | Current operator range or visual selection, else cursor position |
+| `@buffer` | Current buffer |
+| `@buffers` | Open buffers |
+| `@visible` | Visible buffer text |
+| `@diagnostics` | Current buffer diagnostics |
+| `@quickfix` | Quickfix list |
+| `@diff` | Current git diff |
 
 ## Troubleshooting
 

@@ -62,7 +62,7 @@ in
           vimPlugins.none-ls-nvim
           vimPlugins.conform-nvim
 
-          # AI integration (ollama + opencode only)
+          # AI integration (local Ollama + opencode.nvim)
           vimPlugins.ollama-nvim
           vimPlugins.opencode-nvim
 
@@ -82,6 +82,7 @@ in
           gnumake
           unzip
           tree-sitter
+          opencode
 
           # Language runtimes
           nodejs_22

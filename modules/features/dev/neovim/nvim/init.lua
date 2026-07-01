@@ -18,6 +18,10 @@ vim.o.autoread = true
 vim.o.updatetime = 250
 vim.o.timeoutlen = 300
 vim.o.completeopt = "menu,menuone,noselect"
+vim.o.equalalways = false
+if vim.fn.exists("&splitkeep") == 1 then
+  vim.o.splitkeep = "screen"
+end
 
 -- UI / ergonomics
 local lualine = safe_require("lualine")
@@ -44,6 +48,7 @@ local snacks = safe_require("snacks")
 if snacks then
   snacks.setup({
     input = { enabled = true },
+    picker = { enabled = true },
     terminal = { enabled = true },
   })
 end
@@ -400,21 +405,95 @@ if ollama then
   vim.keymap.set("n", "<leader>lm", "<cmd>OllamaModel<CR>", { desc = "Ollama select model" })
 end
 
--- OpenCode AI integration
+-- OpenCode IDE integration via opencode.nvim.
+-- Keep this on the opencode.nvim API; CodeCompanion ACP renders a separate
+-- markdown chat buffer and has been fragile in the current split-heavy layout.
+local opencode_config = safe_require("opencode.config")
 local opencode = safe_require("opencode")
-if opencode then
+if opencode and opencode_config then
+  local opencode_cmd = "opencode --port"
+  local function opencode_width()
+    return math.min(96, math.max(48, math.floor(vim.o.columns * 0.38)))
+  end
+  local function opencode_terminal_opts()
+    return {
+      split = "right",
+      width = opencode_width(),
+    }
+  end
+  local function focus_opencode_terminal()
+    vim.schedule(function()
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        local name = vim.api.nvim_buf_get_name(buf)
+        if name:match("term://.*opencode") then
+          vim.api.nvim_set_current_win(win)
+          vim.cmd.startinsert()
+          return
+        end
+      end
+    end)
+  end
+  local function toggle_opencode()
+    opencode.toggle()
+    focus_opencode_terminal()
+  end
+
+  local opencode_group = vim.api.nvim_create_augroup("OpenCodeTerminalFixes", { clear = true })
+  vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter" }, {
+    group = opencode_group,
+    pattern = "term://*opencode*",
+    callback = function()
+      vim.cmd.startinsert()
+      vim.opt_local.number = false
+      vim.opt_local.relativenumber = false
+      vim.opt_local.cursorline = false
+    end,
+  })
+
+  opencode_config.opts.server.start = function()
+    require("opencode.terminal").open(opencode_cmd, opencode_terminal_opts())
+  end
+  opencode_config.opts.server.stop = function()
+    require("opencode.terminal").close()
+  end
+  opencode_config.opts.server.toggle = function()
+    require("opencode.terminal").toggle(opencode_cmd, opencode_terminal_opts())
+  end
+
   vim.keymap.set({ "n", "x" }, "<leader>oa", function()
     opencode.ask("@this: ", { submit = true })
-  end, { desc = "OpenCode ask + submit" })
-  vim.keymap.set({ "n", "x" }, "<leader>os", function()
-    opencode.select()
-  end, { desc = "OpenCode select" })
-  vim.keymap.set({ "n", "t" }, "<leader>ot", function()
-    opencode.toggle()
-  end, { desc = "OpenCode toggle" })
+  end, { desc = "OpenCode ask about this" })
   vim.keymap.set({ "n", "x" }, "<leader>op", function()
     opencode.ask("@this: ", { submit = false })
-  end, { desc = "OpenCode prompt (draft)" })
+  end, { desc = "OpenCode prompt" })
+  vim.keymap.set({ "n", "x" }, "<leader>os", function()
+    opencode.select()
+  end, { desc = "OpenCode select action" })
+  vim.keymap.set({ "n", "t" }, "<leader>oc", function()
+    toggle_opencode()
+  end, { desc = "OpenCode toggle" })
+  vim.keymap.set({ "n", "t" }, "<leader>ot", function()
+    toggle_opencode()
+  end, { desc = "OpenCode toggle" })
+  vim.keymap.set("n", "<leader>on", function()
+    opencode.command("session.new")
+  end, { desc = "OpenCode new session" })
+  vim.keymap.set("n", "<leader>ol", function()
+    opencode.command("session.select")
+  end, { desc = "OpenCode select session" })
+  vim.keymap.set("n", "<leader>oi", function()
+    opencode.command("session.interrupt")
+  end, { desc = "OpenCode interrupt" })
+  vim.keymap.set("n", "<leader>ou", function()
+    opencode.command("session.half.page.up")
+  end, { desc = "OpenCode scroll up" })
+  vim.keymap.set("n", "<leader>od", function()
+    opencode.command("session.half.page.down")
+  end, { desc = "OpenCode scroll down" })
+  vim.keymap.set({ "n", "x" }, "<leader>oo", function()
+    return opencode.operator("@this ")
+  end, { desc = "OpenCode operator", expr = true })
 end
 
 -- Kubernetes helpers
