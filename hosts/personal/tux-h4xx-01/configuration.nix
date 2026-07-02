@@ -75,7 +75,7 @@
   services.tlp.enable = false;
 
   services.pipewire.extraConfig = {
-    pipewire = {
+    pipewire."10-stable-clock" = {
       "context.properties" = {
         "default.clock.rate" = 48000;
         "default.clock.quantum" = 2048;
@@ -83,7 +83,7 @@
         "default.clock.max-quantum" = 2048;
       };
     };
-    "pipewire-pulse" = {
+    "pipewire-pulse"."20-stable-latency" = {
       "context.properties" = {
         "default.clock.rate" = 48000;
         "default.clock.quantum" = 2048;
