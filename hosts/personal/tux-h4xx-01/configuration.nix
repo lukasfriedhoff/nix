@@ -1,5 +1,6 @@
 {
   lib,
+  pkgs,
   ...
 }:
 
@@ -49,7 +50,17 @@
   lukasf.shadowTech.enable = true;
   lukasf.kvm.enable = true;
 
+  virtualisation = {
+    docker.enable = true;
+    podman.dockerCompat = lib.mkForce false;
+  };
+
+  environment.systemPackages = with pkgs; [
+    k3d
+  ];
+
   users.users.lukasf.extraGroups = lib.mkAfter [
+    "docker"
     "input"
     "libvirtd"
     "kvm"
