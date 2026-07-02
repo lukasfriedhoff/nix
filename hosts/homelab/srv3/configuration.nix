@@ -141,10 +141,19 @@ in
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
       branch = "develop";
       path = "./overlays/testing-srv3";
+      tokenFile = config.sops.secrets."flux-cluster-token".path;
       sopsAgeKeyFile = config.sops.secrets."flux-sops-age-key".path;
+      username = "lukasfriedhoff";
       sourceName = "flux-cluster";
       kustomizationName = "testing";
     };
+  };
+
+  sops.secrets."flux-cluster-token" = {
+    sopsFile = ../../../secrets/profiles/personal/servers/srv3/flux-cluster-bootstrap-token.txt;
+    owner = "root";
+    format = "binary";
+    mode = "0400";
   };
 
   sops.secrets."flux-sops-age-key" = {
