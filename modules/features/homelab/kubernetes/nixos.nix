@@ -28,6 +28,7 @@ let
       throw "homelab.kubernetes.gitops: relative secret path '${file}' requires secrets.primary/root";
 
   kubeconfig = "/etc/rancher/k3s/k3s.yaml";
+  gitAuthSecretName = "${cfg.gitops.sourceName}-auth";
 
   fluxBin = lib.getExe pkgs.fluxcd;
   kubectlBin = lib.getExe pkgs.kubectl;
@@ -214,24 +215,41 @@ in
               | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
           ''}
 
-          ${fluxBin} create source git ${cfg.gitops.sourceName} \
-            --url=${cfg.gitops.repoURL} \
-            --branch=${cfg.gitops.branch} \
-            --interval=${cfg.gitops.interval} \
-            ${
-              lib.optionalString (
-                cfg.gitops.sshKeyFile != null
-              ) "--private-key-file=${resolveSecret cfg.gitops.sshKeyFile}"
-            } \
-            ${
-              lib.optionalString (
-                cfg.gitops.tokenFile != null
-              ) "--username=${cfg.gitops.username} --password=$(cat ${resolveSecret cfg.gitops.tokenFile})"
-            } \
-            --export \
-            | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+          ${
+            if cfg.gitops.sshKeyFile != null && cfg.gitops.tokenFile == null then
+              ''
+                if ! ${fluxBin} --namespace flux-system get sources git ${cfg.gitops.sourceName} >/dev/null 2>&1; then
+                  ${fluxBin} create source git ${cfg.gitops.sourceName} \
+                    --url=${cfg.gitops.repoURL} \
+                    --branch=${cfg.gitops.branch} \
+                    --interval=${cfg.gitops.interval} \
+                    --private-key-file=${resolveSecret cfg.gitops.sshKeyFile}
+                else
+                  ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
+                fi
+              ''
+            else
+              ''
+                ${lib.optionalString (cfg.gitops.tokenFile != null) ''
+                  ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
+                    create secret generic ${gitAuthSecretName} \
+                    --from-literal=username=${lib.escapeShellArg cfg.gitops.username} \
+                    --from-file=password=${resolveSecret cfg.gitops.tokenFile} \
+                    --dry-run=client -o yaml \
+                    | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+                ''}
 
-          ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
+                ${fluxBin} create source git ${cfg.gitops.sourceName} \
+                  --url=${cfg.gitops.repoURL} \
+                  --branch=${cfg.gitops.branch} \
+                  --interval=${cfg.gitops.interval} \
+                  ${lib.optionalString (cfg.gitops.tokenFile != null) "--secret-ref=${gitAuthSecretName}"} \
+                  --export \
+                  | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+
+                ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
+              ''
+          }
 
           # Keep the root Kustomization spec in sync with Nix options (path/source/interval).
           ${fluxBin} create kustomization ${cfg.gitops.kustomizationName} \
