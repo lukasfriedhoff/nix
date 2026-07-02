@@ -50,6 +50,7 @@ secrets/profiles/
 │       ├── srv8/
 │       │   └── ssh/
 │       ├── srv3/
+│       │   ├── flux-cluster-bootstrap-token.txt
 │       │   └── nix-cache/
 │       └── srv4-vm-01/
 │           └── wireguard/

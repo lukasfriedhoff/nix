@@ -214,22 +214,24 @@ in
               | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
           ''}
 
-          if ! ${fluxBin} --namespace flux-system get sources git ${cfg.gitops.sourceName} >/dev/null 2>&1; then
-            ${fluxBin} create source git ${cfg.gitops.sourceName} \
-              --url=${cfg.gitops.repoURL} \
-              --branch=${cfg.gitops.branch} \
-              --interval=${cfg.gitops.interval} \
-              ${
-                lib.optionalString (
-                  cfg.gitops.sshKeyFile != null
-                ) "--private-key-file=${resolveSecret cfg.gitops.sshKeyFile}"
-              } \
-              ${lib.optionalString (
+          ${fluxBin} create source git ${cfg.gitops.sourceName} \
+            --url=${cfg.gitops.repoURL} \
+            --branch=${cfg.gitops.branch} \
+            --interval=${cfg.gitops.interval} \
+            ${
+              lib.optionalString (
+                cfg.gitops.sshKeyFile != null
+              ) "--private-key-file=${resolveSecret cfg.gitops.sshKeyFile}"
+            } \
+            ${
+              lib.optionalString (
                 cfg.gitops.tokenFile != null
-              ) "--username=${cfg.gitops.username} --password=$(cat ${resolveSecret cfg.gitops.tokenFile})"}
-          else
-            ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
-          fi
+              ) "--username=${cfg.gitops.username} --password=$(cat ${resolveSecret cfg.gitops.tokenFile})"
+            } \
+            --export \
+            | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+
+          ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
 
           # Keep the root Kustomization spec in sync with Nix options (path/source/interval).
           ${fluxBin} create kustomization ${cfg.gitops.kustomizationName} \
