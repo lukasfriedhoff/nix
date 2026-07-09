@@ -232,6 +232,9 @@ in
       "--tls-san srv2"
       "--tls-san 10.1.30.26"
       "--node-ip=10.1.30.26"
+      "--node-label=h4xx.io/gpu.present=true"
+      "--node-label=h4xx.io/gpu.vendor=intel"
+      "--node-label=h4xx.io/gpu.vaapi=true"
       "--kubelet-arg=max-pods=250"
     ];
     gitops = {

@@ -79,6 +79,9 @@ in
       "--tls-san ${hostName}"
       "--tls-san ${hostName}.${clusterDomain}"
       "--node-ip 10.1.30.22"
+      "--node-label=h4xx.io/gpu.present=false"
+      "--node-label=h4xx.io/gpu.vendor=virtual"
+      "--node-label=h4xx.io/gpu.vaapi=false"
       "--flannel-iface enp1s0"
       "--kubelet-arg=max-pods=250"
     ]

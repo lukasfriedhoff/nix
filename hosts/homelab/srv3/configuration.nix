@@ -134,6 +134,9 @@ in
     extraK3sFlags = [
       "--tls-san srv3.lab.h4xx.io"
       "--tls-san srv3"
+      "--node-label=h4xx.io/gpu.present=false"
+      "--node-label=h4xx.io/gpu.vendor=virtual"
+      "--node-label=h4xx.io/gpu.vaapi=false"
       "--kubelet-arg=max-pods=250"
     ];
     gitops = {
