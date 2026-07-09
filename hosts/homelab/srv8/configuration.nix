@@ -287,6 +287,9 @@ in
     tokenFile = config.sops.secrets."k3s-server-token".path;
     extraFlags = lib.mkForce [
       "--node-ip=10.1.30.27"
+      "--node-label=h4xx.io/gpu.present=true"
+      "--node-label=h4xx.io/gpu.vendor=amd"
+      "--node-label=h4xx.io/gpu.vaapi=true"
       "--kubelet-arg=max-pods=250"
     ];
   };
