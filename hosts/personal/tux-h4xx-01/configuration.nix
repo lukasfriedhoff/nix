@@ -34,6 +34,64 @@
   boot.loader.generic-extlinux-compatible.configurationLimit = lib.mkDefault 10;
   boot.loader.grub.configurationLimit = lib.mkDefault 10;
 
+  boot.initrd.luks.devices.cryptdata = {
+    device = "/dev/disk/by-uuid/f23e2488-c72e-402a-9bf7-7a2348861b87";
+    allowDiscards = true;
+  };
+
+  fileSystems."/data" = {
+    device = "/dev/tux-data/data";
+    fsType = "ext4";
+    options = [
+      "nofail"
+      "x-systemd.device-timeout=10s"
+    ];
+  };
+
+  fileSystems."/home/lukasf/Nextcloud" = {
+    device = lib.mkForce "/data/nextcloud";
+    fsType = lib.mkForce "none";
+    options = lib.mkForce [
+      "bind"
+      "x-systemd.requires-mounts-for=/data"
+    ];
+  };
+
+  fileSystems."/home/lukasf/nextcloud-prod" = {
+    device = "/data/nextcloud-prod";
+    fsType = "none";
+    options = [
+      "bind"
+      "x-systemd.requires-mounts-for=/data"
+    ];
+  };
+
+  fileSystems."/home/lukasf/nextcloud-testing" = {
+    device = "/data/nextcloud-testing";
+    fsType = "none";
+    options = [
+      "bind"
+      "x-systemd.requires-mounts-for=/data"
+    ];
+  };
+
+  fileSystems."/home/lukasf/media" = {
+    device = lib.mkForce "/data/media";
+    fsType = lib.mkForce "none";
+    options = lib.mkForce [
+      "bind"
+      "x-systemd.requires-mounts-for=/data"
+    ];
+  };
+
+  systemd.tmpfiles.rules = [
+    "d /data 0755 root root -"
+    "d /data/media 0750 lukasf users -"
+    "d /data/nextcloud 0750 lukasf users -"
+    "d /data/nextcloud-prod 0750 lukasf users -"
+    "d /data/nextcloud-testing 0750 lukasf users -"
+  ];
+
   desktop.personalWorkstation = {
     enable = true;
     wireguardAddress = "10.1.90.2/24";
