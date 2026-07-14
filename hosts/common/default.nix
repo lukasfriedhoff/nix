@@ -9,6 +9,7 @@
 let
   desktopDefaults = config.networking.networkmanager.enable;
   homelabDefaults = config.homelab.personalServer.enable;
+  privateNix = config.lukasf.privateNix;
   profileCommonRoot = secrets.profileCommon or null;
   srv3BuilderKeyFile =
     if profileCommonRoot != null then "${profileCommonRoot}/ssh/srv3-personal-mgmt.priv" else null;
@@ -28,14 +29,35 @@ let
       null;
 in
 {
+  options.lukasf.privateNix = {
+    enable = lib.mkEnableOption "private Nix builders and binary caches";
+
+    builders = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Use private SSH remote Nix builders.";
+    };
+
+    caches = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Use private Nix binary caches.";
+    };
+  };
+
   config = lib.mkMerge [
     {
       lukasf.remoteBuilds.publicHostKey = lib.mkDefault nixBuilderProdHostKeyB64;
     }
+    (lib.mkIf privateNix.enable {
+      lukasf.privateNix.builders = lib.mkDefault true;
+      lukasf.privateNix.caches = lib.mkDefault true;
+    })
     (lib.mkIf desktopDefaults {
       sops.age.keyFile = lib.mkDefault "/home/lukasf/.config/sops/age/keys.txt";
+      lukasf.remoteBuilds.enable = lib.mkDefault false;
     })
-    (lib.mkIf (desktopDefaults && hasSrv3BuilderKey) {
+    (lib.mkIf (desktopDefaults && privateNix.builders && hasSrv3BuilderKey) {
       sops.secrets."srv3-builder-key" = {
         sopsFile = srv3BuilderKeyFile;
         owner = "root";
@@ -43,9 +65,12 @@ in
         mode = "0400";
         path = "/var/lib/sops-nix/ssh/srv3-builder-key";
       };
+    })
+    (lib.mkIf (desktopDefaults && privateNix.builders && hasSrv3BuilderKey) {
 
       lukasf.remoteBuilds = {
         # Use the production Kubernetes SSH builder through the VPN-only NodePort.
+        enable = true;
         hostName = lib.mkDefault "nix-builder-prod";
         sshHostName = lib.mkDefault "srv8.lab.h4xx.io";
         sshPort = lib.mkDefault 30610;
@@ -54,17 +79,6 @@ in
         publicHostKey = lib.mkForce nixBuilderProdHostKeyB64;
         connectTimeout = lib.mkDefault 3;
         maxJobs = lib.mkDefault 2;
-      };
-
-      lukasf.nixCache = {
-        enable = lib.mkDefault true;
-        serve = lib.mkDefault false;
-        configureClient = lib.mkDefault true;
-        cacheHost = lib.mkDefault "nix-testing.h4xx.io";
-        cacheUrl = lib.mkDefault "https://nix-testing.h4xx.io";
-        publicKey = lib.mkDefault testingCachePublicKey;
-        connectTimeout = lib.mkDefault 2;
-        fallbackToOfficial = lib.mkDefault true;
       };
 
       nix.settings.fallback = lib.mkDefault true;
@@ -90,7 +104,20 @@ in
         publicKey = nixBuilderTestingHostKey;
       };
     })
-    (lib.mkIf ((desktopDefaults || homelabDefaults) && hasAtticCachePublicKey) {
+    (lib.mkIf (desktopDefaults && privateNix.caches) {
+
+      lukasf.nixCache = {
+        enable = lib.mkDefault true;
+        serve = lib.mkDefault false;
+        configureClient = lib.mkDefault true;
+        cacheHost = lib.mkDefault "nix-testing.h4xx.io";
+        cacheUrl = lib.mkDefault "https://nix-testing.h4xx.io";
+        publicKey = lib.mkDefault testingCachePublicKey;
+        connectTimeout = lib.mkDefault 2;
+        fallbackToOfficial = lib.mkDefault true;
+      };
+    })
+    (lib.mkIf ((homelabDefaults || (desktopDefaults && privateNix.caches)) && hasAtticCachePublicKey) {
       lukasf.nixCache.configureClient = lib.mkForce false;
 
       lukasf.atticCache = lib.mkIf hasAtticCachePublicKey {
