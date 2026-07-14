@@ -76,6 +76,7 @@ secrets/profiles/
 ## Authelia test user lookup
 - **Testing cluster**: `secrets/profiles/personal/shared/authelia/testing-srv3-testuser.yaml`
 - **Staging cluster**: `secrets/profiles/personal/shared/authelia/staging-3vm-testuser.yaml`
+- **Production cluster**: `secrets/profiles/personal/shared/authelia/homelab-prod-testuser.yaml`
 - These files hold the canonical `testuser` credentials for environment login checks.
 
 ## Policy notes
