@@ -55,9 +55,6 @@ in
       # Force replacement to avoid HM backup moves into store-backed paths.
       xdg.configFile."Kvantum".force = true;
 
-      # Adopt new 26.05 default: GTK4 apps use their own theme, not gtk.theme
-      gtk.gtk4.theme = null;
-
       stylix = {
         enable = true;
         # Prefetch wallpaper via stylix to keep switches pure. Swap to a local file if you prefer.

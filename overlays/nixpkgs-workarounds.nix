@@ -69,6 +69,14 @@ let
   '';
 in
 {
+  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+    (_python-final: python-prev: {
+      python-gnupg = python-prev.python-gnupg.overridePythonAttrs (_old: {
+        doCheck = false;
+      });
+    })
+  ];
+
   pkgsi686Linux = prev.pkgsi686Linux // {
     egl-wayland = prev.pkgsi686Linux.egl-wayland.overrideAttrs (old: {
       preConfigure = (old.preConfigure or "") + fixedI686WaylandPkgConfig;
