@@ -55,7 +55,10 @@ The interface is declaratively defined, so it will auto-start on boot and
 set the DNS search domain pulled from `domain.txt` via `resolvectl`.
 
 Current defaults use DNS via the WireGuard gateway first (`10.1.90.1`)
-and health checks target `10.1.90.1`.
+and health checks target `10.1.90.1`. The interface MTU is set to `1320`
+because nested VPN paths can pass small packets while stalling larger TLS/SSH
+handshakes. On `tux-h4xx-01`, `ping -M do` to `srv2` passed at payload `1300`
+and failed at payload `1360`, so `1320` keeps TCP below the observed path MTU.
 
 ### Start from the user session (laptops)
 
