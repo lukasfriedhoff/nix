@@ -239,10 +239,22 @@ in
         local device="$1"
         local mapper="$2"
         local mountpoint="$3"
+        local mapper_status
 
         mkdir -p "$mountpoint"
 
-        if ! cryptsetup status "$mapper" >/dev/null 2>&1; then
+        mapper_status="$(cryptsetup status "$mapper" 2>/dev/null || true)"
+        case "$mapper_status" in
+          *"device: (null)"*)
+            if findmnt -rn "$mountpoint" >/dev/null 2>&1; then
+              umount "$mountpoint" || true
+            fi
+            cryptsetup close "$mapper" || true
+            mapper_status=""
+            ;;
+        esac
+
+        if [ -z "$mapper_status" ]; then
           # Strip CR/LF before feeding to cryptsetup so the on-disk passphrase
           # matches what deploy-from-iso.sh / new-host.sh wrote at install time
           # (both apply `tr -d '\r\n'` to the SOPS payload). Same pattern as
@@ -252,10 +264,20 @@ in
             | cryptsetup open "$device" "$mapper" --key-file=-
         fi
 
+        if findmnt -rn "$mountpoint" >/dev/null 2>&1; then
+          if ! ( printf ok > "$mountpoint/.longhorn-mount-check" ) 2>/dev/null; then
+            umount "$mountpoint" || true
+          else
+            rm -f "$mountpoint/.longhorn-mount-check"
+          fi
+        fi
+
         if ! findmnt -rn "$mountpoint" >/dev/null 2>&1; then
           mount "/dev/mapper/$mapper" "$mountpoint"
         fi
 
+        printf ok > "$mountpoint/.longhorn-mount-check"
+        rm -f "$mountpoint/.longhorn-mount-check"
         chmod 0700 "$mountpoint"
       }
 
