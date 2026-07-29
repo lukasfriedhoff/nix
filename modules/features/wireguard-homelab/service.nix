@@ -284,11 +284,6 @@ in
           ips = [ cfg.address ];
           listenPort = 0;
           inherit (cfg) mtu;
-          postSetup = [
-            "${setEndpointScript} ${iface} ${cfg.endpointFile} || true"
-            "${setDnsScript} ${iface} ${lib.concatStringsSep " " cfg.dns} || true"
-            "${setDomainScript} ${iface} ${cfg.dnsDomainFile} || true"
-          ];
           peers = [
             {
               publicKey = cfg.peerPublicKey;
@@ -298,12 +293,8 @@ in
         };
 
         systemd.services.${userServiceName} = {
-          wants = [
-            "network-online.target"
-          ];
-          after = [
-            "network-online.target"
-          ];
+          wants = lib.mkForce [ "${peerServiceName}.service" ];
+          after = lib.mkForce [ "network-pre.target" ];
           wantedBy = lib.mkIf cfg.userUnit.enable (lib.mkForce [ ]);
           unitConfig = {
             ConditionPathExists = cfg.privateKeyFile;
@@ -319,13 +310,10 @@ in
 
         systemd.services.${refreshServiceName} = {
           description = "Refresh homelab WireGuard endpoint/DNS settings";
-          wants = [
-            "${userServiceName}.service"
-            "network-online.target"
-          ];
+          wants = [ "${userServiceName}.service" ];
           after = [
             "${userServiceName}.service"
-            "network-online.target"
+            "network.target"
           ];
           serviceConfig = {
             Type = "oneshot";
@@ -334,15 +322,17 @@ in
           };
         };
 
-        # When the base interface is skipped (e.g. missing secret during activation),
-        # skip peer application as well to avoid a failing switch transaction.
-        systemd.services.${peerServiceName}.unitConfig.ConditionPathExists = "/sys/class/net/${iface}";
+        systemd.services.${peerServiceName} = {
+          wants = lib.mkForce [ ];
+          after = lib.mkForce [ "${userServiceName}.service" ];
+          unitConfig.ConditionPathExists = "/sys/class/net/${iface}";
+        };
 
         systemd.timers.${refreshServiceName} = lib.mkIf (!cfg.userUnit.enable) {
           wantedBy = [ "timers.target" ];
           timerConfig = {
             Unit = "${refreshServiceName}.service";
-            OnBootSec = "2min";
+            OnBootSec = "15s";
             OnUnitActiveSec = "3min";
             AccuracySec = "30s";
             RandomizedDelaySec = "20s";
