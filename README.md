@@ -56,6 +56,9 @@ customer-facing servers.
 | srv5-k3s-stg1 | Server | Homelab | Staging cluster node 1 |
 | srv6-k3s-stg2 | Server | Homelab | Staging cluster node 2 |
 | srv7-k3s-stg3 | Server | Homelab | Staging cluster node 3 |
+| testingrke2-01 | Server VM | Homelab | Local RKE2 migration lab control-plane node 1 |
+| testingrke2-02 | Server VM | Homelab | Local RKE2 migration lab control-plane node 2 |
+| testingrke2-03 | Server VM | Homelab | Local RKE2 migration lab control-plane node 3 |
 | macbook-pro | Darwin | macOS | Work MacBook |
 | docker-host-01 | Server | Work | Customer Docker host |
 | lf-timebutler-testvm-01 | Server | Work | Timebutler test VM |
@@ -69,7 +72,7 @@ customer-facing servers.
 
 ### Services
 - **Ceph**: Distributed storage with encrypted OSD support
-- **Kubernetes**: k3s with FluxCD GitOps
+- **Kubernetes**: reusable k3s/RKE2 nodes with FluxCD GitOps
 - **WireGuard**: Homelab mesh VPN
 - **Remote builders**: Distributed Nix builds
   - Runbook: `docs/deployment/remote-builders.md`
@@ -126,6 +129,7 @@ material into the correct secret directories.
 | Remote deployment | [`docs/deployment/remote-servers.md`](docs/deployment/remote-servers.md) |
 | srv4 LLM runtime (RHEL) | [`docs/deployment/srv4-llm-runtime.md`](docs/deployment/srv4-llm-runtime.md) |
 | QEMU VM bootstrap | [`docs/deployment/qemu-vm-bootstrap.md`](docs/deployment/qemu-vm-bootstrap.md) |
+| Testing RKE2 VM lab | [`docs/deployment/testingrke2-lab.md`](docs/deployment/testingrke2-lab.md) |
 | Architecture decisions | [`docs/architecture/`](docs/architecture/) |
 | Module development | [`docs/development/module_development.md`](docs/development/module_development.md) |
 | Host onboarding | [`docs/development/host_onboarding.md`](docs/development/host_onboarding.md) |
@@ -142,7 +146,7 @@ material into the correct secret directories.
 - `scripts/collect-power-metrics.sh` - Battery/power diagnostics for laptops
 - `scripts/servers/deploy-from-iso.sh` - nixos-anywhere wrapper for fresh installs
 - `scripts/servers/create-management-key.sh` - Generate SSH keys with SOPS encryption
-- `scripts/servers/setup-srv4-llm-runtime.sh` - Configure ollama + open-webui on RHEL srv4 via podman/systemd
+- `scripts/servers/setup-srv4-llm-runtime.sh` - Configure llama.cpp + Open WebUI on RHEL srv4 via podman/systemd
 - `scripts/homelab/probe-installer.sh` - Fetch hardware config and disk/NIC info from installer ISO
 - `scripts/homelab/add-testing-resources.sh` - Add testing resources to the homelab cluster
 

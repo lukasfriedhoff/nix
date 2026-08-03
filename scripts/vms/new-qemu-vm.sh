@@ -57,6 +57,7 @@ Firmware/machine options:
 Network options:
   --network <libvirt-net>       Attach to libvirt network (default: default)
   --bridge <ifname>             Attach to bridge (mutually exclusive with --network)
+  --mac-address <address>       Set a deterministic MAC address
 
 Cloud mode options:
   --image <path-or-url>         Cloud image path or URL
@@ -519,6 +520,7 @@ remote_port=""
 
 network_name="${VM_DEFAULT_NETWORK:-default}"
 bridge_name=""
+mac_address=""
 
 machine_type="q35"
 use_efi=true
@@ -639,6 +641,10 @@ while [[ $# -gt 0 ]]; do
       bridge_name="$2"
       shift 2
       ;;
+    --mac-address)
+      mac_address="$2"
+      shift 2
+      ;;
     --machine)
       machine_type="$2"
       shift 2
@@ -731,6 +737,9 @@ fi
 if [[ -n "$bridge_name" ]]; then
   network_name=""
 fi
+if [[ -n "$mac_address" && ! "$mac_address" =~ ^([[:xdigit:]]{2}:){5}[[:xdigit:]]{2}$ ]]; then
+  die "--mac-address must be a colon-separated 48-bit MAC address"
+fi
 
 if [[ -n "$remote_target" ]]; then
   if [[ "$connect_uri" != "qemu:///system" && "$connect_uri" != "${LIBVIRT_URI:-qemu:///system}" ]]; then
@@ -809,7 +818,7 @@ for spec in "${extra_disk_specs[@]}"; do
     fi
   done
 
-  extra_path="/var/lib/libvirt/images/${extra_serial}.${extra_format}"
+  extra_path="$(dirname "$disk_path")/${extra_serial}.${extra_format}"
   if [[ "$extra_path" == "$disk_path" ]]; then
     die "extra disk path conflicts with primary disk path: ${extra_path}"
   fi
@@ -860,6 +869,8 @@ Resolved settings:
   disk format:   ${disk_format}
   disk bus:      ${disk_bus}
   disk serial:   ${disk_serial}
+  network:       ${network_name:-bridge:${bridge_name}}
+  MAC address:   ${mac_address:-<automatic>}
   serial ports:  ${serial_ports}
   graphics:      ${graphics}
   libosinfo os:  ${libosinfo_os_id:-<none>}
@@ -1080,10 +1091,14 @@ if [[ "$use_efi" == true ]]; then
   )
 fi
 
+network_args="model=virtio"
+if [[ -n "$mac_address" ]]; then
+  network_args+=",mac=${mac_address}"
+fi
 if [[ -n "$bridge_name" ]]; then
-  virt_args+=(--network "bridge=${bridge_name},model=virtio")
+  virt_args+=(--network "bridge=${bridge_name},${network_args}")
 else
-  virt_args+=(--network "network=${network_name},model=virtio")
+  virt_args+=(--network "network=${network_name},${network_args}")
 fi
 
 if [[ "$mode" == "cloud" ]]; then
