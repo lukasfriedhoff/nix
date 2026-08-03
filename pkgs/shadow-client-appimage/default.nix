@@ -61,7 +61,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "https://update.shadow.tech/launcher/prod/linux/ubuntu_18.04/ShadowPC.AppImage";
-    hash = "sha256-gNZoY9OriF0YDiHLNTK5RioeAOGr5jVDoNzA0isg+js=";
+    hash = "sha256-6M58ATe5FsXd3IJ73HwRSeTnbTNA9zBxUO7sbFl/+fg=";
   };
 
   nativeBuildInputs = [
