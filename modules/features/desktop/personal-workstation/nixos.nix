@@ -63,7 +63,9 @@ in
       {
         desktop.gaming.enable = true;
 
-        lukasf.ollama = {
+        lukasf.ollama.enable = lib.mkDefault false;
+
+        lukasf.llamaCpp = {
           enable = true;
           autoStart = false;
           ui.autoStart = false;
