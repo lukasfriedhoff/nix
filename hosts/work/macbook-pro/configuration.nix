@@ -1,11 +1,13 @@
 _: {
   networking.hostName = "macbook-pro";
 
-  # Make remote Ollama available to GUI and terminal apps (VS Code, Neovim).
+  # Make the remote OpenAI-compatible LLM API available to GUI and terminal apps.
   launchd.user.envVariables = {
     OLLAMA_HOST = "http://10.7.5.19:11434";
     NVIM_OLLAMA_URL = "http://10.7.5.19:11434";
     NVIM_OLLAMA_MODEL = "qwen3-coder:30b";
+    NVIM_LLM_BASE_URL = "http://10.7.5.19:11434/v1";
+    NVIM_LLM_MODEL = "qwen3-coder:30b";
   };
 
   # Work desktop: install and configure OpenCode against the remote Ollama host.
@@ -14,6 +16,8 @@ _: {
       OLLAMA_HOST = "http://10.7.5.19:11434";
       NVIM_OLLAMA_URL = "http://10.7.5.19:11434";
       NVIM_OLLAMA_MODEL = "qwen3-coder:30b";
+      NVIM_LLM_BASE_URL = "http://10.7.5.19:11434/v1";
+      NVIM_LLM_MODEL = "qwen3-coder:30b";
       OPENCODE_MODEL = "ollama/qwen3-coder:30b";
     };
 

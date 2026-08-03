@@ -32,14 +32,13 @@ let
     "lenovo"
   ];
 
-  # LLM backend configuration per profile
-  llmOllamaHostByProfile = {
-    # srv4 hosts the local LLM runtime directly.
-    srv4 = "http://127.0.0.1:11434";
-    # Other personal desktops consume srv4 as shared backend.
-    tux = "http://srv4.lab.h4xx.io:11434";
-    tab = "http://srv4.lab.h4xx.io:11434";
-    lenovo = "http://srv4.lab.h4xx.io:11434";
+  # LLM backend configuration per profile. srv4 runs llama.cpp on the
+  # historical Ollama port so existing network paths stay stable.
+  llmApiBaseUrlByProfile = {
+    srv4 = "http://127.0.0.1:11434/v1";
+    tux = "http://srv4.lab.h4xx.io:11434/v1";
+    tab = "http://srv4.lab.h4xx.io:11434/v1";
+    lenovo = "http://srv4.lab.h4xx.io:11434/v1";
   };
   llmOpenWebUiByProfile = {
     srv4 = "http://127.0.0.1:3000";
@@ -47,20 +46,39 @@ let
     tab = "http://srv4.lab.h4xx.io:3000";
     lenovo = "http://srv4.lab.h4xx.io:3000";
   };
-  defaultOllamaHost = "http://srv4.lab.h4xx.io:11434";
+  defaultLlmApiBaseUrl = "http://srv4.lab.h4xx.io:11434/v1";
+  defaultAirLlmApiBaseUrl = "http://127.0.0.1:11435/v1";
   defaultOpenWebUiUrl = "http://srv4.lab.h4xx.io:3000";
-  defaultOpencodeModel = "ollama/qwen3-coder:30b";
-  resolvedOllamaHost =
-    if profile != null && builtins.hasAttr profile llmOllamaHostByProfile then
-      llmOllamaHostByProfile.${profile}
+  defaultLlmModel = "qwen3:8b";
+  defaultOpencodeLlmModel = defaultLlmModel;
+  defaultOpencodeModel = "llama-cpp/${defaultOpencodeLlmModel}";
+  kimiApiModel = "kimi-k3";
+  favoriteLlmModels = [
+    "qwen3:8b"
+    "qwen3-coder:30b"
+    "qwen3-coder:30b-quality"
+    "qwen3:30b"
+  ];
+  airLlmModels = [
+    kimiApiModel
+    "qwen3:30b-airllm"
+  ];
+  kimiApiModels = [
+    kimiApiModel
+    "kimi-k2.7-code"
+    "kimi-k2.7-code-highspeed"
+  ];
+  resolvedLlmApiBaseUrl =
+    if profile != null && builtins.hasAttr profile llmApiBaseUrlByProfile then
+      llmApiBaseUrlByProfile.${profile}
     else
-      defaultOllamaHost;
+      defaultLlmApiBaseUrl;
   resolvedOpenWebUiUrl =
     if profile != null && builtins.hasAttr profile llmOpenWebUiByProfile then
       llmOpenWebUiByProfile.${profile}
     else
       defaultOpenWebUiUrl;
-  resolvedOpencodeBaseUrl = "${lib.removeSuffix "/" resolvedOllamaHost}/v1";
+  resolvedLlamaCppHost = lib.removeSuffix "/v1" (lib.removeSuffix "/" resolvedLlmApiBaseUrl);
 
   isLinuxDesktop = desktopEnabled && (!pkgs.stdenv.isDarwin);
   isPersonalWorkstation = profile != null && lib.elem profile personalWorkstationProfiles;
@@ -162,10 +180,14 @@ in
       ];
 
       home.sessionVariables = {
-        OLLAMA_HOST = resolvedOllamaHost;
-        NVIM_OLLAMA_URL = resolvedOllamaHost;
-        NVIM_OLLAMA_MODEL = "qwen3-coder:30b";
+        LLAMA_CPP_HOST = resolvedLlamaCppHost;
+        LLAMA_CPP_BASE_URL = resolvedLlmApiBaseUrl;
+        NVIM_LLM_BASE_URL = resolvedLlmApiBaseUrl;
+        NVIM_LLM_MODEL = defaultLlmModel;
+        NVIM_LLM_MODELS = lib.concatStringsSep "," favoriteLlmModels;
         OPENCODE_MODEL = defaultOpencodeModel;
+        OPENCODE_KIMI_API_MODEL = "kimi-api/${kimiApiModel}";
+        OPENCODE_AIRLLM_MODEL = "airllm-srv4/${kimiApiModel}";
         OPENWEBUI_URL = resolvedOpenWebUiUrl;
         # Required for opencode plugins with native node modules (onnxruntime, etc.)
         LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
@@ -198,11 +220,40 @@ in
             "google"
             "opencode"
           ];
-          provider.ollama = {
+          provider."llama-cpp" = {
             npm = "@ai-sdk/openai-compatible";
-            name = "Ollama";
-            options.baseURL = resolvedOpencodeBaseUrl;
-            models."qwen3-coder:30b".name = "qwen3-coder:30b";
+            name = "llama.cpp";
+            options.baseURL = resolvedLlmApiBaseUrl;
+            models = builtins.listToAttrs (
+              map (model: {
+                name = model;
+                value.name = model;
+              }) favoriteLlmModels
+            );
+          };
+          provider."kimi-api" = {
+            npm = "@ai-sdk/openai-compatible";
+            name = "Kimi API";
+            api = "https://api.moonshot.cn/v1";
+            env = [ "MOONSHOT_API_KEY" ];
+            options.apiKey = "{env:MOONSHOT_API_KEY}";
+            models = builtins.listToAttrs (
+              map (model: {
+                name = model;
+                value.name = model;
+              }) kimiApiModels
+            );
+          };
+          provider."airllm-srv4" = {
+            npm = "@ai-sdk/openai-compatible";
+            name = "srv4 AirLLM";
+            options.baseURL = defaultAirLlmApiBaseUrl;
+            models = builtins.listToAttrs (
+              map (model: {
+                name = model;
+                value.name = model;
+              }) airLlmModels
+            );
           };
           agent = {
             explore.skills = [
@@ -277,9 +328,14 @@ in
     })
     (lib.mkIf isLinuxWorkstation {
       programs.bash.shellAliases = {
-        llm-srv4-start = "ssh srv4 'sudo systemctl start ollama-podman.service open-webui-podman.service'";
-        llm-srv4-stop = "ssh srv4 'sudo systemctl stop ollama-podman.service open-webui-podman.service'";
-        llm-srv4-status = "ssh srv4 'systemctl status --no-pager ollama-podman.service open-webui-podman.service'";
+        llm-srv4-start = "ssh srv4 'sudo systemctl start llama-cpp-podman.service open-webui-podman.service'";
+        llm-srv4-stop = "ssh srv4 'sudo systemctl stop llama-cpp-podman.service open-webui-podman.service'";
+        llm-srv4-status = "ssh srv4 'systemctl status --no-pager llama-cpp-podman.service open-webui-podman.service'";
+        llm-srv4-models = "ssh srv4 'curl -fsS http://127.0.0.1:11434/v1/models'";
+        airllm-srv4-tunnel = "ssh -NT -o ExitOnForwardFailure=yes -L 127.0.0.1:11435:127.0.0.1:11435 srv4";
+        opencode-qwen3-coder = "OPENCODE_MODEL=llama-cpp/qwen3-coder:30b opencode";
+        opencode-kimi-api = "OPENCODE_MODEL=kimi-api/${kimiApiModel} opencode";
+        opencode-airllm = "OPENCODE_MODEL=airllm-srv4/${kimiApiModel} opencode";
       };
 
       home.packages = lib.mkAfter [

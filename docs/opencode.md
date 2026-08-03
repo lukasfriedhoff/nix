@@ -7,9 +7,9 @@ This document covers the OpenCode AI coding agent setup for this NixOS monorepo.
 Configuration is stored in `~/.config/opencode/opencode.json`.
 Project-specific defaults live in `opencode.jsonc` at the repository root.
 
-For personal Linux desktops, Home Manager enforces the Ollama backend on each activation via `modules/features/profile/desktop/home.nix`:
+For personal Linux desktops, Home Manager enforces the llama.cpp backend on each activation via `modules/features/profile/desktop/home.nix`:
 
-- model: `ollama/qwen3-coder:30b`
+- model: `llama-cpp/qwen3:8b`
 - provider base URL: `http://srv4.lab.h4xx.io:11434/v1` (localhost on `srv4`)
 - global skills path: `~/.config/opencode/skills`
 
@@ -19,8 +19,10 @@ If `~/.config/opencode/skills` is empty, Home Manager bootstraps it once from:
 
 ### Current Setup
 
-- **Model**: `ollama/qwen3-coder:30b` running on `srv4.lab.h4xx.io`
-- **GPU**: AMD RX 7900 XT with ROCm acceleration
+- **Model**: `llama-cpp/qwen3:8b` running on `srv4.lab.h4xx.io`
+- **Runtime**: llama.cpp on `srv4`; Vulkan/ROCm images can be selected with `LLAMA_CPP_IMAGE`
+- **Kimi K3**: `kimi-api/kimi-k3` via Moonshot/Kimi API when `MOONSHOT_API_KEY` is set
+- **AirLLM**: `airllm-srv4/kimi-k3` uses an SSH-forwarded experimental srv4 endpoint on local port `11435`
 
 ### Key Files
 
@@ -247,7 +249,7 @@ Start new session with the handoff prompt.
 
 ### Token Limits
 
-The local `qwen3-coder:30b` model has limited context. Optimize with:
+The local llama.cpp models have limited context compared to hosted frontier models. Optimize with:
 
 1. **opencode-snip**: Automatically reduces shell output
 2. **opencode-dynamic-context-pruning**: Prunes stale tool outputs
@@ -267,7 +269,7 @@ The local `qwen3-coder:30b` model has limited context. Optimize with:
 ### Start LLM Server
 
 ```bash
-llm-srv4-start   # Start ollama and open-webui on srv4
+llm-srv4-start   # Start llama.cpp and Open WebUI on srv4
 ```
 
 ### Stop LLM Server
@@ -280,6 +282,50 @@ llm-srv4-stop    # Stop services on srv4
 
 ```bash
 llm-srv4-status  # Check service status
+```
+
+### List srv4 Models
+
+```bash
+llm-srv4-models
+```
+
+### Use Kimi K3
+
+Kimi K3 is wired as a hosted OpenAI-compatible provider because local weights are
+not generally available yet. Do not put the API key in Git or Nix store paths.
+Authenticate with OpenCode or export it in a shell:
+
+```bash
+export MOONSHOT_API_KEY=...
+opencode-kimi-api
+```
+
+### Use qwen3-coder 30B
+
+The 30B coder model is available but not the default because the CPU image can
+saturate srv4 while loading it. Use it only when the ROCm/Vulkan runtime is
+healthy:
+
+```bash
+opencode-qwen3-coder
+```
+
+### Use AirLLM Experiment
+
+AirLLM is exposed as `airllm-srv4/*` so OpenCode can use it once an
+OpenAI-compatible AirLLM service is running on srv4. The service binds to
+loopback and must be reached through SSH:
+
+```bash
+AIRLLM_MODEL_ID=owner/model scripts/servers/setup-srv4-airllm-runtime.sh
+airllm-srv4-tunnel
+```
+
+Keep the tunnel running in a separate terminal, then start OpenCode:
+
+```bash
+opencode-airllm
 ```
 
 ### GPU Monitoring
