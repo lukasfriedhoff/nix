@@ -14,9 +14,12 @@ in
 
     nvidiaBusId = lib.mkOption {
       type = lib.types.str;
-      default = "PCI:1:0:0";
-      description = "PCI bus ID of the NVIDIA GPU for gamemode GPU optimizations.";
-      example = "PCI:1:0:0";
+      default = "1";
+      description = ''
+        DRM card number of the NVIDIA GPU for GameMode GPU optimizations.
+        This is the number in /sys/class/drm/cardN, not the PRIME PCI bus ID.
+      '';
+      example = "1";
     };
 
     defaultRenderer = lib.mkOption {
@@ -92,6 +95,7 @@ in
         steam-tui
         steamGameWrapper
         ludusavi # Game save backup tool
+        config.hardware.nvidia.package.settings
       ];
 
     environment.sessionVariables = {

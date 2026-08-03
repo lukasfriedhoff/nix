@@ -102,7 +102,10 @@
   # available before rebuilds and other privileged automation.
   lukasf.wireguard.homelab.userUnit.enable = false;
 
-  desktop.gaming.defaultRenderer = "nvidia";
+  desktop.gaming = {
+    defaultRenderer = "nvidia";
+    fpsLimit = null;
+  };
 
   lukasf.tuxedoControlCenter.enable = true;
   lukasf.shadowTech.enable = true;
@@ -119,6 +122,7 @@
 
   users.users.lukasf.extraGroups = lib.mkAfter [
     "docker"
+    "gamemode"
     "input"
     "libvirtd"
     "kvm"
