@@ -62,8 +62,8 @@ in
       modesetting.enable = true;
       powerManagement.enable = true;
       powerManagement.finegrained = false; # Incompatible with PRIME sync
-      open = true; # Use open driver like Tuxedo OS
-      dynamicBoost.enable = true; # Enable nvidia-powerd for CPU/GPU power balancing
+      open = lib.mkDefault false;
+      dynamicBoost.enable = lib.mkDefault true;
       package = config.boot.kernelPackages.nvidiaPackages.stable;
       prime = {
         offload.enable = false;
