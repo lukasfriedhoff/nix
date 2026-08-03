@@ -325,6 +325,15 @@
               root = personalServerRoot "srv8";
               personal = personalServerRoot "srv8";
             };
+
+            srv9 = {
+              primary = personalServerRoot "srv9";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
+              root = personalServerRoot "srv9";
+              personal = personalServerRoot "srv9";
+            };
           };
 
           workProfiles = [
@@ -625,6 +634,13 @@
               homelabServerModules
               ++ [
                 ./hosts/homelab/srv8/configuration.nix
+              ]
+            );
+
+            srv9 = mkNixosHost "srv9" (
+              homelabServerModules
+              ++ [
+                ./hosts/homelab/srv9/configuration.nix
               ]
             );
           };

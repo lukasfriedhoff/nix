@@ -114,4 +114,53 @@
     luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "hdd";
   };
+  "ata-ST8000NM0205-2FF112_ZA1J23AK" = {
+    host = "srv9";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv9-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "hdd";
+  };
+  "ata-ST8000NM0205-2FF112_ZA1J4Q5T" = {
+    host = "srv9";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv9-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "hdd";
+  };
+  "scsi-35002538b11337b70" = {
+    host = "srv9";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv9-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "ssd";
+  };
+  "scsi-35002538b11337b80" = {
+    host = "srv9";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv9-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "ssd";
+  };
+  "scsi-35002538b11337c30" = {
+    host = "srv9";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv9-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "ssd";
+  };
+  "scsi-35000c500da3a236f" = {
+    host = "srv9";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv9-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "hdd";
+  };
+  "scsi-35000c500da3339e3" = {
+    host = "srv9";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv9-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
+    type = "hdd";
+  };
 }

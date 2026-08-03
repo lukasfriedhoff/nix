@@ -53,6 +53,8 @@ customer-facing servers.
 | srv1 | Server | Homelab | Personal homelab (Ceph, k3s) |
 | srv2 | Server | Homelab | Personal homelab node |
 | srv3 | Server | Homelab | Personal homelab node |
+| srv8 | Server | Homelab | Production Kubernetes node |
+| srv9 | Server | Homelab | Production Kubernetes node |
 | srv5-k3s-stg1 | Server | Homelab | Staging cluster node 1 |
 | srv6-k3s-stg2 | Server | Homelab | Staging cluster node 2 |
 | srv7-k3s-stg3 | Server | Homelab | Staging cluster node 3 |
