@@ -48,6 +48,8 @@ _: {
         };
       };
     };
+
+    programs.dockerHeadless.enable = true;
   };
 
   # host-specific homebrew casks
