@@ -41,7 +41,7 @@ in
       lib.mkMerge [
         {
           # Adopt new 26.05 default: GTK4 apps use their own theme, not gtk.theme
-          gtk.gtk4.theme = null;
+          gtk.gtk4.theme = lib.mkForce null;
 
           stylix = {
             enable = true;
