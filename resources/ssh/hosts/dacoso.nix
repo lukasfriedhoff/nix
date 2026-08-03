@@ -47,4 +47,10 @@
     user = "nuagealerting";
     keyName = "ci";
   }
+  {
+    match = "clientportdown01";
+    alias = "cpd01";
+    user = "clientportdown";
+    keyName = "clientportdown01";
+  }
 ]
