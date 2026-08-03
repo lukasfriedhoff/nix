@@ -259,6 +259,119 @@ zero new events. Relinking cannot request arbitrary historical messages and
 may create replacement portal rooms. The default migration keeps retained
 rooms and repairs them in place.
 
+### Repair migrated WhatsApp LID display names
+
+Imported WhatsApp history can reference legacy users such as
+`@whatsapp_lid-154494553854018:h4xx.io`. The active bridge may already know
+the contact name in `whatsmeow_contacts` while the imported Synapse profile and
+room-membership state still contain the raw LID. This is profile metadata, not
+a room-title problem: do not rename the room.
+
+Build a reviewed mapping from the active bridge database:
+
+```sh
+kubectl exec -n matrix whatsappdb-1 -- \
+  psql -U postgres -d mautrixwhatsapp -At -F '|' -c \
+  "SELECT split_part(their_jid, '@', 1),
+          COALESCE(NULLIF(full_name, ''),
+                   NULLIF(push_name, ''),
+                   NULLIF(business_name, ''))
+     FROM whatsmeow_contacts
+    WHERE their_jid LIKE '%@lid'
+      AND COALESCE(NULLIF(full_name, ''),
+                   NULLIF(push_name, ''),
+                   NULLIF(business_name, '')) IS NOT NULL
+    ORDER BY 1" \
+  > /run/secrets/whatsapp-lid-displaynames.tsv
+```
+
+Copy `scripts/matrix/repair-whatsapp-lid-displaynames.py` and the reviewed
+mapping into the Synapse pod. Inventory first:
+
+```sh
+python /tmp/repair-whatsapp-lid-displaynames.py inventory \
+  --mapping /tmp/whatsapp-lid-displaynames.tsv \
+  --registration /whatsappdata/registration.yaml \
+  --server-name h4xx.io
+```
+
+Apply only after reviewing the inventory:
+
+```sh
+python /tmp/repair-whatsapp-lid-displaynames.py repair \
+  --mapping /tmp/whatsapp-lid-displaynames.tsv \
+  --registration /whatsappdata/registration.yaml \
+  --server-name h4xx.io
+```
+
+The helper uses the WhatsApp appservice token without printing it, skips
+already-resolved profiles, updates the global profile, and emits a
+self-membership state event in every joined room while preserving the existing
+membership content. It is idempotent and never changes `m.room.name`.
+
+### Repair unresolved bridge identities safely
+
+Use `scripts/matrix/repair-bridge-displaynames.py` for unresolved WhatsApp,
+Signal, and Telegram identities. Build a reviewed pipe-delimited mapping:
+
+```text
+whatsapp_491739804698|Monika Klar (WA)
+signalprivate_27c919a7-221f-49dc-b626-595d7f924192|Example (Signal)
+telegram_42|Example (Telegram)
+```
+
+Resolve names only from authoritative sources, in this order:
+
+1. the active bridge contact database;
+2. bridge profile or identifier metadata;
+3. matching membership state in a retained old-server room.
+
+Never infer a person's name from a phone number or room context. Dormant
+profiles without an authoritative name should retain a phone-number
+placeholder.
+
+Copy the helper and reviewed mapping into the Synapse pod, then inventory before
+repairing:
+
+```sh
+python /tmp/repair-bridge-displaynames.py inventory \
+  --mapping /tmp/bridge-displaynames.tsv \
+  --registration /whatsappdata/registration.yaml \
+  --server-name h4xx.io
+
+python /tmp/repair-bridge-displaynames.py repair \
+  --mapping /tmp/bridge-displaynames.tsv \
+  --registration /whatsappdata/registration.yaml \
+  --server-name h4xx.io
+```
+
+Use the registration belonging to the identities being repaired. The helper
+changes only the global profile and current joined-room `m.room.member` state.
+It preserves the rest of each membership event, skips an existing human-readable
+name, and never writes `m.room.name`. Historical sender names are immutable
+event content and are not rewritten.
+
+Repeated bridge login or contact synchronization can create replacement portal
+rooms. An apparently unresolved room may be removed from the user's account
+only after all of these checks pass:
+
+1. its exact room ID is reviewed;
+2. it contains zero `m.room.message` events;
+3. the current user is joined;
+4. no populated retained room exists for the same bridge contact;
+5. it is not a room selected for migration or retention.
+
+For such a room, leave and forget it only as the affected user. Do not purge
+the room, delete bridge portal rows, or modify its name. Rate-limit cleanup and
+make it idempotent because Synapse can return HTTP 429 while processing many
+rooms.
+
+Afterward, re-audit every room joined by the migrated user. No joined retained
+room should contain a current-domain member whose display name is a raw bridge
+localpart or phone placeholder. Profiles that are not members of any joined
+room can safely remain unresolved until an authoritative contact name becomes
+available.
+
 ## Phase 6: Matrix Media
 
 The media copy and the retained-origin cache repair solve different problems:
@@ -282,6 +395,30 @@ python /tmp/repair-matrix-migrated-media-cache.py \
 The apply operation hardlinks local media and thumbnails into the remote-cache
 layout and updates `remote_media_cache` metadata transactionally. It is
 idempotent and should not duplicate file data.
+
+Synapse versions with authenticated media support add an `authenticated`
+metadata flag. Retained pre-authenticated media from the old homeserver must
+remain public metadata, otherwise Element shows `Error downloading image` while
+the file exists on disk. After the media cache repair, verify and repair only
+old-server media rows:
+
+```sql
+select count(*) from local_media_repository
+where authenticated = true and user_id like '%:m.h4.ddnss.org';
+
+select count(*) from remote_media_cache
+where authenticated = true and media_origin = 'm.h4.ddnss.org';
+
+begin;
+update local_media_repository
+set authenticated = false
+where authenticated = true and user_id like '%:m.h4.ddnss.org';
+
+update remote_media_cache
+set authenticated = false
+where authenticated = true and media_origin = 'm.h4.ddnss.org';
+commit;
+```
 
 Verify:
 
@@ -581,6 +718,66 @@ Room repair rollback is narrower:
   and auth chain. Do not patch database state directly.
 - Any room blocked by an audit helper stays on an explicit unresolved list.
   Never weaken the helper's checks to make the batch complete.
+
+## Bridge Identity and Empty-Portal Repair
+
+Repair migrated bridge identities without changing room titles:
+
+```bash
+python3 scripts/matrix/repair-bridge-displaynames.py repair \
+  --homeserver-url http://127.0.0.1:8008 \
+  --registration /data/bridge-registration.yaml \
+  --mapping /tmp/bridge-displaynames.txt \
+  --server-name example.org
+```
+
+The mapping must come from the bridge's authoritative contact database. The
+helper updates the Matrix profile and current `m.room.member` display name. It
+does not rewrite historical events and must not modify `m.room.name`; explicit
+room names are shared state and changing one renames the room for every
+participant.
+
+Inventory stale legacy portals before removing anything:
+
+```bash
+python3 scripts/matrix/leave-forget-empty-bridge-rooms.py inventory \
+  --homeserver-url http://127.0.0.1:8008 \
+  --token-file /run/secrets/matrix-admin-token \
+  --rooms /tmp/legacy-empty-portals.txt \
+  --legacy-server-name legacy.example.org \
+  --bridge-localpart-prefix signalprivate_ \
+  --user-id '@replacement:example.org'
+```
+
+Replace the `inventory` action with `cleanup` only after reviewing every JSON
+result.
+The helper permits cleanup only when all of these conditions hold:
+
+- the room ID belongs to the explicitly supplied legacy server;
+- the replacement user is currently joined;
+- a matching joined legacy bridge ghost is present; and
+- paginated room history contains no non-state timeline events.
+
+Safe cleanup leaves and forgets the room for the replacement account only. It
+does not purge the room, rename it, delete bridge database rows, or affect
+other participants. Populated rooms and any room that cannot be fully audited
+remain retained for manual investigation.
+
+Cloudflare may reject command-line Matrix API clients with error 1010. In that
+case, copy the reviewed helper and input inventory into the Synapse pod and use
+the loopback listener. Remove the temporary token and files immediately after
+the run.
+
+### Signal cleanup checkpoint: 2026-08-01
+
+- repaired the one active Signal identity whose migrated profile and current
+  membership still exposed a raw bridge identifier;
+- verified no unresolved Signal member display names remained in rooms joined
+  by the replacement account;
+- identified 76 legacy Signal placeholder portals with zero non-state timeline
+  events;
+- left and forgot exactly those 76 rooms with zero errors; and
+- preserved populated legacy rooms without changing any shared room names.
 
 ## Production Repair Checkpoint: 2026-07-30
 
