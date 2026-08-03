@@ -263,6 +263,33 @@
               personal = personalServerRoot "srv3";
             };
 
+            testingrke2-01 = {
+              primary = personalServerRoot "testingrke2-01";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
+              root = personalServerRoot "testingrke2-01";
+              personal = personalServerRoot "testingrke2-01";
+            };
+
+            testingrke2-02 = {
+              primary = personalServerRoot "testingrke2-02";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
+              root = personalServerRoot "testingrke2-02";
+              personal = personalServerRoot "testingrke2-02";
+            };
+
+            testingrke2-03 = {
+              primary = personalServerRoot "testingrke2-03";
+              shared = sharedCommonRoot;
+              profileShared = personalSharedRoot;
+              profileCommon = personalCommonDesktopRoot;
+              root = personalServerRoot "testingrke2-03";
+              personal = personalServerRoot "testingrke2-03";
+            };
+
             srv5-k3s-stg1 = {
               primary = personalServerRoot "srv5-k3s-stg1";
               shared = sharedCommonRoot;
@@ -549,6 +576,27 @@
               homelabServerModules
               ++ [
                 ./hosts/homelab/srv3/configuration.nix
+              ]
+            );
+
+            testingrke2-01 = mkNixosHost "testingrke2-01" (
+              homelabServerModules
+              ++ [
+                ./hosts/homelab/testingrke2-01/configuration.nix
+              ]
+            );
+
+            testingrke2-02 = mkNixosHost "testingrke2-02" (
+              homelabServerModules
+              ++ [
+                ./hosts/homelab/testingrke2-02/configuration.nix
+              ]
+            );
+
+            testingrke2-03 = mkNixosHost "testingrke2-03" (
+              homelabServerModules
+              ++ [
+                ./hosts/homelab/testingrke2-03/configuration.nix
               ]
             );
 

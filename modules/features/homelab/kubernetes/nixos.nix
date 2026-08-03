@@ -11,9 +11,16 @@ let
   inherit (lib)
     mkEnableOption
     mkIf
+    mkMerge
     mkOption
     types
     ;
+
+  isK3s = cfg.distribution == "k3s";
+  isRke2 = cfg.distribution == "rke2";
+  isServer = cfg.role == "server";
+  serviceName = if isK3s then "k3s" else "rke2-${cfg.role}";
+  kubeconfig = if isK3s then "/etc/rancher/k3s/k3s.yaml" else "/etc/rancher/rke2/rke2.yaml";
 
   primaryRoot = secrets.primary or secrets.root or null;
   resolveSecret =
@@ -27,22 +34,151 @@ let
     else
       throw "homelab.kubernetes.gitops: relative secret path '${file}' requires secrets.primary/root";
 
-  kubeconfig = "/etc/rancher/k3s/k3s.yaml";
   gitAuthSecretName = "${cfg.gitops.sourceName}-auth";
+  tlsSanFlags = map (san: "--tls-san=${san}") cfg.tlsSans;
 
   fluxBin = lib.getExe pkgs.fluxcd;
   kubectlBin = lib.getExe pkgs.kubectl;
 in
 {
   options.homelab.kubernetes = {
-    enable = mkEnableOption "single-node Kubernetes (k3s) control plane";
+    enable = mkEnableOption "Kubernetes node managed by k3s or RKE2";
+
+    distribution = mkOption {
+      type = types.enum [
+        "k3s"
+        "rke2"
+      ];
+      default = "k3s";
+      description = "Kubernetes distribution to run.";
+    };
+
+    role = mkOption {
+      type = types.enum [
+        "server"
+        "agent"
+      ];
+      default = "server";
+      description = "Whether this node is a Kubernetes server or agent.";
+    };
+
+    serverAddr = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "https://192.168.124.10:9345";
+      description = "Registration endpoint used when joining an existing cluster.";
+    };
+
+    tokenFile = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Absolute path to the shared cluster token.";
+    };
+
+    nodeName = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Kubernetes node name. Defaults to the NixOS hostname.";
+    };
+
+    nodeIP = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "IPv4 or IPv6 address advertised by the node.";
+    };
+
+    nodeLabels = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      example = [ "h4xx.io/gpu.vendor=virtual" ];
+      description = "Labels registered on the Kubernetes node.";
+    };
+
+    tlsSans = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = "Additional names and addresses included in the API server certificate.";
+    };
+
+    extraFlags = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = "Additional distribution-specific command-line flags.";
+    };
 
     longhorn.enable = mkEnableOption "Longhorn node prerequisites (open-iscsi + NFS client support)";
 
     extraK3sFlags = mkOption {
       type = types.listOf types.str;
       default = [ ];
-      description = "Additional flags passed to k3s via --flag format.";
+      description = "Deprecated compatibility option for additional k3s flags.";
+    };
+
+    rke2 = {
+      cni = mkOption {
+        type = types.enum [
+          "none"
+          "canal"
+          "cilium"
+          "calico"
+          "flannel"
+        ];
+        default = "canal";
+        description = "CNI deployed by RKE2.";
+      };
+
+      disable = mkOption {
+        type = types.listOf types.str;
+        default = [ "rke2-ingress-nginx" ];
+        description = "Bundled RKE2 components to disable.";
+      };
+
+      cisHardening = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable the RKE2 CIS profile and NixOS hardening prerequisites.";
+      };
+    };
+
+    highAvailability = {
+      enable = mkEnableOption "a keepalived registration and API virtual IP";
+
+      virtualIP = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "192.168.124.10";
+        description = "Stable registration and Kubernetes API address.";
+      };
+
+      virtualIPPrefixLength = mkOption {
+        type = types.ints.between 0 128;
+        default = 24;
+        description = "Network prefix length used when assigning the virtual IP.";
+      };
+
+      interface = mkOption {
+        type = types.str;
+        default = "enp1s0";
+        description = "Interface that owns the virtual IP.";
+      };
+
+      nodeIPs = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Addresses of all keepalived peers, including this node.";
+      };
+
+      priority = mkOption {
+        type = types.ints.between 1 255;
+        default = 100;
+        description = "Keepalived election priority for this node.";
+      };
+
+      virtualRouterId = mkOption {
+        type = types.ints.between 1 255;
+        default = 52;
+        description = "VRRP router identifier shared by the cluster nodes.";
+      };
     };
 
     gitops = {
@@ -101,171 +237,313 @@ in
     };
   };
 
-  config = mkIf cfg.enable {
-    assertions = lib.mkIf (cfg.gitops.enable or false) [
-      {
-        assertion = cfg.gitops.repoURL != null;
-        message = "homelab.kubernetes.gitops.repoURL must be set when GitOps is enabled.";
-      }
-    ];
-
-    boot.kernelModules = [
-      "br_netfilter"
-      "rbd"
-      "nbd"
-    ];
-    boot.kernel.sysctl = {
-      "net.ipv4.ip_forward" = 1;
-      "net.bridge.bridge-nf-call-iptables" = 1;
-      "net.bridge.bridge-nf-call-ip6tables" = 1;
-    };
-    swapDevices = lib.mkForce [ ];
-
-    environment.systemPackages =
-      with pkgs;
-      [
-        kubectl
-        fluxcd
-        git
-        cilium-cli
-      ]
-      ++ lib.optionals cfg.longhorn.enable [
-        nfs-utils
+  config = mkIf cfg.enable (mkMerge [
+    {
+      assertions = [
+        {
+          assertion = !cfg.gitops.enable || cfg.gitops.repoURL != null;
+          message = "homelab.kubernetes.gitops.repoURL must be set when GitOps is enabled.";
+        }
+        {
+          assertion = !cfg.gitops.enable || isServer;
+          message = "homelab.kubernetes.gitops can only run on a server node.";
+        }
+        {
+          assertion = cfg.role != "agent" || (cfg.serverAddr != null && cfg.tokenFile != null);
+          message = "Kubernetes agents require homelab.kubernetes.serverAddr and tokenFile.";
+        }
+        {
+          assertion = cfg.serverAddr == null || cfg.tokenFile != null;
+          message = "Kubernetes nodes joining through serverAddr require homelab.kubernetes.tokenFile.";
+        }
+        {
+          assertion = cfg.gitops.sshKeyFile == null || cfg.gitops.tokenFile == null;
+          message = "Configure only one of homelab.kubernetes.gitops.sshKeyFile or tokenFile.";
+        }
+        {
+          assertion = !cfg.highAvailability.enable || (isRke2 && isServer);
+          message = "homelab.kubernetes.highAvailability is supported on RKE2 server nodes.";
+        }
+        {
+          assertion = !cfg.highAvailability.enable || cfg.highAvailability.virtualIP != null;
+          message = "homelab.kubernetes.highAvailability.virtualIP must be set.";
+        }
+        {
+          assertion = !cfg.highAvailability.enable || cfg.nodeIP != null;
+          message = "homelab.kubernetes.nodeIP must be set when high availability is enabled.";
+        }
+        {
+          assertion =
+            !cfg.highAvailability.enable || builtins.elem cfg.highAvailability.virtualIP cfg.tlsSans;
+          message = "The high-availability virtual IP must be included in homelab.kubernetes.tlsSans.";
+        }
+        {
+          assertion =
+            !cfg.highAvailability.enable
+            || (
+              builtins.length cfg.highAvailability.nodeIPs >= 2
+              && builtins.elem cfg.nodeIP cfg.highAvailability.nodeIPs
+            );
+          message = "highAvailability.nodeIPs must include this nodeIP and at least one peer.";
+        }
       ];
 
-    services.openiscsi = mkIf cfg.longhorn.enable {
-      enable = true;
-      # NixOS 26.05 openiscsi module requires an explicit initiator name.
-      name = lib.mkDefault "iqn.2026-04.io.h4xx.${config.networking.hostName}:longhorn";
-    };
-    systemd.sockets.iscsid = mkIf cfg.longhorn.enable {
-      enable = lib.mkForce false;
-    };
-    systemd.services.iscsid = mkIf cfg.longhorn.enable {
-      # Longhorn or manual recovery can leave an unmanaged iscsid process behind.
-      # Ensure stale instances are gone before systemd starts iscsid.
-      serviceConfig.ExecStartPre = lib.mkBefore [
-        "-${pkgs.procps}/bin/pkill -x iscsid"
+      boot.kernelModules = [
+        "br_netfilter"
+        "rbd"
+        "nbd"
       ];
-    };
-    boot.supportedFilesystems = lib.optionals cfg.longhorn.enable [
-      "nfs"
-      "nfs4"
-    ];
-
-    # Longhorn RWX uses an nsenter-based helper that expects classic mount
-    # binaries in /usr/bin and /sbin on the host namespace.
-    systemd.tmpfiles.rules = lib.optionals cfg.longhorn.enable [
-      "L+ /bin/mount - - - - /run/wrappers/bin/mount"
-      "L+ /usr/bin/mount - - - - /run/wrappers/bin/mount"
-      "L+ /usr/bin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
-      "L+ /sbin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
-      "L+ /sbin/mount.nfs - - - - /run/current-system/sw/bin/mount.nfs"
-      "L+ /sbin/mount.nfs4 - - - - /run/current-system/sw/bin/mount.nfs4"
-    ];
-
-    services.k3s = {
-      enable = true;
-      role = "server";
-      extraFlags = lib.concatStringsSep " " (
-        [
-          "--disable traefik"
-          "--disable servicelb"
-          "--write-kubeconfig-mode 640"
-        ]
-        ++ cfg.extraK3sFlags
-      );
-    };
-
-    networking.firewall = {
-      allowedTCPPorts = lib.mkAfter [
-        6443
-        2379
-        2380
-        10250
-      ];
-      allowedUDPPorts = lib.mkAfter [
-        8472
-        51820
-      ];
-      checkReversePath = "loose";
-    };
-
-    # GitOps bootstrap
-    systemd.services.flux-gitops = mkIf cfg.gitops.enable {
-      description = "FluxCD GitOps bootstrap";
-      after = [ "k3s.service" ];
-      requires = [ "k3s.service" ];
-      environment = {
-        KUBECONFIG = kubeconfig;
+      boot.kernel.sysctl = {
+        "net.ipv4.ip_forward" = 1;
+        "net.bridge.bridge-nf-call-iptables" = 1;
+        "net.bridge.bridge-nf-call-ip6tables" = 1;
       };
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = pkgs.writeShellScript "flux-gitops-bootstrap" ''
-          set -euo pipefail
+      swapDevices = lib.mkForce [ ];
 
-          if ! ${kubectlBin} --kubeconfig ${kubeconfig} get namespace flux-system >/dev/null 2>&1; then
-            ${fluxBin} install --namespace flux-system
-          fi
+      environment.systemPackages =
+        with pkgs;
+        [
+          kubectl
+          fluxcd
+          git
+          cilium-cli
+        ]
+        ++ lib.optionals cfg.longhorn.enable [
+          nfs-utils
+        ];
 
-          ${lib.optionalString (cfg.gitops.sopsAgeKeyFile != null) ''
-            ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
-              create secret generic sops-age \
-              --from-file=age.agekey=${resolveSecret cfg.gitops.sopsAgeKeyFile} \
-              --dry-run=client -o yaml \
-              | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
-          ''}
+      services.openiscsi = mkIf cfg.longhorn.enable {
+        enable = true;
+        name = lib.mkDefault "iqn.2026-04.io.h4xx.${config.networking.hostName}:longhorn";
+      };
+      systemd.sockets.iscsid = mkIf cfg.longhorn.enable {
+        enable = lib.mkForce false;
+      };
+      systemd.services.iscsid = mkIf cfg.longhorn.enable {
+        serviceConfig.ExecStartPre = lib.mkBefore [
+          "-${pkgs.procps}/bin/pkill -x iscsid"
+        ];
+      };
+      boot.supportedFilesystems = lib.optionals cfg.longhorn.enable [
+        "nfs"
+        "nfs4"
+      ];
 
-          ${
-            if cfg.gitops.sshKeyFile != null && cfg.gitops.tokenFile == null then
-              ''
-                if ! ${fluxBin} --namespace flux-system get sources git ${cfg.gitops.sourceName} >/dev/null 2>&1; then
+      systemd.tmpfiles.rules = lib.optionals cfg.longhorn.enable [
+        "L+ /bin/mount - - - - /run/wrappers/bin/mount"
+        "L+ /usr/bin/mount - - - - /run/wrappers/bin/mount"
+        "L+ /usr/bin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
+        "L+ /sbin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
+        "L+ /sbin/mount.nfs - - - - /run/current-system/sw/bin/mount.nfs"
+        "L+ /sbin/mount.nfs4 - - - - /run/current-system/sw/bin/mount.nfs4"
+      ];
+
+      networking.firewall = {
+        allowedTCPPorts = lib.mkAfter (
+          [
+            6443
+            2379
+            2380
+            10250
+          ]
+          ++ lib.optional isRke2 9345
+          ++ lib.optional isRke2 2381
+        );
+        allowedUDPPorts = lib.mkAfter (
+          [
+            8472
+            51820
+          ]
+          ++ lib.optional isRke2 51821
+        );
+        checkReversePath = "loose";
+      };
+    }
+
+    (mkIf isK3s {
+      services.k3s = {
+        enable = true;
+        inherit (cfg) role;
+        nodeLabel = cfg.nodeLabels;
+        extraFlags = lib.concatStringsSep " " (
+          [
+            "--disable traefik"
+            "--disable servicelb"
+            "--write-kubeconfig-mode 640"
+          ]
+          ++ tlsSanFlags
+          ++ cfg.extraFlags
+          ++ cfg.extraK3sFlags
+        );
+      }
+      // lib.optionalAttrs (cfg.tokenFile != null) {
+        inherit (cfg) tokenFile;
+      }
+      // lib.optionalAttrs (cfg.nodeName != null) {
+        inherit (cfg) nodeName;
+      }
+      // lib.optionalAttrs (cfg.nodeIP != null) {
+        inherit (cfg) nodeIP;
+      }
+      // lib.optionalAttrs (cfg.serverAddr != null) {
+        inherit (cfg) serverAddr;
+      };
+    })
+
+    (mkIf isRke2 {
+      services.rke2 = {
+        enable = true;
+        inherit (cfg) role;
+        nodeLabel = cfg.nodeLabels;
+        inherit (cfg.rke2) cisHardening;
+        extraFlags = [
+          "--write-kubeconfig-mode=0640"
+        ]
+        ++ tlsSanFlags
+        ++ cfg.extraFlags;
+      }
+      // lib.optionalAttrs (cfg.tokenFile != null) {
+        inherit (cfg) tokenFile;
+      }
+      // lib.optionalAttrs (cfg.nodeName != null) {
+        inherit (cfg) nodeName;
+      }
+      // lib.optionalAttrs (cfg.nodeIP != null) {
+        inherit (cfg) nodeIP;
+      }
+      // lib.optionalAttrs isServer {
+        inherit (cfg.rke2) cni disable;
+      }
+      // lib.optionalAttrs (cfg.serverAddr != null) {
+        inherit (cfg) serverAddr;
+      };
+    })
+
+    (mkIf cfg.highAvailability.enable {
+      services.keepalived = {
+        enable = true;
+        openFirewall = true;
+        vrrpScripts.check-rke2 = {
+          script = "${pkgs.systemd}/bin/systemctl is-active --quiet rke2-server.service";
+          interval = 2;
+          timeout = 2;
+          rise = 2;
+          fall = 2;
+          user = "root";
+        };
+        vrrpInstances.rke2-api = {
+          interface = cfg.highAvailability.interface;
+          state = "BACKUP";
+          inherit (cfg.highAvailability) priority virtualRouterId;
+          unicastSrcIp = cfg.nodeIP;
+          unicastPeers = builtins.filter (ip: ip != cfg.nodeIP) cfg.highAvailability.nodeIPs;
+          virtualIps = [
+            {
+              addr = "${cfg.highAvailability.virtualIP}/${toString cfg.highAvailability.virtualIPPrefixLength}";
+              dev = cfg.highAvailability.interface;
+            }
+          ];
+          trackScripts = [ "check-rke2" ];
+        };
+      };
+    })
+
+    (mkIf cfg.gitops.enable {
+      systemd.services.flux-gitops = {
+        description = "FluxCD GitOps bootstrap";
+        after = [
+          "network-online.target"
+          "${serviceName}.service"
+        ];
+        requires = [ "${serviceName}.service" ];
+        wants = [ "network-online.target" ];
+        environment = {
+          KUBECONFIG = kubeconfig;
+        };
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          Restart = "on-failure";
+          RestartSec = "30s";
+          ExecStart = pkgs.writeShellScript "flux-gitops-bootstrap" ''
+            set -euo pipefail
+
+            api_ready=false
+            for ((attempt = 1; attempt <= 120; attempt++)); do
+              if [[ -r ${kubeconfig} ]] \
+                && ${kubectlBin} --kubeconfig ${kubeconfig} get --raw=/readyz >/dev/null 2>&1; then
+                api_ready=true
+                break
+              fi
+              ${pkgs.coreutils}/bin/sleep 5
+            done
+            if [[ "$api_ready" != true ]]; then
+              echo "Kubernetes API did not become ready through ${kubeconfig}" >&2
+              exit 1
+            fi
+
+            if ! ${kubectlBin} --kubeconfig ${kubeconfig} get namespace flux-system >/dev/null 2>&1; then
+              ${fluxBin} install --namespace flux-system
+            fi
+
+            ${lib.optionalString (cfg.gitops.sopsAgeKeyFile != null) ''
+              ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
+                create secret generic sops-age \
+                --from-file=age.agekey=${resolveSecret cfg.gitops.sopsAgeKeyFile} \
+                --dry-run=client -o yaml \
+                | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+            ''}
+
+            ${
+              if cfg.gitops.sshKeyFile != null && cfg.gitops.tokenFile == null then
+                ''
+                  if ! ${fluxBin} --namespace flux-system get sources git ${cfg.gitops.sourceName} >/dev/null 2>&1; then
+                    ${fluxBin} create source git ${cfg.gitops.sourceName} \
+                      --url=${cfg.gitops.repoURL} \
+                      --branch=${cfg.gitops.branch} \
+                      --interval=${cfg.gitops.interval} \
+                      --private-key-file=${resolveSecret cfg.gitops.sshKeyFile}
+                  else
+                    ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
+                  fi
+                ''
+              else
+                ''
+                  ${lib.optionalString (cfg.gitops.tokenFile != null) ''
+                    ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
+                      create secret generic ${gitAuthSecretName} \
+                      --from-literal=username=${lib.escapeShellArg cfg.gitops.username} \
+                      --from-file=password=${resolveSecret cfg.gitops.tokenFile} \
+                      --dry-run=client -o yaml \
+                      | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+                  ''}
+
                   ${fluxBin} create source git ${cfg.gitops.sourceName} \
                     --url=${cfg.gitops.repoURL} \
                     --branch=${cfg.gitops.branch} \
                     --interval=${cfg.gitops.interval} \
-                    --private-key-file=${resolveSecret cfg.gitops.sshKeyFile}
-                else
-                  ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
-                fi
-              ''
-            else
-              ''
-                ${lib.optionalString (cfg.gitops.tokenFile != null) ''
-                  ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
-                    create secret generic ${gitAuthSecretName} \
-                    --from-literal=username=${lib.escapeShellArg cfg.gitops.username} \
-                    --from-file=password=${resolveSecret cfg.gitops.tokenFile} \
-                    --dry-run=client -o yaml \
+                    ${lib.optionalString (cfg.gitops.tokenFile != null) "--secret-ref=${gitAuthSecretName}"} \
+                    --export \
                     | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
-                ''}
 
-                ${fluxBin} create source git ${cfg.gitops.sourceName} \
-                  --url=${cfg.gitops.repoURL} \
-                  --branch=${cfg.gitops.branch} \
-                  --interval=${cfg.gitops.interval} \
-                  ${lib.optionalString (cfg.gitops.tokenFile != null) "--secret-ref=${gitAuthSecretName}"} \
-                  --export \
-                  | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+                  ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
+                ''
+            }
 
-                ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
-              ''
-          }
+            ${fluxBin} create kustomization ${cfg.gitops.kustomizationName} \
+              --target-namespace flux-system \
+              --source=GitRepository/${cfg.gitops.sourceName} \
+              --path='${cfg.gitops.path}' \
+              --prune=true \
+              --interval=${cfg.gitops.interval} \
+              --export \
+              | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
 
-          # Keep the root Kustomization spec in sync with Nix options (path/source/interval).
-          ${fluxBin} create kustomization ${cfg.gitops.kustomizationName} \
-            --target-namespace flux-system \
-            --source=GitRepository/${cfg.gitops.sourceName} \
-            --path='${cfg.gitops.path}' \
-            --prune=true \
-            --interval=${cfg.gitops.interval} \
-            --export \
-            | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
-
-          ${fluxBin} reconcile kustomization ${cfg.gitops.kustomizationName}
-        '';
+            ${fluxBin} reconcile kustomization ${cfg.gitops.kustomizationName}
+          '';
+        };
+        wantedBy = [ "multi-user.target" ];
       };
-      wantedBy = [ "multi-user.target" ];
-    };
-  };
+    })
+  ]);
 }

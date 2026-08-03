@@ -10,6 +10,9 @@ Source of truth: `.sops.yaml` `creation_rules` and current directory layout unde
 - **srv1**: homelab server (age1qms8…)
 - **srv2**: homelab server (age1jgca…)
 - **srv8**: homelab server (age1f4w9…)
+- **testingrke2-01**: local RKE2 lab server (age1er8h…)
+- **testingrke2-02**: local RKE2 lab server (age1xlw9…)
+- **testingrke2-03**: local RKE2 lab server (age1n4wg…)
 - **macbook-pro**: work desktop (age1dqt5…)
 
 ## Markdown tree: paths, who can decrypt, and why
@@ -38,7 +41,7 @@ secrets/profiles/
 │   │   │   └── wireguard/
 │   │   └── tab-h4xx-02/                 [tab]
 │   │       └── wireguard/
-│   └── servers/                         [tux, tab, lenovo, srv4, srv1, srv2, srv8]
+│   └── servers/                         [personal admins + homelab server automation keys]
 │       ├── ceph/
 │       │   └── 83897024-e964-11f0-9d5c-0cc47a6c3802/
 │       ├── srv1/
@@ -52,6 +55,20 @@ secrets/profiles/
 │       ├── srv3/
 │       │   ├── flux-cluster-bootstrap-token.txt
 │       │   └── nix-cache/
+│       ├── testingrke2-01/
+│       │   ├── age.key
+│       │   ├── flux-cluster-bootstrap-token.txt
+│       │   ├── flux-sops-age.key
+│       │   ├── rke2-token.txt
+│       │   └── ssh/
+│       ├── testingrke2-02/
+│       │   ├── age.key
+│       │   ├── rke2-token.txt
+│       │   └── ssh/
+│       ├── testingrke2-03/
+│       │   ├── age.key
+│       │   ├── rke2-token.txt
+│       │   └── ssh/
 │       └── srv4-vm-01/
 │           └── wireguard/
 └── work/
@@ -72,6 +89,7 @@ secrets/profiles/
 
 ## Host-specific notes
 - **Ceph on `tux-h4xx-01`**: this desktop is a Ceph client for the homelab cluster. It stores a client keyring under `secrets/profiles/personal/desktops/tux-h4xx-01/ceph/` so the system can mount/access RBDs and the user can run CLI tools (`rbd`, `rados`) without manual key distribution. This is why a desktop-scoped Ceph secret exists.
+- **`testingrke2` lab**: each VM has an independent host Age key and management key. The three encrypted `rke2-token.txt` files contain the same cluster token in independent SOPS envelopes. Only `testingrke2-01` receives the Flux bootstrap token and Flux SOPS key because it owns the bootstrap unit.
 
 ## Authelia test user lookup
 - **Testing cluster**: `secrets/profiles/personal/shared/authelia/testing-srv3-testuser.yaml`

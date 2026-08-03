@@ -164,6 +164,7 @@ in
 
     virtualisation.libvirtd.enable = true;
     virtualisation.libvirtd.package = libvirtPkg;
+    virtualisation.libvirtd.nss.enableGuest = true;
     virtualisation.libvirtd.qemu = {
       package = pkgs.qemu_kvm;
       runAsRoot = true;

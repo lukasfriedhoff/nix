@@ -5,6 +5,9 @@ This repo now includes `scripts/vms/new-qemu-vm.sh` to create libvirt/QEMU VMs.
 For the full `srv4` multi-VLAN, multi-pool `srv3` walkthrough, use:
 - `docs/deployment/srv3-demo-vm.md`
 
+For the reusable three-node RKE2 migration lab on `tux-h4xx-01`, use:
+- `docs/deployment/testingrke2-lab.md`
+
 ## What the script does
 
 - Creates and defines a VM using `virt-install` + `virsh`.

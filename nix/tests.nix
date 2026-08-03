@@ -71,6 +71,130 @@
         '';
       };
 
+      rke2ModuleTest = pkgs.testers.nixosTest {
+        name = "homelab-rke2-module";
+        nodes.machine =
+          { lib, ... }:
+          {
+            imports = [
+              ../modules/features/homelab/kubernetes/nixos.nix
+            ];
+
+            networking.hostName = "rke2-test";
+            homelab.kubernetes = {
+              enable = true;
+              distribution = "rke2";
+              role = "server";
+              serverAddr = "https://192.168.124.10:9345";
+              tokenFile = "/run/secrets/rke2-token";
+              nodeName = "rke2-test";
+              nodeIP = "192.168.124.11";
+              nodeLabels = [
+                "h4xx.io/cluster=testingrke2"
+                "h4xx.io/storage.longhorn=true"
+              ];
+              tlsSans = [
+                "192.168.124.10"
+                "testingrke2-api"
+              ];
+              extraFlags = [ "--flannel-iface=eth0" ];
+              longhorn.enable = true;
+              rke2 = {
+                cni = "canal";
+                disable = [ "rke2-ingress-nginx" ];
+              };
+              highAvailability = {
+                enable = true;
+                virtualIP = "192.168.124.10";
+                virtualIPPrefixLength = 24;
+                interface = "eth0";
+                nodeIPs = [
+                  "192.168.124.11"
+                  "192.168.124.12"
+                  "192.168.124.13"
+                ];
+                priority = 130;
+                virtualRouterId = 72;
+              };
+              gitops = {
+                enable = true;
+                repoURL = "https://example.invalid/flux-cluster.git";
+                path = "./overlays/testingrke2";
+              };
+            };
+
+            systemd.services.rke2-server.wantedBy = lib.mkForce [ ];
+            systemd.services.keepalived.wantedBy = lib.mkForce [ ];
+            systemd.services.flux-gitops.wantedBy = lib.mkForce [ ];
+            system.stateVersion = "26.05";
+          };
+        nodes.agent =
+          { lib, ... }:
+          {
+            imports = [
+              ../modules/features/homelab/kubernetes/nixos.nix
+            ];
+
+            networking.hostName = "rke2-agent-test";
+            homelab.kubernetes = {
+              enable = true;
+              distribution = "rke2";
+              role = "agent";
+              serverAddr = "https://192.168.124.10:9345";
+              tokenFile = "/run/secrets/rke2-token";
+              nodeName = "rke2-agent-test";
+              nodeIP = "192.168.124.12";
+              nodeLabels = [ "h4xx.io/cluster=testingrke2" ];
+              extraFlags = [ "--flannel-iface=eth0" ];
+            };
+
+            systemd.services.rke2-agent.wantedBy = lib.mkForce [ ];
+            system.stateVersion = "26.05";
+          };
+        nodes.standalone =
+          { lib, ... }:
+          {
+            imports = [
+              ../modules/features/homelab/kubernetes/nixos.nix
+            ];
+
+            networking.hostName = "rke2-standalone-test";
+            homelab.kubernetes = {
+              enable = true;
+              distribution = "rke2";
+              role = "server";
+              tokenFile = "/run/secrets/rke2-token";
+              nodeName = "rke2-standalone-test";
+            };
+
+            systemd.services.rke2-server.wantedBy = lib.mkForce [ ];
+            system.stateVersion = "26.05";
+          };
+        testScript = ''
+          machine.wait_for_unit("multi-user.target")
+          machine.succeed("systemctl cat rke2-server.service | grep -F -- '--server https://192.168.124.10:9345'")
+          machine.succeed("systemctl cat rke2-server.service | grep -F -- '--cni=canal'")
+          machine.succeed("systemctl cat rke2-server.service | grep -F -- '--disable=rke2-ingress-nginx'")
+          machine.succeed("systemctl cat rke2-server.service | grep -F -- '--tls-san=testingrke2-api'")
+          machine.succeed("systemctl cat rke2-server.service | grep -F -- '--node-label=h4xx.io/storage.longhorn=true'")
+          machine.succeed("systemctl show flux-gitops.service -p Restart --value | grep -Fx on-failure")
+          machine.succeed("config=$(systemctl show keepalived.service -p ExecStart --value | sed -n 's/.* -f \\([^ ;]*\\).*/\\1/p'); test -n \"$config\"; grep -F '192.168.124.10/24' \"$config\"")
+          machine.succeed("config=$(systemctl show keepalived.service -p ExecStart --value | sed -n 's/.* -f \\([^ ;]*\\).*/\\1/p'); test -n \"$config\"; grep -F '192.168.124.12' \"$config\"")
+          machine.succeed("test -x /run/current-system/sw/bin/rke2")
+          machine.succeed("test -x /run/current-system/sw/bin/iscsiadm")
+          machine.succeed("test -x /run/current-system/sw/bin/mount.nfs")
+
+          agent.wait_for_unit("multi-user.target")
+          agent.succeed("systemctl cat rke2-agent.service | grep -F -- '--server https://192.168.124.10:9345'")
+          agent.succeed("systemctl cat rke2-agent.service | grep -F -- '/run/secrets/rke2-token'")
+          agent.fail("systemctl cat rke2-agent.service | grep -F -- '--cni='")
+          agent.fail("systemctl cat rke2-agent.service | grep -F -- '--disable='")
+
+          standalone.wait_for_unit("multi-user.target")
+          standalone.fail("systemctl cat rke2-server.service | grep -F -- '--server'")
+        '';
+      };
+
       shadowClientTest = pkgs.testers.nixosTest {
         name = "shadow-client-appimage";
         nodes.machine =
@@ -236,6 +360,7 @@
       };
 
       x86_64LinuxOnlyChecks = lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
+        homelab-rke2-module = rke2ModuleTest;
         shadow-client-appimage = shadowClientTest;
         icarus-mod-manager = icarusModManagerTest;
       };
