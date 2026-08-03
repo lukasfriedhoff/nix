@@ -62,7 +62,7 @@ in
           vimPlugins.none-ls-nvim
           vimPlugins.conform-nvim
 
-          # AI integration (local Ollama + opencode.nvim)
+          # AI integration (local Ollama/llama.cpp + opencode)
           vimPlugins.ollama-nvim
           vimPlugins.opencode-nvim
 
@@ -75,6 +75,7 @@ in
         extraPackages = with pkgs; [
           # Core tools
           ripgrep
+          curl
           fd
           git
           lazygit

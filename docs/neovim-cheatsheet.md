@@ -131,24 +131,24 @@ LSP servers are auto-installed for Lua, Bash, YAML, JSON, Go, TypeScript, and Py
 | `<leader>cc` | Normal | Toggle Copilot Chat |
 | `:Copilot` | Command | Copilot command panel |
 
-### Ollama (local/remote LLM)
+### llama.cpp (local/remote LLM)
 
 | Mapping / Command | Mode | What it does |
 | --- | --- | --- |
-| `<leader>oo` | Normal/Visual | Ollama prompt picker |
-| `<leader>og` | Normal/Visual | Generate code prompt |
-| `<leader>or` | Normal/Visual | Raw prompt |
-| `<leader>om` | Normal | Choose model |
+| `<leader>lo` | Normal/Visual | Prompt with current buffer/selection context |
+| `<leader>lg` | Normal/Visual | Generate code prompt with context |
+| `<leader>lr` | Normal/Visual | Raw prompt |
+| `<leader>lm` | Normal | List configured llama.cpp models |
 
 Environment variables used by Neovim:
 
-- `NVIM_OLLAMA_URL` (preferred)
-- `OLLAMA_HOST` (fallback)
-- `NVIM_OLLAMA_MODEL`
+- `NVIM_LLM_BASE_URL`
+- `LLAMA_CPP_BASE_URL` (fallback)
+- `NVIM_LLM_MODEL`
 
 Current desktop profile wiring sets these in `modules/features/profile/desktop/home.nix`.
 
-### OpenCode (opencode.nvim + Ollama)
+### OpenCode (opencode.nvim + srv4 llama.cpp)
 
 | Mapping / Command | Mode | What it does |
 | --- | --- | --- |
@@ -167,51 +167,49 @@ Current desktop profile wiring sets these in `modules/features/profile/desktop/h
 The OpenCode pane auto-enters terminal input mode when opened or focused. Use
 `<C-\><C-n>` to leave terminal input mode.
 
+The OpenCode pane is a Neovim terminal buffer. If it ever shows `NORMAL` in the
+statusline and does not accept input, press `i` in that pane to enter terminal
+input mode. Use `<C-\><C-n>` when you intentionally want to leave terminal mode.
+
 Home Manager now enforces OpenCode backend/model for personal desktops by patching:
 
 - `~/.config/opencode/opencode.json`
-- `model = ollama/qwen3-coder:30b`
-- `provider.ollama.options.baseURL = http://srv4.lab.h4xx.io:11434/v1` (or localhost on `srv4`)
+- `model = llama-cpp/qwen3:8b`
+- `provider.llama-cpp.options.baseURL = http://srv4.lab.h4xx.io:11434/v1` (or localhost on `srv4`)
 
-## 8. Qwen via Ollama (Exact Workflow)
+## 8. Qwen via llama.cpp (Exact Workflow)
 
-1. Pull a Qwen model on the Ollama host:
+1. Start the llama.cpp runtime on `srv4`:
 
 ```bash
-ssh srv4 'ollama pull qwen3-coder:30b'
+scripts/servers/setup-srv4-llm-runtime.sh
 ```
 
 2. In your local shell before launching Neovim:
 
 ```bash
-export NVIM_OLLAMA_URL=http://srv4.lab.h4xx.io:11434
-export NVIM_OLLAMA_MODEL=qwen3-coder:30b
+export NVIM_LLM_BASE_URL=http://srv4.lab.h4xx.io:11434/v1
+export NVIM_LLM_MODEL=qwen3:8b
 nvim
 ```
 
 3. In Neovim:
 
-- Press `\om` and verify the model appears.
-- Use `\oo` or `\og`.
-- `\oo` asks about the current buffer context (not just selection).
+- Press `\lm` and verify the model aliases appear.
+- Use `\lo` or `\lg`.
+- `\lo` asks about the current buffer context, or the visual selection when active.
 
-## 9. Ollama Failure Notes (`start_col must be <= end_col`)
+## 9. llama.cpp Failure Notes
 
-If you hit:
+If a prompt fails:
 
-`Error executing lua ... start_col must be less than or equal to end_col`
-
-then use these rules:
-
-- For selected text prompts, select in visual mode and use `\oo` / `\og` / `\or`.
-- If a prompt fails, press `Esc` first and retry in normal mode.
-- Ensure you are on the latest repo config where:
-  - visual mappings use the plugin-recommended `<C-u>` command form
-  - `Ask_About_Code` / `Explain_Code` prompts are overridden to use `$buf` instead of `$sel`
+- Verify `ssh srv4 'curl -fsS http://127.0.0.1:11434/health'`.
+- Verify `env | grep -E 'NVIM_LLM_BASE_URL|NVIM_LLM_MODEL|LLAMA_CPP_BASE_URL'`.
+- First use of a model alias may take a while because llama.cpp downloads the GGUF.
 
 ## 10. Session/Env Troubleshooting
 
-If `env | grep NVIM_OLLAMA_URL` is empty:
+If `env | grep NVIM_LLM_BASE_URL` is empty:
 
 ```bash
 home-manager switch --flake /home/lukasf/git/lukasfriedhoff/nix#lukasf@desktop
@@ -221,5 +219,5 @@ exec $SHELL -l
 Then verify:
 
 ```bash
-env | grep -E 'NVIM_OLLAMA_URL|NVIM_OLLAMA_MODEL|OLLAMA_HOST|OPENWEBUI_URL'
+env | grep -E 'NVIM_LLM_BASE_URL|NVIM_LLM_MODEL|LLAMA_CPP_BASE_URL|OPENWEBUI_URL'
 ```
