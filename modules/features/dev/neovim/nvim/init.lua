@@ -351,59 +351,207 @@ if null_ls and null_ls.builtins.diagnostics.golangci_lint then
   })
 end
 
--- Local LLM via Ollama
-local ollama = safe_require("ollama")
-if ollama then
-  local ollama_url = vim.env.NVIM_OLLAMA_URL or vim.env.OLLAMA_HOST or "http://127.0.0.1:11434"
-  if not ollama_url:match("^https?://") then
-    ollama_url = "http://" .. ollama_url
+-- Local LLM via llama.cpp's OpenAI-compatible API
+local function llm_base_url()
+  local base_url = vim.env.NVIM_LLM_BASE_URL
+    or vim.env.LLAMA_CPP_BASE_URL
+    or vim.env.NVIM_OLLAMA_URL
+    or vim.env.OLLAMA_HOST
+    or "http://srv4.lab.h4xx.io:11434/v1"
+  if not base_url:match("^https?://") then
+    base_url = "http://" .. base_url
+  end
+  base_url = base_url:gsub("/+$", "")
+  if not base_url:match("/v1$") then
+    base_url = base_url .. "/v1"
+  end
+  return base_url
+end
+
+local function llm_model()
+  return vim.env.NVIM_LLM_MODEL or "qwen3:8b"
+end
+
+local function llm_auth_header()
+  local api_key = vim.env.NVIM_LLM_API_KEY or vim.env.LLAMA_CPP_API_KEY or ""
+  if api_key == "" then
+    return nil
+  end
+  return "Authorization: Bearer " .. api_key
+end
+
+local function llm_visual_selection()
+  local start_pos = vim.fn.getpos("'<")
+  local end_pos = vim.fn.getpos("'>")
+  local start_row = start_pos[2]
+  local start_col = start_pos[3]
+  local end_row = end_pos[2]
+  local end_col = end_pos[3]
+
+  if start_row == 0 or end_row == 0 then
+    return nil
   end
 
-  ollama.setup({
-    model = vim.env.NVIM_OLLAMA_MODEL or "llama3.2",
-    url = ollama_url,
-    prompts = {
-      Ask_About_Code = {
-        prompt = "I have a question about this: $input\n\nHere is the code:\n```$ftype\n$buf\n```",
-        input_label = "Q",
+  if start_row > end_row or (start_row == end_row and start_col > end_col) then
+    start_row, end_row = end_row, start_row
+    start_col, end_col = end_col, start_col
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
+  if #lines == 0 then
+    return nil
+  end
+
+  lines[1] = string.sub(lines[1], start_col)
+  lines[#lines] = string.sub(lines[#lines], 1, end_col)
+  return table.concat(lines, "\n")
+end
+
+local function llm_buffer_context()
+  return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+end
+
+local function llm_context()
+  local mode = vim.fn.mode()
+  if mode == "v" or mode == "V" or mode == "\22" then
+    return llm_visual_selection() or llm_buffer_context()
+  end
+  return llm_buffer_context()
+end
+
+local function llm_open_result(title, content)
+  vim.cmd("botright 80vnew")
+  local buf = vim.api.nvim_get_current_buf()
+  vim.bo[buf].buftype = "nofile"
+  vim.bo[buf].bufhidden = "wipe"
+  vim.bo[buf].swapfile = false
+  vim.bo[buf].filetype = "markdown"
+  pcall(vim.api.nvim_buf_set_name, buf, title .. "/" .. os.time())
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(content, "\n", { plain = true }))
+end
+
+local function llm_curl(args, callback)
+  local auth_header = llm_auth_header()
+  local cmd = { "curl", "-fsS" }
+  if auth_header then
+    vim.list_extend(cmd, { "-H", auth_header })
+  end
+  vim.list_extend(cmd, args)
+
+  vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      callback(result)
+    end)
+  end)
+end
+
+local function llm_chat(prompt, system_prompt)
+  local payload = vim.json.encode({
+    model = llm_model(),
+    stream = false,
+    temperature = 0.2,
+    messages = {
+      {
+        role = "system",
+        content = system_prompt or "You are a concise coding assistant inside Neovim.",
       },
-      Explain_Code = {
-        prompt = "Explain this code:\n```$ftype\n$buf\n```",
+      {
+        role = "user",
+        content = prompt,
       },
-    },
-    serve = {
-      on_start = false,
     },
   })
 
-  local function ollama_prompt_safe(name)
-    local ok, err = pcall(function()
-      ollama.prompt(name)
-    end)
-    if not ok then
-      vim.notify(("Ollama prompt failed: %s"):format(tostring(err)), vim.log.levels.ERROR, { title = "Ollama" })
-    end
-  end
+  local body_file = vim.fn.tempname()
+  vim.fn.writefile({ payload }, body_file)
 
-  vim.keymap.set("n", "<leader>lo", function()
-    ollama_prompt_safe()
-  end, { desc = "Ollama prompt" })
-  vim.keymap.set("n", "<leader>lg", function()
-    ollama_prompt_safe("Generate_Code")
-  end, { desc = "Ollama generate code" })
-  vim.keymap.set("n", "<leader>lr", function()
-    ollama_prompt_safe("Raw")
-  end, { desc = "Ollama raw prompt" })
-  vim.keymap.set("x", "<leader>lo", ":<C-u>lua require('ollama').prompt()<CR>", { desc = "Ollama prompt (selection)" })
-  vim.keymap.set(
-    "x",
-    "<leader>lg",
-    ":<C-u>lua require('ollama').prompt('Generate_Code')<CR>",
-    { desc = "Ollama generate code (selection)" }
-  )
-  vim.keymap.set("x", "<leader>lr", ":<C-u>lua require('ollama').prompt('Raw')<CR>", { desc = "Ollama raw (selection)" })
-  vim.keymap.set("n", "<leader>lm", "<cmd>OllamaModel<CR>", { desc = "Ollama select model" })
+  llm_curl({
+    "-X",
+    "POST",
+    llm_base_url() .. "/chat/completions",
+    "-H",
+    "Content-Type: application/json",
+    "--data-binary",
+    "@" .. body_file,
+  }, function(result)
+    vim.fn.delete(body_file)
+    if result.code ~= 0 then
+      vim.notify(result.stderr ~= "" and result.stderr or "llama.cpp request failed", vim.log.levels.ERROR, { title = "LLM" })
+      return
+    end
+
+    local ok, decoded = pcall(vim.json.decode, result.stdout)
+    if not ok or not decoded or not decoded.choices or not decoded.choices[1] then
+      vim.notify("llama.cpp returned an unexpected response", vim.log.levels.ERROR, { title = "LLM" })
+      return
+    end
+
+    local message = decoded.choices[1].message or {}
+    local content = message.content or decoded.choices[1].text or ""
+    llm_open_result("llama.cpp://" .. llm_model(), content)
+  end)
 end
+
+local function llm_prompt_with_context(kind)
+  local ftype = vim.bo.filetype ~= "" and vim.bo.filetype or "text"
+  local context = llm_context()
+  vim.ui.input({ prompt = "LLM prompt: " }, function(input)
+    if not input or input == "" then
+      return
+    end
+
+    if kind == "raw" then
+      llm_chat(input)
+    elseif kind == "generate" then
+      llm_chat(
+        "Generate or revise code for this request:\n"
+          .. input
+          .. "\n\nContext:\n```"
+          .. ftype
+          .. "\n"
+          .. context
+          .. "\n```",
+        "You are a coding assistant. Return practical code and short notes only where useful."
+      )
+    else
+      llm_chat(input .. "\n\nContext:\n```" .. ftype .. "\n" .. context .. "\n```")
+    end
+  end)
+end
+
+local function llm_show_models()
+  llm_curl({
+    llm_base_url() .. "/models",
+  }, function(result)
+    if result.code ~= 0 then
+      vim.notify(result.stderr ~= "" and result.stderr or "Failed to list llama.cpp models", vim.log.levels.ERROR, { title = "LLM" })
+      return
+    end
+
+    local ok, decoded = pcall(vim.json.decode, result.stdout)
+    if not ok or not decoded or not decoded.data then
+      llm_open_result("llama.cpp://models", result.stdout)
+      return
+    end
+
+    local lines = {}
+    for _, model in ipairs(decoded.data) do
+      table.insert(lines, "- " .. tostring(model.id))
+    end
+    llm_open_result("llama.cpp://models", table.concat(lines, "\n"))
+  end)
+end
+
+vim.keymap.set({ "n", "x" }, "<leader>lo", function()
+  llm_prompt_with_context("ask")
+end, { desc = "LLM prompt" })
+vim.keymap.set({ "n", "x" }, "<leader>lg", function()
+  llm_prompt_with_context("generate")
+end, { desc = "LLM generate code" })
+vim.keymap.set({ "n", "x" }, "<leader>lr", function()
+  llm_prompt_with_context("raw")
+end, { desc = "LLM raw prompt" })
+vim.keymap.set("n", "<leader>lm", llm_show_models, { desc = "LLM list models" })
 
 -- OpenCode IDE integration via opencode.nvim.
 -- Keep this on the opencode.nvim API; CodeCompanion ACP renders a separate
@@ -448,6 +596,7 @@ if opencode and opencode_config then
       vim.opt_local.number = false
       vim.opt_local.relativenumber = false
       vim.opt_local.cursorline = false
+      vim.keymap.set("t", "<Esc>", "<Esc>", { buffer = true, nowait = true, silent = true })
     end,
   })
 
@@ -466,7 +615,7 @@ if opencode and opencode_config then
   end, { desc = "OpenCode ask about this" })
   vim.keymap.set({ "n", "x" }, "<leader>op", function()
     opencode.ask("@this: ", { submit = false })
-  end, { desc = "OpenCode prompt" })
+  end, { desc = "OpenCode prompt (draft)" })
   vim.keymap.set({ "n", "x" }, "<leader>os", function()
     opencode.select()
   end, { desc = "OpenCode select action" })
