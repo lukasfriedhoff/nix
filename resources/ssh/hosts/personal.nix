@@ -16,18 +16,27 @@
     alias = "srv4";
     user = "lukasf";
     identityFile = "~/.ssh/personal/srv4";
+    extraOptions = {
+      IPQoS = "none";
+    };
   }
   {
     match = "srv4-root";
     alias = "srv4-root";
     user = "root";
     identityFile = "~/.ssh/personal/srv4";
+    extraOptions = {
+      IPQoS = "none";
+    };
   }
   {
     match = "cisrv4";
     alias = "cisrv4";
     user = "ci";
     identityFile = "~/.ssh/personal/ci";
+    extraOptions = {
+      IPQoS = "none";
+    };
   }
   {
     match = "rem-srv4";
@@ -219,5 +228,60 @@
       StrictHostKeyChecking = "yes";
     };
   }
-
+  {
+    match = "mikrotikhiesfelder";
+    alias = "mikrotikhiesfelder";
+    hostName = "mikrotikhiesfelder";
+    port = 22;
+    user = "admin";
+    keyName = "MikrotikHiesfelder";
+    extraOptions = {
+      StrictHostKeyChecking = "yes";
+    };
+  }
+  {
+    match = "testingrke2-01";
+    alias = "testingrke2-01";
+    hostName = "testingrke2-01";
+    user = "root";
+    keyName = "testingrke2-01-personal-mgmt";
+  }
+  {
+    match = "unlock-testingrke2-01";
+    alias = "unlock-testingrke2-01";
+    hostName = "testingrke2-01";
+    port = 2222;
+    user = "root";
+    keyName = "testingrke2-01-personal-mgmt";
+  }
+  {
+    match = "testingrke2-02";
+    alias = "testingrke2-02";
+    hostName = "testingrke2-02";
+    user = "root";
+    keyName = "testingrke2-02-personal-mgmt";
+  }
+  {
+    match = "unlock-testingrke2-02";
+    alias = "unlock-testingrke2-02";
+    hostName = "testingrke2-02";
+    port = 2222;
+    user = "root";
+    keyName = "testingrke2-02-personal-mgmt";
+  }
+  {
+    match = "testingrke2-03";
+    alias = "testingrke2-03";
+    hostName = "testingrke2-03";
+    user = "root";
+    keyName = "testingrke2-03-personal-mgmt";
+  }
+  {
+    match = "unlock-testingrke2-03";
+    alias = "unlock-testingrke2-03";
+    hostName = "testingrke2-03";
+    port = 2222;
+    user = "root";
+    keyName = "testingrke2-03-personal-mgmt";
+  }
 ]
