@@ -284,4 +284,19 @@
     user = "root";
     keyName = "testingrke2-03-personal-mgmt";
   }
+  {
+    match = "srv9";
+    alias = "srv9";
+    hostName = "srv9.lab.h4xx.io";
+    user = "root";
+    keyName = "srv9-personal-mgmt";
+  }
+  {
+    match = "unlock-srv9";
+    alias = "unlock-srv9";
+    hostName = "srv9.lab.h4xx.io";
+    port = 2222;
+    user = "root";
+    keyName = "srv9-personal-mgmt";
+  }
 ]

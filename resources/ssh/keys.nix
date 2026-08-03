@@ -141,4 +141,9 @@
     path = ".ssh/work/clientportdown01";
     scope = "work";
   }
+  {
+    secret = "ssh/srv9-personal-mgmt.priv";
+    path = ".ssh/personal/srv9-personal-mgmt";
+    scope = "personal";
+  }
 ]

@@ -13,6 +13,7 @@ Source of truth: `.sops.yaml` `creation_rules` and current directory layout unde
 - **testingrke2-01**: local RKE2 lab server (age1er8h…)
 - **testingrke2-02**: local RKE2 lab server (age1xlw9…)
 - **testingrke2-03**: local RKE2 lab server (age1n4wg…)
+- **srv9**: homelab server (age1ewj9…)
 - **macbook-pro**: work desktop (age1dqt5…)
 
 ## Markdown tree: paths, who can decrypt, and why
@@ -23,7 +24,7 @@ secrets/profiles/
 │   └── shared/                          [tux, tab, lenovo, srv4, macbook-pro]
 │       (reserved for cross-profile secrets)
 ├── personal/
-│   ├── shared/                          [tux, tab, lenovo, srv4, srv1, srv2, srv8]
+│   ├── shared/                          [tux, tab, lenovo, srv4, srv1, srv2, srv8, srv9]
 │   │   ├── cloudflare/                  (Cloudflare API tokens for personal infra automation)
 │   │   ├── authelia/                    (shared Authelia test users by environment/cluster)
 │   │   ├── homelab/                     (shared personal homelab secrets)
@@ -51,6 +52,11 @@ secrets/profiles/
 │       ├── srv2/
 │       │   └── ssh/
 │       ├── srv8/
+│       │   └── ssh/
+│       ├── srv9/
+│       │   ├── age.key
+│       │   ├── k3s-server-token.txt
+│       │   ├── login-password-hash.txt
 │       │   └── ssh/
 │       ├── srv3/
 │       │   ├── flux-cluster-bootstrap-token.txt
@@ -82,7 +88,7 @@ secrets/profiles/
 
 ### Why each scope can decrypt
 - **common/shared**: intended for secrets used by both personal and work setups, so both personal devices and the work desktop are recipients.
-- **personal/shared**: used across personal desktops and homelab infra; srv1, srv2, and srv8 are included for server-side automation.
+- **personal/shared**: used across personal desktops and homelab infra; srv1, srv2, srv8, and srv9 are included for server-side automation.
 - **personal/desktops/**: per-desktop secrets restricted to the specific device; `ssh` subtrees are shared between personal desktops for admin convenience.
 - **personal/servers/**: decryptable by personal desktops plus homelab server keys so both admins and server automation can access.
 - **work/shared, work/desktops, work/servers**: work-only scope, decryptable solely by the work macbook.
