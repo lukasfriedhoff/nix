@@ -22,7 +22,10 @@ in
 
     home.activation.claudeCodeDefaultSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       settings_file="${config.home.homeDirectory}/.claude/settings.json"
-      if [ ! -f "$settings_file" ] || [ -L "$settings_file" ]; then
+      if [ -L "$settings_file" ]; then
+        $DRY_RUN_CMD rm "$settings_file"
+      fi
+      if [ ! -f "$settings_file" ]; then
         $DRY_RUN_CMD mkdir -p "$(dirname "$settings_file")"
         $DRY_RUN_CMD cp ${defaultSettings} "$settings_file"
         $DRY_RUN_CMD chmod 644 "$settings_file"
