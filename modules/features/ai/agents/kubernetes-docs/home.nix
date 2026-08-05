@@ -17,8 +17,7 @@ in
     home.file.".claude/agents/kubernetes-docs.md".source = ./kubernetes-docs.md;
     home.file.".opencode/agents/kubernetes-docs.md".source = ./kubernetes-docs.md;
 
-    # Add permissions for Claude to fetch Kubernetes documentation sites
-    programs.claude-code.settings.permissions.allow = [
+    lukasf.claude.defaultAllowList = [
       "WebFetch(domain:kubernetes.io)"
       "WebFetch(domain:k8s.io)"
       "WebFetch(domain:helm.sh)"
