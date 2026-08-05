@@ -17,8 +17,7 @@ in
     home.file.".claude/agents/nix-docs.md".source = ./nix-docs.md;
     home.file.".opencode/agents/nix-docs.md".source = ./nix-docs.md;
 
-    # Add permissions for Claude to fetch Nix documentation sites
-    programs.claude-code.settings.permissions.allow = [
+    lukasf.claude.defaultAllowList = [
       "WebFetch(domain:nixos.org)"
       "WebFetch(domain:nix.dev)"
       "WebFetch(domain:wiki.nixos.org)"

@@ -17,8 +17,7 @@ in
     home.file.".claude/agents/home-manager-docs.md".source = ./home-manager-docs.md;
     home.file.".opencode/agents/home-manager-docs.md".source = ./home-manager-docs.md;
 
-    # Add permissions for Claude to fetch Home Manager documentation
-    programs.claude-code.settings.permissions.allow = [
+    lukasf.claude.defaultAllowList = [
       "WebFetch(domain:home-manager-options.extranix.com)"
       "WebFetch(domain:nix-community.github.io)"
       "WebFetch(domain:github.com)"

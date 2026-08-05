@@ -6,18 +6,28 @@
 }:
 
 let
+  cfg = config.lukasf.claude;
+
   defaultSettings = pkgs.writeText "claude-code-default-settings.json" (
     builtins.toJSON {
       "$schema" = "https://json.schemastore.org/claude-code-settings.json";
-      permissions.allow = [
-        "Bash(git push *)"
-        "Bash(git push)"
-      ];
+      permissions.allow = cfg.defaultAllowList;
     }
   );
 in
 {
+  options.lukasf.claude.defaultAllowList = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = "Permissions written into settings.json on first activation.";
+  };
+
   config = {
+    lukasf.claude.defaultAllowList = [
+      "Bash(git push *)"
+      "Bash(git push)"
+    ];
+
     programs."claude-code".enable = lib.mkDefault true;
 
     home.activation.claudeCodeDefaultSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
