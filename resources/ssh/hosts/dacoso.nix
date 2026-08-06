@@ -53,4 +53,10 @@
     user = "clientportdown";
     keyName = "clientportdown01";
   }
+  {
+    match = "netbox04";
+    alias = "netbox04";
+    user = "netbox";
+    keyName = "netbox04";
+  }
 ]

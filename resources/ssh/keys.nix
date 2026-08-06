@@ -146,4 +146,9 @@
     path = ".ssh/personal/srv9-personal-mgmt";
     scope = "personal";
   }
+  {
+    secret = "ssh/netbox04";
+    path = ".ssh/work/netbox04";
+    scope = "work";
+  }
 ]
