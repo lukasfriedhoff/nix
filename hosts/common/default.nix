@@ -3,6 +3,7 @@
   lib,
   pkgs,
   secrets ? { },
+  workSystem ? false,
   ...
 }:
 
@@ -52,6 +53,18 @@ in
     (lib.mkIf privateNix.enable {
       lukasf.privateNix.builders = lib.mkDefault true;
       lukasf.privateNix.caches = lib.mkDefault true;
+    })
+    # Personal desktops opt into the homelab build infrastructure: the remote
+    # builder keeps large rebuilds off the laptop, and the Attic cache means
+    # anything Hydra already built is fetched rather than rebuilt. Work systems
+    # are deliberately excluded. Both paths fall back to building locally and
+    # to cache.nixos.org, so an outage slows a rebuild instead of breaking it.
+    (lib.mkIf (desktopDefaults && !workSystem) {
+      lukasf.privateNix.enable = lib.mkDefault true;
+      # Production Attic, which is where the production Hydra uploads. The
+      # shared default below points at the testing instance; a plain
+      # assignment outranks that mkDefault without disturbing the servers.
+      lukasf.atticCache.serverUrl = "https://attic.h4xx.io";
     })
     (lib.mkIf desktopDefaults {
       sops.age.keyFile = lib.mkDefault "/home/lukasf/.config/sops/age/keys.txt";
