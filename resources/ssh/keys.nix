@@ -147,7 +147,7 @@
     scope = "personal";
   }
   {
-    secret = "ssh/netbox04";
+    secret = "ssh/netbox04.priv";
     path = ".ssh/work/netbox04";
     scope = "work";
   }
