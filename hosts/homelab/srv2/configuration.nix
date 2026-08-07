@@ -1,5 +1,6 @@
 {
   config,
+  secrets,
   inputs,
   lib,
   pkgs,
@@ -137,21 +138,21 @@ in
   };
 
   sops.secrets."flux-cluster-token" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv2/flux-cluster-bootstrap-token.txt;
+    sopsFile = "${secrets.primary}/flux-cluster-bootstrap-token.txt";
     owner = "root";
     format = "binary";
     mode = "0400";
   };
 
   sops.secrets."flux-sops-age-key" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv2/flux-sops-age.key;
+    sopsFile = "${secrets.primary}/flux-sops-age.key";
     format = "binary";
     mode = "0400";
     owner = "root";
   };
 
   sops.secrets."srv2-longhorn-luks-key" = {
-    sopsFile = ../../../secrets/profiles/personal/shared/luks/srv2-mdraid.txt;
+    sopsFile = "${secrets.profileShared}/luks/srv2-mdraid.txt";
     format = "binary";
     mode = "0400";
     owner = "root";

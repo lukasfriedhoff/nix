@@ -10,6 +10,7 @@
 
 {
   config,
+  secrets,
   inputs,
   lib,
   ...
@@ -193,7 +194,7 @@ in
 
   sops.secrets = {
     "rke2-token" = {
-      sopsFile = ../../../secrets/profiles/personal/servers/${nodeName}/rke2-token.txt;
+      sopsFile = "${secrets.primary}/rke2-token.txt";
       format = "binary";
       mode = "0400";
       owner = "root";
@@ -201,14 +202,14 @@ in
   }
   // lib.optionalAttrs bootstrap {
     "flux-cluster-token" = {
-      sopsFile = ../../../secrets/profiles/personal/servers/${nodeName}/flux-cluster-bootstrap-token.txt;
+      sopsFile = "${secrets.primary}/flux-cluster-bootstrap-token.txt";
       format = "binary";
       mode = "0400";
       owner = "root";
     };
 
     "flux-sops-age-key" = {
-      sopsFile = ../../../secrets/profiles/personal/servers/${nodeName}/flux-sops-age.key;
+      sopsFile = "${secrets.primary}/flux-sops-age.key";
       format = "binary";
       mode = "0400";
       owner = "root";

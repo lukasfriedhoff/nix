@@ -1,5 +1,6 @@
 {
   config,
+  secrets,
   inputs,
   lib,
   pkgs,
@@ -11,7 +12,7 @@ let
   clusterDomain = "lab.h4xx.io";
   prodApiHost = "srv2.lab.h4xx.io";
   mgmtMac = "1c:83:41:33:1b:37";
-  k3sTokenSecret = ../../../secrets/profiles/personal/servers/srv8/k3s-server-token.txt;
+  k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
   hasK3sToken = builtins.pathExists k3sTokenSecret;
   nets = import ../../../resources/homelab/networks.nix;
   longhornDisks = lib.filterAttrs (_: v: v.host == hostName && v.purpose == "longhorn") (
@@ -209,7 +210,7 @@ in
   };
 
   sops.secrets."srv8-longhorn-luks-key" = {
-    sopsFile = ../../../secrets/profiles/personal/shared/luks/srv8-longhorn.txt;
+    sopsFile = "${secrets.profileShared}/luks/srv8-longhorn.txt";
     format = "binary";
     mode = "0400";
     owner = "root";

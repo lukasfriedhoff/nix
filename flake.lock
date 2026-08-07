@@ -291,6 +291,24 @@
         "type": "github"
       }
     },
+    "nix-secrets": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786090599,
+        "narHash": "sha256-FMIUPbXiHMA8/8dPhMAd+iO4cI2OkSgAv22iBsQ6j5E=",
+        "ref": "main",
+        "rev": "335e55b72b9b6b451ad01fa78980a0cd7214a1a4",
+        "shallow": true,
+        "type": "git",
+        "url": "ssh://git@github.com/lukasfriedhoff/nix-secrets"
+      },
+      "original": {
+        "ref": "main",
+        "shallow": true,
+        "type": "git",
+        "url": "ssh://git@github.com/lukasfriedhoff/nix-secrets"
+      }
+    },
     "nix-vscode-extensions": {
       "inputs": {
         "nixpkgs": [
@@ -406,6 +424,7 @@
         "flake-parts": "flake-parts",
         "home-manager": "home-manager",
         "nix-homebrew": "nix-homebrew",
+        "nix-secrets": "nix-secrets",
         "nix-vscode-extensions": "nix-vscode-extensions",
         "nixos-facter-modules": "nixos-facter-modules",
         "nixpkgs": "nixpkgs_2",
