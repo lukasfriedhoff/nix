@@ -178,8 +178,9 @@ in
   systemd.services.srv3-bootstrap-password = {
     description = "Apply srv3 bootstrap password from SOPS secret";
     wantedBy = [ "multi-user.target" ];
-    after = [ "sops-install-secrets.service" ];
-    requires = [ "sops-install-secrets.service" ];
+    # sops-nix has no sops-install-secrets.service; secrets are placed by the
+    # setupSecrets activation script before systemd reaches multi-user.target.
+    # Requiring the missing unit made switch-to-configuration fail (status 4).
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;

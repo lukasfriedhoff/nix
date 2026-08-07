@@ -233,11 +233,10 @@ in
 
   systemd.services.srv9-longhorn-disks = {
     description = "Unlock and mount srv9 Longhorn data disks";
-    after = [
-      "sops-install-secrets.service"
-      "systemd-udev-settle.service"
-    ];
-    requires = [ "sops-install-secrets.service" ];
+    # sops-nix installs secrets from the setupSecrets activation script, not a
+    # systemd unit, so there is no sops-install-secrets.service to order on.
+    # Requiring a unit that does not exist makes switch-to-configuration abort.
+    after = [ "systemd-udev-settle.service" ];
     before = lib.optionals hasK3sToken [ "k3s.service" ];
     wantedBy = [ "multi-user.target" ];
     path = [

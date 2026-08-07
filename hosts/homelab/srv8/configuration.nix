@@ -218,10 +218,9 @@ in
 
   systemd.services.srv8-longhorn-disks = {
     description = "Unlock and mount srv8 Longhorn data disks";
-    after = [
-      "sops-install-secrets.service"
-      "systemd-udev-settle.service"
-    ];
+    # No sops-install-secrets.service exists: sops-nix uses the setupSecrets
+    # activation script, which has already run by the time units start.
+    after = [ "systemd-udev-settle.service" ];
     before = lib.optionals hasK3sToken [ "k3s.service" ];
     wantedBy = [ "multi-user.target" ];
     path = [
