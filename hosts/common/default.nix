@@ -145,6 +145,22 @@ in
     })
     (lib.mkIf homelabDefaults {
       sops.age.keyFile = lib.mkDefault "/var/lib/sops-nix/age/keys.txt";
+
+      # Keep comin's builds from starving the workload the box actually exists
+      # to run. srv2 is an 8-core control-plane node; left unbounded it drove
+      # load to 205 rebuilding a two-month nixpkgs jump, the k3s API server
+      # stopped answering, and every node in the cluster went NotReady.
+      #
+      # The scheduling policies are the important half: they let a build use a
+      # whole idle machine while yielding immediately to kubelet and the API
+      # server. The job caps are a second bound for the small nodes. All
+      # mkDefault, so a dedicated builder like srv3 (44 cores) can raise them.
+      nix.daemonCPUSchedPolicy = lib.mkDefault "idle";
+      nix.daemonIOSchedClass = lib.mkDefault "idle";
+      nix.settings = {
+        max-jobs = lib.mkDefault 2;
+        cores = lib.mkDefault 4;
+      };
     })
     (lib.mkIf desktopDefaults {
       shared.network.resolved = {
