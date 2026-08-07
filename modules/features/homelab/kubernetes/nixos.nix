@@ -16,6 +16,36 @@ let
     types
     ;
 
+  # open-iscsi drops node parameters between releases: 2.1.12 removed
+  # node.session.conn_reopen_log_freq, which 2.1.11 had written into every
+  # record under /etc/iscsi/nodes. iscsiadm then rejects the *whole* tree as
+  # invalid and exits 7, so Longhorn's engine frontend cannot start and every
+  # volume on the node is stuck "attaching" with an empty /dev/longhorn.
+  #
+  # Only three stale records were enough to take srv9 out entirely. Records are
+  # recreated on the next attach, so purging them is safe and self-healing —
+  # which matters because every node still on the older open-iscsi will hit
+  # this the moment it upgrades.
+  purgeIncompatibleIscsiNodes = pkgs.writeShellScript "purge-incompatible-iscsi-nodes" ''
+    set -u
+    nodes=/etc/iscsi/nodes
+    [ -d "$nodes" ] || exit 0
+
+    # A healthy tree (or a genuinely empty one) needs no action. Note that
+    # "No records found" is also a non-zero exit, hence matching on the text
+    # rather than the status.
+    # Deliberately the package this system activates, not an arbitrary one:
+    # the records must be judged by the exact iscsiadm that will read them.
+    err="$(${config.services.openiscsi.package}/bin/iscsiadm -m node -o show 2>&1 >/dev/null || true)"
+    case "$err" in
+      *"Unknown parameter name"*)
+        echo "iscsid: purging /etc/iscsi/nodes records rejected by this open-iscsi version"
+        rm -rf "''${nodes:?}"/* || true
+        ;;
+    esac
+    exit 0
+  '';
+
   isK3s = cfg.distribution == "k3s";
   isRke2 = cfg.distribution == "rke2";
   isServer = cfg.role == "server";
@@ -322,6 +352,7 @@ in
       systemd.services.iscsid = mkIf cfg.longhorn.enable {
         serviceConfig.ExecStartPre = lib.mkBefore [
           "-${pkgs.procps}/bin/pkill -x iscsid"
+          "-${purgeIncompatibleIscsiNodes}"
         ];
       };
       boot.supportedFilesystems = lib.optionals cfg.longhorn.enable [
