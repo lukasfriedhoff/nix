@@ -259,8 +259,16 @@ in
 
         mkdir -p "$mountpoint"
 
+        # `cryptsetup status` prints "<mapper> is inactive." for a mapping that
+        # does not exist, so a non-empty value here does NOT mean the device is
+        # open. Treating it as "already unlocked" skips the unlock below and
+        # then trips `test -b /dev/mapper/$mapper` on every cold boot, which is
+        # what left this host with k3s down and its Longhorn disks unmounted.
         mapperStatus="$(cryptsetup status "$mapper" 2>/dev/null || true)"
         case "$mapperStatus" in
+          *"is inactive"*)
+            mapperStatus=""
+            ;;
           *"device: (null)"*)
             if findmnt -rn "$mountpoint" >/dev/null 2>&1; then
               umount "$mountpoint" || true
