@@ -1,5 +1,6 @@
 {
   config,
+  secrets,
   inputs,
   pkgs,
   ...
@@ -98,21 +99,21 @@ in
   };
 
   sops.secrets."k3s-server-token" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv5-k3s-stg1/k3s-server-token.txt;
+    sopsFile = "${secrets.primary}/k3s-server-token.txt";
     format = "binary";
     mode = "0400";
     owner = "root";
   };
 
   sops.secrets."flux-sops-age-key" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv5-k3s-stg1/flux-sops-age.key;
+    sopsFile = "${secrets.primary}/flux-sops-age.key";
     format = "binary";
     mode = "0400";
     owner = "root";
   };
 
   sops.secrets."srv5-bootstrap-password" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv5-k3s-stg1/bootstrap-password.txt;
+    sopsFile = "${secrets.primary}/bootstrap-password.txt";
     format = "binary";
     mode = "0400";
     owner = "root";
