@@ -1,5 +1,6 @@
 {
   config,
+  secrets,
   inputs,
   pkgs,
   ...
@@ -153,14 +154,14 @@ in
   };
 
   sops.secrets."flux-cluster-token" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv3/flux-cluster-bootstrap-token.txt;
+    sopsFile = "${secrets.primary}/flux-cluster-bootstrap-token.txt";
     owner = "root";
     format = "binary";
     mode = "0400";
   };
 
   sops.secrets."flux-sops-age-key" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv3/flux-sops-age.key;
+    sopsFile = "${secrets.primary}/flux-sops-age.key";
     format = "json";
     key = "data";
     mode = "0400";
@@ -168,7 +169,7 @@ in
   };
 
   sops.secrets."srv3-bootstrap-password" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv3/bootstrap-password.txt;
+    sopsFile = "${secrets.primary}/bootstrap-password.txt";
     format = "binary";
     mode = "0400";
     owner = "root";

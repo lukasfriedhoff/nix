@@ -1,5 +1,6 @@
 {
   config,
+  secrets,
   inputs,
   pkgs,
   ...
@@ -89,14 +90,14 @@ in
   };
 
   sops.secrets."k3s-server-token" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv7-k3s-stg3/k3s-server-token.txt;
+    sopsFile = "${secrets.primary}/k3s-server-token.txt";
     format = "binary";
     mode = "0400";
     owner = "root";
   };
 
   sops.secrets."srv7-bootstrap-password" = {
-    sopsFile = ../../../secrets/profiles/personal/servers/srv7-k3s-stg3/bootstrap-password.txt;
+    sopsFile = "${secrets.primary}/bootstrap-password.txt";
     format = "binary";
     mode = "0400";
     owner = "root";

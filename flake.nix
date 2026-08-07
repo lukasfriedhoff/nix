@@ -25,6 +25,17 @@
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
 
+    # SOPS-encrypted secrets, kept in a private repo so this one can be
+    # public. flake = false because it is a plain source tree, and shallow=1
+    # keeps evaluation from cloning its whole history.
+    #
+    # Anything that evaluates this flake needs read access, and nix evaluates
+    # as root, so the key must be readable by root and not only by your user.
+    # comin's own auth setting does not cover this: that authenticates comin's
+    # fetch of this repo, while flake inputs are fetched separately by nix.
+    nix-secrets.url = "git+ssh://git@github.com/lukasfriedhoff/nix-secrets?ref=main&shallow=1";
+    nix-secrets.flake = false;
+
     comin.url = "github:nlewo/comin";
     comin.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -160,7 +171,10 @@
           linuxUser = "lukasf";
           macUser = "lukasfriedhoff";
 
-          profilesRoot = "${self}/secrets/profiles";
+          # Sourced from the private nix-secrets input rather than this repo.
+          # The layout there is unchanged, so every path_regex in its
+          # .sops.yaml still matches and nothing needed re-encrypting.
+          profilesRoot = "${inputs.nix-secrets}/secrets/profiles";
           sharedCommonRoot = "${profilesRoot}/common/shared";
           personalCommonDesktopRoot = "${personalProfileRoot}/desktops/common";
           personalProfileRoot = "${profilesRoot}/personal";

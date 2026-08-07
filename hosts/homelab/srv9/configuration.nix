@@ -1,5 +1,6 @@
 {
   config,
+  secrets,
   inputs,
   lib,
   pkgs,
@@ -13,8 +14,8 @@ let
   managementInterface = "eno1np0";
   managementMac = "e4:43:4b:f2:1a:42";
   systemDiskId = "scsi-35002538b11337b60";
-  k3sTokenSecret = ../../../secrets/profiles/personal/servers/srv9/k3s-server-token.txt;
-  loginPasswordHashSecret = ../../../secrets/profiles/personal/servers/srv9/login-password-hash.txt;
+  k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
+  loginPasswordHashSecret = "${secrets.primary}/login-password-hash.txt";
   hasK3sToken = builtins.pathExists k3sTokenSecret;
   nets = import ../../../resources/homelab/networks.nix;
   longhornDisks = lib.filterAttrs (_: disk: disk.host == hostName && disk.purpose == "longhorn") (
@@ -217,7 +218,7 @@ in
       neededForUsers = true;
     };
     "srv9-longhorn-luks-key" = {
-      sopsFile = ../../../secrets/profiles/personal/shared/luks/srv9-longhorn.txt;
+      sopsFile = "${secrets.profileShared}/luks/srv9-longhorn.txt";
       format = "binary";
       mode = "0400";
       owner = "root";
