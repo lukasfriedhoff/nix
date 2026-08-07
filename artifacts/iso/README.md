@@ -4,7 +4,16 @@ This directory stores installer ISOs used by local/remote VM bootstrap workflows
 
 ## Current artifact
 
-- `nixos-minimal-ci-ssh.iso`
+- `nixos-minimal-ci-ssh.iso` — **not tracked in git**
+
+ISOs are gitignored. This repository is public, and at ~1.3 GB the artifact
+exceeded GitHub's free Git-LFS quota (1 GiB storage, 1 GiB/month bandwidth),
+where every clone would have billed against that allowance. Supply the file
+locally instead: place it in this directory, or point the scripts at it with
+
+```bash
+export TESTINGRKE2_INSTALLER_ISO=/path/to/nixos-minimal-ci-ssh.iso
+```
 
 ## Intended use
 

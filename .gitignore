@@ -6,3 +6,8 @@
 CLAUDE.md
 kubeconfig
 .decrypted*
+
+# Installer ISOs are kept out of git: this repository is public, and at ~1.3 GB
+# the ISO blew past GitHub's LFS quota. Drop the file into artifacts/iso/
+# yourself, or point the scripts elsewhere via TESTINGRKE2_INSTALLER_ISO.
+/artifacts/iso/*.iso
