@@ -28,12 +28,18 @@
 
   lukasf.wireguard.homelab.userUnit.enable = true;
 
-  users.users.lukasf.extraGroups = lib.mkAfter [
-    "input"
-  ];
-
-  boot.kernelModules = [ "uinput" ];
-  services.udev.extraRules = ''
-    KERNEL=="uinput", MODE="0660", GROUP="input"
-  '';
+  # uinput, the input group and the kernel module now come from
+  # lukasf.sunshine — Sunshine needs them to synthesise keyboard and mouse
+  # events, so they belong with the feature rather than duplicated per host.
+  lukasf.sunshine = {
+    enable = true;
+    openFirewall = true;
+    # srv8's Radeon (renoir) advertises H.264 and HEVC EncSlice; the userspace
+    # driver comes from this image's mesa, not from the host.
+    vaapiDevice = "/dev/dri/renderD128";
+    headless = {
+      enable = true;
+      user = "lukasf";
+    };
+  };
 }
