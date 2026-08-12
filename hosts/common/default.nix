@@ -137,7 +137,12 @@ in
         enable = lib.mkDefault true;
         serve = lib.mkDefault false;
         configureClient = lib.mkDefault true;
-        serverUrl = lib.mkDefault "https://attic-testing.h4xx.io";
+        # Attic used to run on srv3 in the testing cluster; it now runs in the
+        # prod cluster. Pointing at attic-testing left every homelab server
+        # asking a dead host (HTTP 530) *before* cache.nixos.org, since
+        # priority 30 sorts it ahead of the public cache. Builds still
+        # succeeded via fallback — just slower, and with no cache hits at all.
+        serverUrl = lib.mkDefault "https://attic.h4xx.io";
         cacheName = lib.mkDefault "homelab";
         publicKey = lib.mkDefault atticCachePublicKey;
         priority = lib.mkDefault 30;
