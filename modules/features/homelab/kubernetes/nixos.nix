@@ -376,6 +376,14 @@ in
             2379
             2380
             10250
+            # node_exporter. The monitoring DaemonSet runs with hostNetwork, so
+            # its listener is on the host and the node firewall applies. Without
+            # this the pod runs and reports healthy while every scrape fails —
+            # srv2 and srv8 served no node metrics at all (no CPU, memory, disk
+            # or network) and the node-exporter dashboards covered one node out
+            # of three, which is also why disk-pressure alerts only ever fired
+            # for the node that happened to be reachable.
+            9100
           ]
           ++ lib.optional isRke2 9345
           ++ lib.optional isRke2 2381
