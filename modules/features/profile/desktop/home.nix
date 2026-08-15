@@ -57,7 +57,7 @@ let
     "qwen3-coder:30b"
     "qwen3-coder:30b-quality"
     "qwen3:30b"
-    "qwen3.6:27b"
+    "qwen3.8:27b"
     "qwen3-coder-next"
   ];
   kimiApiModels = [
