@@ -47,7 +47,6 @@ let
     lenovo = "http://srv4.lab.h4xx.io:3000";
   };
   defaultLlmApiBaseUrl = "http://srv4.lab.h4xx.io:11434/v1";
-  defaultAirLlmApiBaseUrl = "http://127.0.0.1:11435/v1";
   defaultOpenWebUiUrl = "http://srv4.lab.h4xx.io:3000";
   defaultLlmModel = "qwen3:8b";
   defaultOpencodeLlmModel = defaultLlmModel;
@@ -58,10 +57,8 @@ let
     "qwen3-coder:30b"
     "qwen3-coder:30b-quality"
     "qwen3:30b"
-  ];
-  airLlmModels = [
-    kimiApiModel
-    "qwen3:30b-airllm"
+    "qwen3.6:27b"
+    "qwen3-coder-next"
   ];
   kimiApiModels = [
     kimiApiModel
@@ -187,7 +184,6 @@ in
         NVIM_LLM_MODELS = lib.concatStringsSep "," favoriteLlmModels;
         OPENCODE_MODEL = defaultOpencodeModel;
         OPENCODE_KIMI_API_MODEL = "kimi-api/${kimiApiModel}";
-        OPENCODE_AIRLLM_MODEL = "airllm-srv4/${kimiApiModel}";
         OPENWEBUI_URL = resolvedOpenWebUiUrl;
         # Required for opencode plugins with native node modules (onnxruntime, etc.)
         LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
@@ -242,17 +238,6 @@ in
                 name = model;
                 value.name = model;
               }) kimiApiModels
-            );
-          };
-          provider."airllm-srv4" = {
-            npm = "@ai-sdk/openai-compatible";
-            name = "srv4 AirLLM";
-            options.baseURL = defaultAirLlmApiBaseUrl;
-            models = builtins.listToAttrs (
-              map (model: {
-                name = model;
-                value.name = model;
-              }) airLlmModels
             );
           };
           agent = {
@@ -332,10 +317,8 @@ in
         llm-srv4-stop = "ssh srv4 'sudo systemctl stop llama-cpp-podman.service open-webui-podman.service'";
         llm-srv4-status = "ssh srv4 'systemctl status --no-pager llama-cpp-podman.service open-webui-podman.service'";
         llm-srv4-models = "ssh srv4 'curl -fsS http://127.0.0.1:11434/v1/models'";
-        airllm-srv4-tunnel = "ssh -NT -o ExitOnForwardFailure=yes -L 127.0.0.1:11435:127.0.0.1:11435 srv4";
         opencode-qwen3-coder = "OPENCODE_MODEL=llama-cpp/qwen3-coder:30b opencode";
         opencode-kimi-api = "OPENCODE_MODEL=kimi-api/${kimiApiModel} opencode";
-        opencode-airllm = "OPENCODE_MODEL=airllm-srv4/${kimiApiModel} opencode";
       };
 
       home.packages = lib.mkAfter [
