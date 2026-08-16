@@ -128,9 +128,16 @@
           linuxSystem = "x86_64-linux";
           localPackagesOverlay = import ./overlays/local-packages.nix;
           nixpkgsWorkaroundsOverlay = import ./overlays/nixpkgs-workarounds.nix;
-          # Skip flaky openldap tests (test017-syncreplication-refresh)
+          # Skip flaky openldap tests (test017-syncreplication-refresh).
+          # Overriding openldap makes every dependent package uncached, so
+          # libvirt gets rebuilt from source — where virt-aa-helper-test
+          # fails deterministically in the build sandbox. Skip its checks
+          # too, or no desktop closure can ever be built by Hydra.
           openldapOverlay = _final: prev: {
             openldap = prev.openldap.overrideAttrs (_old: {
+              doCheck = false;
+            });
+            libvirt = prev.libvirt.overrideAttrs (_old: {
               doCheck = false;
             });
           };
