@@ -140,6 +140,11 @@
             libvirt = prev.libvirt.overrideAttrs (_old: {
               doCheck = false;
             });
+            # Same story: two of its dbus/pipewire tests are flaky in the
+            # build sandbox and dep-fail every desktop closure on Hydra.
+            xdg-desktop-portal = prev.xdg-desktop-portal.overrideAttrs (_old: {
+              doCheck = false;
+            });
           };
           linuxOverlays = [
             localPackagesOverlay
