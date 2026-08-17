@@ -46,9 +46,16 @@ jobs:
 
   # comin on the servers tracks the `deploy` branch. Fast-forward it only
   # after checks pass, so a broken eval on develop can never reach a host.
+  #
+  # workflow_dispatch is accepted because push/pull_request events do not
+  # create workflow runs on this repository (GitHub-side issue; only manual
+  # dispatch works). After pushing develop, trigger the gate with:
+  #   gh workflow run CI --ref develop
   promote:
     needs: checks
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: write
