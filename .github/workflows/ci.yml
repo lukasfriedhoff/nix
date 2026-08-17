@@ -35,7 +35,7 @@ jobs:
             accept-flake-config = true
 
       - name: Format check
-        run: nix fmt -- --check .
+        run: nix fmt -- --ci .
 
       # --no-build: evaluate every host and check derivation. Building the
       # VM tests (multi-node k3s, Wine-based icarus test) is far beyond what
