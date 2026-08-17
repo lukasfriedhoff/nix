@@ -37,12 +37,24 @@ jobs:
       - name: Format check
         run: nix fmt -- --ci .
 
-      # --no-build: evaluate every host and check derivation. Building the
-      # VM tests (multi-node k3s, Wine-based icarus test) is far beyond what
-      # a hosted runner can do; evaluation failures are what break comin
-      # deploys, and this catches those.
-      - name: Flake checks (evaluate)
-        run: nix flake check --no-build --print-build-logs
+      # Evaluate every host in its own nix process: one shared process (as
+      # nix flake check does) accumulates the heap of all 19 systems and
+      # gets OOM-killed on hosted runners. Eval failures are what break
+      # comin deploys, and this catches those per host.
+      - name: Evaluate hosts
+        run: |
+          set -euo pipefail
+          hosts=$(nix eval --json .#nixosConfigurations --apply builtins.attrNames | jq -r '.[]')
+          for h in $hosts; do
+            echo "::group::nixosConfigurations.$h"
+            nix eval --raw ".#nixosConfigurations.\"$h\".config.system.build.toplevel.drvPath"
+            echo
+            echo "::endgroup::"
+          done
+          echo "::group::darwinConfigurations.macbook-pro"
+          nix eval --raw ".#darwinConfigurations.macbook-pro.system.drvPath"
+          echo
+          echo "::endgroup::"
 
   # comin on the servers tracks the `deploy` branch. Fast-forward it only
   # after checks pass, so a broken eval on develop can never reach a host.
