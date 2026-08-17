@@ -91,7 +91,7 @@ in
     gitops = {
       enable = true;
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
-      branch = "develop";
+      branch = "main";
       path = "./overlays/testing-srv3";
       tokenFile = config.sops.secrets."flux-cluster-token".path;
       sopsAgeKeyFile = config.sops.secrets."flux-sops-age-key".path;
