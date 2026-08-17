@@ -9,24 +9,6 @@
 
 let
   hostName = "srv1";
-  homelabDisks = import ../../../resources/homelab/disks.nix;
-  nets = import ../../../resources/homelab/networks.nix;
-  cephTopology = import ../../../resources/homelab/ceph.nix;
-  cephHost = cephTopology.hosts.${hostName};
-  cephCluster = cephTopology.clusters.${cephHost.cluster};
-  cephRoles = cephHost.roles;
-  hasRole = role: lib.elem role cephRoles;
-  cephDiskEntries = lib.filterAttrs (_: v: v.host == hostName && v.purpose == "ceph") homelabDisks;
-  cephDisks = map (diskId: "/dev/disk/by-id/${diskId}") (lib.attrNames cephDiskEntries);
-  cephLockboxKeys =
-    lib.mapAttrsToList
-      (diskId: disk: {
-        device = "/dev/disk/by-id/${diskId}";
-        secretKeyFile = disk.lockboxKeyFile;
-      })
-      (
-        lib.filterAttrs (_: v: v.host == hostName && v.purpose == "ceph" && v ? lockboxKeyFile) homelabDisks
-      );
   wolfMoonlightApps = [
     "ui"
     "testBall"
@@ -131,73 +113,19 @@ in
 
   networking.hostName = hostName;
   nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) allowUnfreePackages;
-  networking.useNetworkd = true;
-  networking.networkmanager.enable = false;
-  networking.defaultGateway = lib.mkForce null;
-  networking.nameservers = [ "10.1.30.1" ];
-  # DHCP should run on the bridge (brvlan30), not on the slave.
-  networking.interfaces.eno1.useDHCP = lib.mkForce false;
-  networking.vlans = {
-    "eno1.20" = {
-      inherit (nets.vlans.server) id;
-      interface = "eno1";
-    };
-    "eno1.40" = {
-      inherit (nets.vlans.storage) id;
-      interface = "eno1";
-    };
-    "eno1.10" = {
-      inherit (nets.vlans.lan) id;
-      interface = "eno1";
-    };
-    "eno1.12" = {
-      inherit (nets.vlans.iot) id;
-      interface = "eno1";
-    };
-    "eno1.13" = {
-      inherit (nets.vlans.windows) id;
-      interface = "eno1";
-    };
-    "eno1.50" = {
-      inherit (nets.vlans.lab) id;
-      interface = "eno1";
-    };
+
+  homelab.vlanBridges = {
+    enable = true;
+    uplink = "eno1";
+    mgmtMac = "0c:c4:7a:6c:38:02";
+    # Silent drift (kept on purpose for now): srv1 never received the netdev
+    # MAC pin nor the RouteMetric/static-route networkd blocks that
+    # srv2/srv8/srv9 carry. Flip these to true once srv1's routing has been
+    # verified against the other hosts.
+    pinBridgeMac = false;
+    routeMetrics = false;
   };
 
-  # Bring VLAN subinterfaces up even without an IP so bridges attach cleanly.
-  networking.interfaces."eno1.20".useDHCP = false;
-  networking.interfaces."eno1.40".useDHCP = false;
-  networking.interfaces."eno1.10".useDHCP = false;
-  networking.interfaces."eno1.12".useDHCP = false;
-  networking.interfaces."eno1.13".useDHCP = false;
-  networking.interfaces."eno1.50".useDHCP = false;
-
-  # Libvirt-friendly bridges for each VLAN (mgmt on brvlan30).
-  networking.bridges = {
-    brvlan10.interfaces = [ "eno1.10" ];
-    brvlan12.interfaces = [ "eno1.12" ];
-    brvlan13.interfaces = [ "eno1.13" ];
-    brvlan20.interfaces = [ "eno1.20" ];
-    brvlan30.interfaces = [ "eno1" ]; # untagged mgmt
-    brvlan40.interfaces = [ "eno1.40" ];
-    brvlan50.interfaces = [ "eno1.50" ];
-  };
-  networking.interfaces.brvlan30 = {
-    useDHCP = true;
-    macAddress = "0c:c4:7a:6c:38:02";
-  };
-  networking.interfaces.brvlan20.useDHCP = true;
-  networking.interfaces.brvlan40.useDHCP = true;
-  networking.hosts = {
-    "127.0.0.2" = lib.mkForce [ ];
-  };
-
-  # Use MAC-based DHCP client ID on the management bridge so the reservation matches eno1.
-  systemd.network.networks."30-brvlan30" = {
-    matchConfig.Name = "brvlan30";
-    networkConfig.DHCP = "yes";
-    dhcpV4Config.ClientIdentifier = "mac";
-  };
   homelab.personalServer = {
     enable = true;
     managementPubKey = "ssh/srv1-personal-mgmt.pub";
@@ -253,11 +181,14 @@ in
     openFirewall = true;
     ui = {
       enable = true;
-      host = "0.0.0.0";
-      port = 8081;
-      openFirewall = true;
       ollamaUrl = "http://10.1.30.12:11434";
     };
+  };
+
+  lukasf.openWebui = {
+    host = "0.0.0.0";
+    port = 8081;
+    openFirewall = true;
   };
 
   lukasf.wolf = {
@@ -329,70 +260,7 @@ in
     ];
   };
 
-  lukasf.ceph = {
-    enable = true;
-    monHosts = cephCluster.monHosts or [ cephCluster.monIp ];
-    monPort = cephCluster.monPort or 3300;
-    bootstrap = {
-      enable = hasRole "bootstrap";
-      inherit (cephCluster) fsid;
-      inherit (cephCluster) monIp;
-      inherit (cephCluster) publicNetwork;
-      inherit (cephCluster.bootstrap) singleHostDefaults;
-      inherit (cephCluster.bootstrap) skipDashboard;
-      inherit (cephCluster.bootstrap) extraArgs;
-    };
-    pools = lib.optionals (hasRole "bootstrap") cephCluster.pools;
-    cephfs = lib.optionals (hasRole "bootstrap") (cephCluster.cephfs or [ ]);
-    rgw = lib.mkIf (hasRole "bootstrap") (cephCluster.rgw or { });
-    backup = lib.mkIf (hasRole "bootstrap") {
-      enable = cephCluster.backup.enable or false;
-      secretKeyFile = cephCluster.backup.secretKeyFile or null;
-      retentionDays = cephCluster.backup.retentionDays or 30;
-      schedule = cephCluster.backup.schedule or "daily";
-    };
-    osd = {
-      devices = cephDisks;
-      lockboxKeys = cephLockboxKeys;
-      provisioner = "ceph-volume";
-      encrypted = true;
-      autoProvision = hasRole "osd";
-      zapDevices = false;
-    };
-    monUpdate = {
-      enable = hasRole "bootstrap";
-      name = hostName;
-      address = cephCluster.monIp;
-      legacyAddress = "10.1.30.5";
-    };
-    healthCheck = {
-      enable = true;
-      checkLibvirt = hasRole "kvm";
-      libvirtPools = [
-        "ceph-images"
-        "ceph-vmdisks"
-      ];
-    };
-  };
-
-  lukasf.ceph.client = lib.mkIf (hasRole "kvm") {
-    enable = true;
-    fsid = cephCluster.fsid or null;
-    publicNetwork = cephCluster.publicNetwork or null;
-  };
-
-  lukasf.kvm = lib.mkIf (hasRole "kvm") {
-    enable = true;
-    storage = {
-      backend = "ceph";
-      ceph.pools = cephCluster.kvmPools;
-    };
-  };
-
-  # Ensure QEMU has Ceph/RBD support for libvirt pools when KVM role is enabled.
-  virtualisation.libvirtd.qemu.package = lib.mkIf (hasRole "kvm") (
-    lib.mkForce (pkgs.qemu_kvm.override { cephSupport = true; })
-  );
+  lukasf.kvm.enable = true;
 
   # GitHub PAT for Flux GitOps
   sops.secrets."flux-cluster-token" = {
@@ -405,10 +273,10 @@ in
   # Enable k3s with Flux GitOps
   homelab.kubernetes = {
     enable = true;
-    extraK3sFlags = [
-      "--tls-san srv1.lab.h4xx.io"
-      "--tls-san srv1"
-      "--tls-san 10.1.30.12"
+    tlsSans = [
+      "srv1.lab.h4xx.io"
+      "srv1"
+      "10.1.30.12"
     ];
     gitops = {
       enable = true;
@@ -432,9 +300,7 @@ in
     authorizedKeyFile = ./initrd-authorized.pub;
   };
 
-  # Needed by cephadm to satisfy asyncssh dependency for health checks.
   environment.systemPackages = with pkgs; [
-    python3Packages.asyncssh
     nvtopPackages.full
   ];
 

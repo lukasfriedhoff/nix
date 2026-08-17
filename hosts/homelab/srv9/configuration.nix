@@ -3,7 +3,6 @@
   secrets,
   inputs,
   lib,
-  pkgs,
   ...
 }:
 
@@ -17,17 +16,6 @@ let
   k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
   loginPasswordHashSecret = "${secrets.primary}/login-password-hash.txt";
   hasK3sToken = builtins.pathExists k3sTokenSecret;
-  nets = import ../../../resources/homelab/networks.nix;
-  longhornDisks = lib.filterAttrs (_: disk: disk.host == hostName && disk.purpose == "longhorn") (
-    import ../../../resources/homelab/disks.nix
-  );
-  longhornDiskIds = builtins.attrNames longhornDisks;
-  longhornDiskIndex = lib.listToAttrs (
-    lib.imap0 (index: diskId: {
-      name = diskId;
-      value = index + 1;
-    }) longhornDiskIds
-  );
 in
 {
   imports = [
@@ -38,108 +26,13 @@ in
     ./disko.nix
   ];
 
-  networking = {
-    inherit hostName;
-    useNetworkd = true;
-    networkmanager.enable = false;
-    defaultGateway = lib.mkForce null;
-    nameservers = [ "10.1.30.1" ];
-
-    interfaces = {
-      "${managementInterface}".useDHCP = lib.mkForce false;
-      "${managementInterface}.10".useDHCP = false;
-      "${managementInterface}.12".useDHCP = false;
-      "${managementInterface}.13".useDHCP = false;
-      "${managementInterface}.20".useDHCP = false;
-      "${managementInterface}.40".useDHCP = false;
-      "${managementInterface}.50".useDHCP = false;
-      brvlan20.useDHCP = true;
-      brvlan30 = {
-        useDHCP = true;
-        macAddress = managementMac;
-      };
-      brvlan40.useDHCP = true;
-    };
-
-    vlans = {
-      "${managementInterface}.10" = {
-        inherit (nets.vlans.lan) id;
-        interface = managementInterface;
-      };
-      "${managementInterface}.12" = {
-        inherit (nets.vlans.iot) id;
-        interface = managementInterface;
-      };
-      "${managementInterface}.13" = {
-        inherit (nets.vlans.windows) id;
-        interface = managementInterface;
-      };
-      "${managementInterface}.20" = {
-        inherit (nets.vlans.server) id;
-        interface = managementInterface;
-      };
-      "${managementInterface}.40" = {
-        inherit (nets.vlans.storage) id;
-        interface = managementInterface;
-      };
-      "${managementInterface}.50" = {
-        inherit (nets.vlans.lab) id;
-        interface = managementInterface;
-      };
-    };
-
-    bridges = {
-      brvlan10.interfaces = [ "${managementInterface}.10" ];
-      brvlan12.interfaces = [ "${managementInterface}.12" ];
-      brvlan13.interfaces = [ "${managementInterface}.13" ];
-      brvlan20.interfaces = [ "${managementInterface}.20" ];
-      brvlan30.interfaces = [ managementInterface ];
-      brvlan40.interfaces = [ "${managementInterface}.40" ];
-      brvlan50.interfaces = [ "${managementInterface}.50" ];
-    };
-
-    hosts."127.0.0.2" = lib.mkForce [ ];
-  };
-
+  networking.hostName = hostName;
   shared.network.domain = clusterDomain;
 
-  systemd.network = {
-    netdevs."40-brvlan30".netdevConfig = {
-      Name = "brvlan30";
-      Kind = "bridge";
-      MACAddress = managementMac;
-    };
-    networks = {
-      "30-brvlan30" = {
-        matchConfig.Name = "brvlan30";
-        networkConfig.DHCP = "yes";
-        dhcpV4Config = {
-          ClientIdentifier = "mac";
-          RouteMetric = 100;
-        };
-        routes = [
-          {
-            Destination = "0.0.0.0/0";
-            Gateway = "10.1.30.1";
-            Metric = 100;
-          }
-          {
-            Destination = "10.1.90.0/24";
-            Gateway = "10.1.30.1";
-          }
-        ];
-      };
-      "20-brvlan20" = {
-        matchConfig.Name = "brvlan20";
-        networkConfig.DHCP = "yes";
-        dhcpV4Config.RouteMetric = 200;
-      };
-      "40-brvlan40" = {
-        matchConfig.Name = "brvlan40";
-        networkConfig.DHCP = "yes";
-        dhcpV4Config.RouteMetric = 300;
-      };
-    };
+  homelab.vlanBridges = {
+    enable = true;
+    uplink = managementInterface;
+    mgmtMac = managementMac;
   };
 
   homelab.personalServer = {
@@ -217,12 +110,6 @@ in
       format = "binary";
       neededForUsers = true;
     };
-    "srv9-longhorn-luks-key" = {
-      sopsFile = "${secrets.profileShared}/luks/srv9-longhorn.txt";
-      format = "binary";
-      mode = "0400";
-      owner = "root";
-    };
     "k3s-server-token" = lib.mkIf hasK3sToken {
       sopsFile = k3sTokenSecret;
       format = "binary";
@@ -231,108 +118,20 @@ in
     };
   };
 
-  systemd.services.srv9-longhorn-disks = {
-    description = "Unlock and mount srv9 Longhorn data disks";
-    # sops-nix installs secrets from the setupSecrets activation script, not a
-    # systemd unit, so there is no sops-install-secrets.service to order on.
-    # Requiring a unit that does not exist makes switch-to-configuration abort.
-    after = [ "systemd-udev-settle.service" ];
-    before = lib.optionals hasK3sToken [ "k3s.service" ];
-    wantedBy = [ "multi-user.target" ];
-    path = [
-      pkgs.coreutils
-      pkgs.cryptsetup
-      pkgs.util-linux
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      set -euo pipefail
-
-      unlockMount() {
-        local device="$1"
-        local mapper="$2"
-        local mountpoint="$3"
-        local mapperStatus
-
-        mkdir -p "$mountpoint"
-
-        # `cryptsetup status` prints "<mapper> is inactive." for a mapping that
-        # does not exist, so a non-empty value here does NOT mean the device is
-        # open. Treating it as "already unlocked" skips the unlock below and
-        # then trips `test -b /dev/mapper/$mapper` on every cold boot, which is
-        # what left this host with k3s down and its Longhorn disks unmounted.
-        mapperStatus="$(cryptsetup status "$mapper" 2>/dev/null || true)"
-        case "$mapperStatus" in
-          *"is inactive"*)
-            mapperStatus=""
-            ;;
-          *"device: (null)"*)
-            if findmnt -rn "$mountpoint" >/dev/null 2>&1; then
-              umount "$mountpoint" || true
-            fi
-            cryptsetup close "$mapper" || true
-            mapperStatus=""
-            ;;
-        esac
-
-        if [ -z "$mapperStatus" ]; then
-          test -b "$device"
-          test -r ${config.sops.secrets."srv9-longhorn-luks-key".path}
-          ${pkgs.coreutils}/bin/tr -d '\r\n' \
-            < ${config.sops.secrets."srv9-longhorn-luks-key".path} \
-            | cryptsetup open "$device" "$mapper" --key-file=-
-        fi
-
-        test -b "/dev/mapper/$mapper"
-
-        if findmnt -rn "$mountpoint" >/dev/null 2>&1; then
-          if ! (printf ok > "$mountpoint/.longhorn-mount-check") 2>/dev/null; then
-            umount "$mountpoint" || true
-          else
-            rm -f "$mountpoint/.longhorn-mount-check"
-          fi
-        fi
-
-        if ! findmnt -rn "$mountpoint" >/dev/null 2>&1; then
-          mount "/dev/mapper/$mapper" "$mountpoint"
-        fi
-
-        printf ok > "$mountpoint/.longhorn-mount-check"
-        rm -f "$mountpoint/.longhorn-mount-check"
-        chmod 0755 "$mountpoint"
-      }
-
-      ${lib.concatStringsSep "\n" (
-        map (diskId: ''
-          unlockMount /dev/disk/by-id/${diskId}-part1 cryptlonghorn${
-            toString longhornDiskIndex.${diskId}
-          } /var/lib/longhorn-disk${toString longhornDiskIndex.${diskId}}
-        '') longhornDiskIds
-      )}
-    '';
+  homelab.longhornDisks = {
+    enable = true;
+    sopsFile = "${secrets.profileShared}/luks/srv9-longhorn.txt";
+    mode = "0755";
   };
 
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
     longhorn.enable = true;
-  };
-
-  services.k3s = lib.mkIf hasK3sToken {
-    role = lib.mkForce "agent";
+    role = "agent";
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
-    extraFlags = lib.mkForce [
-      "--node-name=${hostName}"
-      "--node-ip=10.1.30.31"
-      "--kubelet-arg=max-pods=250"
-    ];
-  };
-
-  systemd.services.k3s = lib.mkIf hasK3sToken {
-    after = [ "srv9-longhorn-disks.service" ];
-    requires = [ "srv9-longhorn-disks.service" ];
+    nodeName = hostName;
+    nodeIP = "10.1.30.31";
+    extraFlags = [ "--kubelet-arg=max-pods=250" ];
   };
 }

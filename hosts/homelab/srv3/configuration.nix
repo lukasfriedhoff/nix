@@ -2,7 +2,6 @@
   config,
   secrets,
   inputs,
-  pkgs,
   ...
 }:
 
@@ -29,54 +28,6 @@ in
   };
 
   lukasf.remoteBuilds.enable = false;
-
-  lukasf.nixCache = {
-    enable = false;
-    secretKeyFile = "nix-cache/nix-serve.key";
-    publicKey = builtins.readFile ../../../resources/nix-cache/testing-cache.pub;
-    openFirewall = true;
-    configureClient = true;
-    cacheHost = "nix-testing.h4xx.io";
-    # Use loopback locally to avoid DNS dependency on the host itself.
-    cacheUrl = "http://127.0.0.1:5000";
-  };
-
-  lukasf.atticCache = {
-    enable = false;
-    serve = false;
-    configureClient = false;
-    environmentFile = "attic/server.env";
-    serverUrl = "https://attic-testing.h4xx.io";
-    cacheName = "homelab";
-    openFirewall = false;
-    postBuildUpload = {
-      enable = false;
-      automaticDrain = true;
-      uploadInterval = "5min";
-      batchFileLimit = 100;
-      serverAlias = "srv3";
-      serverUrl = "http://10.43.206.159:8080";
-      tokenSubject = "hydra";
-      uploadJobs = 1;
-    };
-  };
-
-  lukasf.hydraBuilder = {
-    enable = false;
-    hydraURL = "http://srv3.lab.h4xx.io:3000";
-    listenHost = "0.0.0.0";
-    port = 3000;
-    openFirewall = true;
-    declarativeProjects.nixos-configs = {
-      displayName = "NixOS Configurations";
-      jobsets.all = {
-        flake = "git+https://github.com/lukasfriedhoff/nix.git?ref=develop";
-        description = "All NixOS host configurations";
-        checkInterval = 3600;
-        keepNr = 3;
-      };
-    };
-  };
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -122,24 +73,21 @@ in
     ];
   };
 
-  lukasf.kvm = {
-    enable = true;
-    storage = {
-      backend = "none";
-    };
-  };
+  lukasf.kvm.enable = true;
 
   homelab.kubernetes = {
     enable = true;
     longhorn.enable = true;
-    extraK3sFlags = [
-      "--tls-san srv3.lab.h4xx.io"
-      "--tls-san srv3"
-      "--node-label=h4xx.io/gpu.present=false"
-      "--node-label=h4xx.io/gpu.vendor=virtual"
-      "--node-label=h4xx.io/gpu.vaapi=false"
-      "--kubelet-arg=max-pods=250"
+    tlsSans = [
+      "srv3.lab.h4xx.io"
+      "srv3"
     ];
+    nodeLabels = [
+      "h4xx.io/gpu.present=false"
+      "h4xx.io/gpu.vendor=virtual"
+      "h4xx.io/gpu.vaapi=false"
+    ];
+    extraFlags = [ "--kubelet-arg=max-pods=250" ];
     gitops = {
       enable = true;
       repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
@@ -168,41 +116,10 @@ in
     owner = "root";
   };
 
-  sops.secrets."srv3-bootstrap-password" = {
+  homelab.bootstrapPassword = {
+    enable = true;
+    secretName = "srv3-bootstrap-password";
     sopsFile = "${secrets.primary}/bootstrap-password.txt";
-    format = "binary";
-    mode = "0400";
-    owner = "root";
-  };
-
-  systemd.services.srv3-bootstrap-password = {
-    description = "Apply srv3 bootstrap password from SOPS secret";
-    wantedBy = [ "multi-user.target" ];
-    # sops-nix has no sops-install-secrets.service; secrets are placed by the
-    # setupSecrets activation script before systemd reaches multi-user.target.
-    # Requiring the missing unit made switch-to-configuration fail (status 4).
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      set -euo pipefail
-      secret="${config.sops.secrets."srv3-bootstrap-password".path}"
-      if [ ! -s "$secret" ]; then
-        exit 0
-      fi
-
-      password="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret")"
-      if [ -z "$password" ]; then
-        echo "srv3 bootstrap password secret is empty" >&2
-        exit 1
-      fi
-
-      ${pkgs.shadow}/bin/chpasswd <<EOF
-      root:$password
-      nixos:$password
-      EOF
-    '';
   };
 
   networking.firewall = {

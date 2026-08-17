@@ -3,6 +3,7 @@
   lib,
   pkgs,
   secrets ? { },
+  myLib ? import ../../../../lib { inherit lib; },
   ...
 }:
 
@@ -54,15 +55,11 @@ let
 
   primaryRoot = secrets.primary or secrets.root or null;
   resolveSecret =
-    file:
-    if file == null then
-      null
-    else if lib.hasPrefix "/" file then
-      file
-    else if primaryRoot != null then
-      "${primaryRoot}/${file}"
-    else
-      throw "homelab.kubernetes.gitops: relative secret path '${file}' requires secrets.primary/root";
+    path:
+    myLib.resolveSecretPath {
+      root = primaryRoot;
+      inherit path;
+    };
 
   gitAuthSecretName = "${cfg.gitops.sourceName}-auth";
   tlsSanFlags = map (san: "--tls-san=${san}") cfg.tlsSans;
@@ -97,6 +94,12 @@ in
       default = null;
       example = "https://192.168.124.10:9345";
       description = "Registration endpoint used when joining an existing cluster.";
+    };
+
+    clusterInit = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Initialize a new HA cluster using the embedded etcd datastore (k3s servers only).";
     };
 
     tokenFile = mkOption {
@@ -137,12 +140,6 @@ in
     };
 
     longhorn.enable = mkEnableOption "Longhorn node prerequisites (open-iscsi + NFS client support)";
-
-    extraK3sFlags = mkOption {
-      type = types.listOf types.str;
-      default = [ ];
-      description = "Deprecated compatibility option for additional k3s flags.";
-    };
 
     rke2 = {
       cni = mkOption {
@@ -283,6 +280,10 @@ in
           message = "Kubernetes agents require homelab.kubernetes.serverAddr and tokenFile.";
         }
         {
+          assertion = !cfg.clusterInit || (isK3s && isServer);
+          message = "homelab.kubernetes.clusterInit is only supported on k3s server nodes.";
+        }
+        {
           assertion = cfg.serverAddr == null || cfg.tokenFile != null;
           message = "Kubernetes nodes joining through serverAddr require homelab.kubernetes.tokenFile.";
         }
@@ -402,17 +403,18 @@ in
     (mkIf isK3s {
       services.k3s = {
         enable = true;
-        inherit (cfg) role;
+        inherit (cfg) role clusterInit;
         nodeLabel = cfg.nodeLabels;
+        # --disable, --write-kubeconfig-mode and --tls-san are server-only
+        # k3s flags; agents reject them.
         extraFlags = lib.concatStringsSep " " (
-          [
+          lib.optionals isServer [
             "--disable traefik"
             "--disable servicelb"
             "--write-kubeconfig-mode 640"
           ]
-          ++ tlsSanFlags
+          ++ lib.optionals isServer tlsSanFlags
           ++ cfg.extraFlags
-          ++ cfg.extraK3sFlags
         );
       }
       // lib.optionalAttrs (cfg.tokenFile != null) {
