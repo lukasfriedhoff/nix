@@ -48,7 +48,8 @@ For the initial lab only, the overlay reuses the encrypted
 overlay. Do not enable stateful applications until their backup generations,
 hostnames, and storage targets have been reviewed.
 
-Before bootstrapping Flux, publish the Nix changes on `develop` and the
+Before bootstrapping Flux, publish the Nix changes on `develop` (CI promotes
+them to the `deploy` branch that comin tracks once checks pass) and the
 Flux-cluster changes on `testing`. Flux cannot reconcile an uncommitted local
 overlay.
 

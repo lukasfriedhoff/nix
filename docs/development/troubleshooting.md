@@ -33,9 +33,10 @@ environment.systemPackages = [ cfg.package ];
 #### SOPS Decryption Failures
 If secrets can't be decrypted:
 1. Verify the SOPS file paths are correct
-2. Check that your age key is available:
+2. Check that your age key is available (run against the nix-secrets checkout,
+   default `../nix-secrets`):
 ```bash
-sops decrypt secrets/profiles/personal/desktops/<hostname>/wireguard/homelab.priv
+sops decrypt ../nix-secrets/secrets/profiles/personal/desktops/<hostname>/wireguard/homelab.priv
 ```
 
 3. Confirm the key permissions are correct (age key file should be readable)
@@ -43,8 +44,10 @@ sops decrypt secrets/profiles/personal/desktops/<hostname>/wireguard/homelab.pri
 #### Missing Secrets Directories
 If SOPS can't find secret directories:
 1. Ensure proper entry in `secretsByProfile` in `flake.nix`
-2. Check `.sops.yaml` key entries for the host
-3. Confirm the directory structure exists and is properly formatted
+2. Check the nix-secrets repo's `.sops.yaml` key entries for the host
+3. Confirm the directory structure exists in the nix-secrets checkout
+   (`NIX_SECRETS_DIR`, default `../nix-secrets`) and the flake input is fresh
+   (`nix flake update nix-secrets` after pushing new secrets)
 
 ### Hardware and Boot Issues
 
@@ -113,7 +116,7 @@ If commits fail due to pre-commit hooks:
 #### Merge Conflicts and Updates
 When updating configurations:
 1. Use `git pull --rebase` to integrate changes
-2. Resolve conflicts in `flake.nix`, host configurations, and secrets
+2. Resolve conflicts in `flake.nix` and host configurations (secrets live in the separate nix-secrets repo)
 3. Test all configs after updates
 
 ## Diagnostic Commands
@@ -129,8 +132,8 @@ nixos-rebuild build --flake .#<hostname>
 # Test configuration without applying
 nixos-rebuild test --flake .#<hostname>
 
-# Verify secrets can be decrypted
-sops decrypt secrets/path/to/secret.yaml
+# Verify secrets can be decrypted (in the nix-secrets checkout)
+sops decrypt ../nix-secrets/secrets/path/to/secret.yaml
 ```
 
 ### System-related Diagnostics

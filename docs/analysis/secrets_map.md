@@ -1,6 +1,10 @@
 # Secrets layout, recipients, and decryption scope
 
-Source of truth: `.sops.yaml` `creation_rules` and current directory layout under `secrets/profiles/`.
+Source of truth: the `.sops.yaml` `creation_rules` at the root of the private
+[nix-secrets](https://github.com/lukasfriedhoff/nix-secrets) repo and the directory
+layout under `secrets/profiles/` there. All paths below are relative to the local
+nix-secrets checkout (`NIX_SECRETS_DIR`, default `../nix-secrets`); see
+`docs/architecture/secrets-routing.md` for the repo split.
 
 ## Recipient key owners (human-readable)
 - **tux-h4xx-01**: personal desktop (age16aay…)
@@ -94,7 +98,7 @@ secrets/profiles/
 - **work/shared, work/desktops, work/servers**: work-only scope, decryptable solely by the work macbook.
 
 ## Host-specific notes
-- **Ceph on `tux-h4xx-01`**: this desktop is a Ceph client for the homelab cluster. It stores a client keyring under `secrets/profiles/personal/desktops/tux-h4xx-01/ceph/` so the system can mount/access RBDs and the user can run CLI tools (`rbd`, `rados`) without manual key distribution. This is why a desktop-scoped Ceph secret exists.
+- **Ceph on `tux-h4xx-01`**: historical — the Ceph modules have been removed from the nix repo. The client keyring under `secrets/profiles/personal/desktops/tux-h4xx-01/ceph/` (and the cluster material under `personal/servers/ceph/<fsid>/`) still exists in nix-secrets but is no longer consumed by any module.
 - **`testingrke2` lab**: each VM has an independent host Age key and management key. The three encrypted `rke2-token.txt` files contain the same cluster token in independent SOPS envelopes. Only `testingrke2-01` receives the Flux bootstrap token and Flux SOPS key because it owns the bootstrap unit.
 
 ## Authelia test user lookup
@@ -111,5 +115,5 @@ secrets/profiles/
 - The special SSH rules under `personal/desktops/**/ssh/` intentionally narrow access to personal desktops only.
 
 ## Follow-ups
-- If new hosts are added, update `.sops.yaml` recipients and this map.
-- Consider adding a small script to regenerate this tree from `.sops.yaml` + `secrets/profiles/`.
+- If new hosts are added, update the nix-secrets repo's `.sops.yaml` recipients and this map.
+- Consider adding a small script to regenerate this tree from `.sops.yaml` + `secrets/profiles/` in the nix-secrets repo.

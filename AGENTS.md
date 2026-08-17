@@ -3,7 +3,7 @@
 ## Repository map
 - `flake.nix` is the source of truth for host outputs and `secretsByProfile`.
 - Feature modules live under `modules/features/**` and are auto-imported via `myLib.importTreeByName`.
-- Host-specific config lives under `hosts/**`; static SSH/infra data lives under `resources/**`; encrypted inputs live under `secrets/**`.
+- Host-specific config lives under `hosts/**`; static SSH/infra data lives under `resources/**`; encrypted secrets live in the private `nix-secrets` repo (flake input), not in this repo.
 - Keep host modules thin: default to reusable feature modules first, then host overrides only when needed.
 
 ## Workflow
@@ -33,15 +33,18 @@
 - For host-specific patterns, consider creating shared base modules that can be reused rather than copying repeated configurations across hosts.
 
 ## Secrets and sops (docs/architecture/secrets-routing.md, docs/analysis/secrets_map.md)
+- Secrets live in the private repo github.com/lukasfriedhoff/nix-secrets, consumed as the `nix-secrets` flake input (git+ssh, `flake = false`). This repo has no `secrets/` directory and no `.sops.yaml`.
+- Scripts resolve the local checkout via `NIX_SECRETS_DIR`, defaulting to `../nix-secrets` next to this repo (see `secrets_root()` in `scripts/lib/common.sh`).
 - Secrets are routed via `secretsByProfile` in `flake.nix` and passed as `specialArgs`.
-- Use `secrets.primary/shared/profileShared/profileCommon/ceph` in host configs.
-- `.sops.yaml` is the source of truth for recipients; update it and `docs/analysis/secrets_map.md` when adding a host.
-- Secrets layout roots:
+- Use `secrets.primary/shared/profileShared/profileCommon` in host configs.
+- The `.sops.yaml` at the nix-secrets repo root is the source of truth for recipients; update it and `docs/analysis/secrets_map.md` when adding a host.
+- Secrets layout roots (inside the nix-secrets repo):
   - `secrets/profiles/common/shared` for cross-profile shared material.
   - `secrets/profiles/personal/{desktops,servers,shared}` for personal scope.
   - `secrets/profiles/work/{desktops,servers,shared}` for work scope.
-- Age key locations: desktops `~/.config/sops/age/keys.txt`, servers `/var/lib/sops-nix/age/keys.txt`.
-- Keep private IPs out of git; put real hostnames in `secrets/.../ssh/hostnames-private.conf`.
+- Age key locations: desktops `~/.config/sops/age/keys.txt` (bootstrapped to `/var/lib/sops-nix/age/keys.txt`), servers `/var/lib/sops-nix/age/keys.txt`.
+- Login password hashes come from sops: personal hosts share `secrets/profiles/personal/shared/login-password-hash.txt` (srv9 keeps a per-host copy); work servers consume `<server>/root-password-hash.txt` + `nixos-password-hash.txt` via `dacoso.server` and need their age key in place before deploying. `hashedPasswordFile` is declarative — edit the secret and redeploy to rotate.
+- Keep private IPs out of git; put real hostnames in the nix-secrets repo under `secrets/.../ssh/hostnames-private.conf`.
 
 ## Host onboarding (docs/deployment/personal-homelab.md, docs/deployment/remote-servers.md)
 - Start from `hosts/homelab/template` or `scripts/homelab/new-host.sh`.
@@ -59,16 +62,23 @@
   - Use `scripts/homelab/unlock.sh <host>` for first post-install boot; if DNS is not ready, it now falls back to local libvirt lease IP automatically.
 - During ISO install, copy the management `.pub` key to `/root/.ssh/authorized_keys` before deploy.
 - After first boot, verify pull-mode updates with `systemctl status comin.service` and `journalctl -u comin.service`.
-- For initrd unlock, store the LUKS secret under `secrets/profiles/personal/shared/luks/<host>.txt`.
+- For initrd unlock, store the LUKS secret in the nix-secrets repo under `secrets/profiles/personal/shared/luks/<host>.txt`.
 
 ## WireGuard homelab (docs/networking/wireguard-homelab.md)
-- Shared domain/endpoint live under `secrets/profiles/personal/shared/wireguard/`.
-- Per-host keys live under `secrets/profiles/personal/desktops/<host>/wireguard/` or `.../servers/...`.
+- Shared domain/endpoint live in the nix-secrets repo under `secrets/profiles/personal/shared/wireguard/`.
+- Per-host keys live in the nix-secrets repo under `secrets/profiles/personal/desktops/<host>/wireguard/` or `.../servers/...`.
 
-## Ceph notes (docs/services/ceph.md, docs/services/backup.md)
-- `lukasf.ceph.osd.zapDevices = true` is destructive; only enable for one-time reprovisioning, then revert.
-- Keep Ceph key backup passphrases in `secrets/profiles/personal/servers/ceph/<fsid>/backup.key`.
-- Backups are written on hosts under `/var/lib/ceph/backup/ceph-keys-<fsid>-<timestamp>.tar.gz.enc`.
+## Homelab and service modules
+- `homelab.vlanBridges`: VLAN/bridge/systemd-networkd wiring; gateway data lives in `resources/homelab/networks.nix`.
+- `homelab.longhornDisks`: LUKS unlock + mount of Longhorn data disks registered in `resources/homelab/disks.nix`.
+- `homelab.bootstrapPassword`: applies a sops-backed bootstrap password to root/nixos.
+- `homelab.kubernetes`: typed options only; the old `extraK3sFlags` escape hatch is gone.
+- `lukasf.openWebui` is the single owner of `services.open-webui`; `lukasf.ollama` and `lukasf.llamaCpp` register as backends.
+- `hosts/homelab/k3s-staging/node.nix` is the parameterized staging node (same pattern as `hosts/homelab/testingrke2/node.nix`).
+
+## AI skills
+- External agent skills are vendored as flake inputs (fluxcd/agent-skills, anthropics/skills cherry-picks, michalzubkowicz/nixos-management-skill, foxj77/claude-code-skills) and linked via `modules/features/ai/home.nix`.
+- Option paths follow `ai.skills.<dir-name>.enable` — one per directory under `modules/features/ai/skills/` plus one per vendored external skill (all enabled by default via `ai.enableAllSkills`).
 
 ## Hardware inventory (docs/hardware/README.md)
 - Run `scripts/hardware-survey.sh` (and optionally `nixos-facter`).
@@ -82,11 +92,12 @@
 - Override explicitly via `lukasf.facter.reportPath` if needed.
 
 ## Deployment model
-- Servers use comin in pull mode against `develop`.
+- Servers use comin in pull mode against the `deploy` branch; CI (`.github/workflows/ci.yml`) fast-forwards `deploy` from `develop` only after checks pass, so a broken eval never reaches a host.
+- The CI checks job needs the `NIX_SECRETS_DEPLOY_KEY` repo secret (a read-only deploy key on nix-secrets) to fetch the private flake input.
 - Flake uses `flake-parts` as-is; avoid deeper migration without a clear need.
 
 ## Documentation hygiene
-- If secrets paths/recipients change, update both `.sops.yaml` and `docs/analysis/secrets_map.md`.
+- If secrets paths/recipients change, update both the nix-secrets repo's `.sops.yaml` and `docs/analysis/secrets_map.md`.
 - If onboarding/deploy flow changes, update `docs/deployment/personal-homelab.md` and `docs/deployment/remote-servers.md`.
 - If module conventions change, update `docs/analysis/module_style.md`.
 - Keep `README.md` aligned with actual host inventory and helper scripts.
@@ -103,4 +114,3 @@
 - `docs/deployment/remote-servers.md`
 - `docs/networking/wireguard-homelab.md`
 - `docs/hardware/README.md`
-- `docs/services/ceph.md`

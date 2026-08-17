@@ -34,7 +34,8 @@ Hydra itself already runs as dedicated `hydra` and `hydra-queue-runner` users, b
 
 ## Rollout via GitOps
 
-1. Commit and push changes to `develop` in this repo.
+1. Commit and push changes to `develop` in this repo; CI fast-forwards the
+   `deploy` branch (which comin tracks) once checks pass.
 2. On `srv3`, pull/apply with comin:
 
 ```bash

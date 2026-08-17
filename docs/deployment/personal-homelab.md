@@ -5,6 +5,10 @@ DHCP networking, Europe/Berlin timezone, and console bootstrap passwords (hash
 of `ChangeMeNow!` for both `root` and `nixos`; SSH password auth stays disabled
 unless you flip `usePasswordAuth`).
 
+All `secrets/profiles/...` paths below live in the private nix-secrets repo;
+run `sops` against the local checkout (default `../nix-secrets` next to this
+repo, override with `NIX_SECRETS_DIR`).
+
 1. Boot the stock NixOS installer and set console passwords
    ```bash
    passwd root
@@ -22,11 +26,12 @@ unless you flip `usePasswordAuth`).
    scripts/homelab/probe-installer.sh --target root@<installer-ip> --host "${host}" \
      --write-hw "hosts/homelab/${host}/hardware-configuration.nix"
    ```
-3. Generate the per-host SSH key (lives under `secrets/profiles/personal/desktops/common/ssh/`)
+3. Generate the per-host SSH key (lives in nix-secrets under `secrets/profiles/personal/desktops/common/ssh/`)
    ```bash
    scripts/servers/create-management-key.sh "${host}" personal
    ```
-   This writes `<host>-personal-mgmt.{priv,pub}` encrypted via `.sops.yaml`.
+   This writes `<host>-personal-mgmt.{priv,pub}` into the nix-secrets checkout,
+   encrypted via its `.sops.yaml`.
 4. Wire the key into your personal desktops so the right identity is used automatically
    - Add the key to `resources/ssh/keys.nix`:
      ```nix
@@ -44,16 +49,12 @@ unless you flip `usePasswordAuth`).
      ```
    - Rebuild Home Manager / desktop NixOS so the config and key get installed.
 5. Hook the host into the flake
-   - Add a `secretsByProfile` entry for `${host}` in `flake.nix` pointing at `secrets/profiles/personal/servers/${host}` (mirror the shape used for `srv4`):
+   - Add a `secretsByProfile` entry for `${host}` in `flake.nix` pointing at
+     `secrets/profiles/personal/servers/${host}` in the nix-secrets input. If
+     the flake attr, secrets profile, and host directory share one name, just
+     add the host to the `homelabHosts` list; otherwise:
      ```nix
-     ${host} = {
-       primary = personalServerRoot "${host}";
-       shared = sharedCommonRoot;
-       profileShared = personalSharedRoot;
-       profileCommon = personalCommonDesktopRoot;
-       root = personalServerRoot "${host}";
-       personal = personalServerRoot "${host}";
-     };
+     ${host} = mkPersonalServerSecrets "${host}";
      ```
    - Add a nixosConfiguration using `homelabServerModules`:
      ```nix
@@ -67,15 +68,15 @@ unless you flip `usePasswordAuth`).
    ```bash
    scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
      --identity ~/.ssh/personal/${host}-personal-mgmt \
-     --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt"
+     --luks-secret "../nix-secrets/secrets/profiles/personal/shared/luks/${host}.txt"
    ```
    This wrapper defaults to `--phases disko,install,reboot` (no kexec). Add
    `--with-kexec` only when you explicitly need that phase.
    For additional encrypted volumes, pass extra key files explicitly:
    ```bash
    scripts/servers/deploy-from-iso.sh "${host}" root@<installer-ip> \
-     --luks-secret "secrets/profiles/personal/shared/luks/${host}.txt" \
-     --disk-secret /tmp/luks-mdraid.key "secrets/profiles/personal/shared/luks/${host}-mdraid.txt"
+     --luks-secret "../nix-secrets/secrets/profiles/personal/shared/luks/${host}.txt" \
+     --disk-secret /tmp/luks-mdraid.key "../nix-secrets/secrets/profiles/personal/shared/luks/${host}-mdraid.txt"
    ```
 7. After the first boot, change the default password and confirm the management
    key works:
@@ -91,9 +92,11 @@ You only need a per-host Age key if the machine itself must decrypt SOPS secrets
 at runtime (beyond the installer/build machine). If you keep secrets decryption
 on your desktops while building images (e.g. nixos-anywhere) and only ship
 plaintext outputs into the system, you can skip adding another Age recipient.
-If you do add one: generate with `age-keygen`, store under
-`secrets/profiles/personal/servers/${host}/age.key`, and extend `.sops.yaml`
-with that recipient.
+If you do add one: generate with `age-keygen`, store it in nix-secrets under
+`secrets/profiles/personal/servers/${host}/age.key`, and extend the nix-secrets
+`.sops.yaml` with that recipient. Note that `deploy-from-iso.sh` expects that
+`age.key` by default and refuses to deploy without it unless you pass
+`--no-age-key`.
 
 ### Full disk encryption + remote unlock
 
@@ -116,7 +119,7 @@ with that recipient.
 - Create the `initrd-authorized.pub` file next to the host config (public keys
   are safe to store in git):
   ```bash
-  sops -d secrets/profiles/personal/servers/${host}/ssh/${host}-personal-mgmt.pub \
+  sops -d ../nix-secrets/secrets/profiles/personal/servers/${host}/ssh/${host}-personal-mgmt.pub \
     > hosts/homelab/${host}/initrd-authorized.pub
   ```
 - Add an unlock entry to `resources/ssh/hosts/personal.nix` so you can target the
@@ -135,7 +138,8 @@ with that recipient.
   `resources/ssh/hosts/personal.nix` and instead add them to the SOPS secret
   `ssh/hostnames-private.conf` (decrypted to `~/.ssh/config.d/15-hostnames-private`).
 - Store the LUKS passphrase in personal shared secrets, e.g.
-  `secrets/profiles/personal/shared/luks/${host}.txt` (encrypted via SOPS).
+  `secrets/profiles/personal/shared/luks/${host}.txt` in nix-secrets
+  (encrypted via SOPS).
   To unlock from your desktop, use:
   ```bash
   scripts/homelab/unlock.sh ${host}

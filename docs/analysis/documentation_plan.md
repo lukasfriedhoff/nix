@@ -64,7 +64,7 @@ The repository already has some structure documentation in README.md and archite
 - Monitoring and alerting patterns
 
 ### 6. Backup and Recovery
-**Current state**: Ceph backup documented in `docs/services/ceph.md`
+**Current state**: backup procedures documented in `docs/services/backup.md` (Ceph has since been removed from the repo)
 
 **Missing elements**:
 - Complete backup strategies for all systems

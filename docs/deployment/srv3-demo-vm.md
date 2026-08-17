@@ -1,5 +1,10 @@
 # srv3 Demo VM Runbook
 
+> **Historical runbook.** This flow predates two later refactors: the Ceph
+> modules have been removed from this repo entirely, and secrets moved to the
+> private nix-secrets repo (paths like `secrets/profiles/...` now live in that
+> checkout, default `../nix-secrets`). The Ceph-specific steps no longer apply.
+
 This runbook recreates `srv3` as a demo VM, deploys NixOS from ISO, and verifies Ceph + k3s + Flux on first rollout.
 
 ## 1. Clean up old VM artifacts
@@ -100,7 +105,7 @@ scripts/servers/deploy-from-iso.sh \
   srv3 root@<INSTALLER_IP> \
   --identity ~/.ssh/personal/ci \
   --ssh-option IdentitiesOnly=yes \
-  --luks-secret secrets/profiles/personal/shared/luks/srv3.txt
+  --luks-secret ../nix-secrets/secrets/profiles/personal/shared/luks/srv3.txt
 ```
 
 If installer auth with management key fails initially, copy the public key into installer `authorized_keys` first, then rerun deploy.
@@ -119,14 +124,15 @@ until ssh -i ~/.ssh/personal/srv3-personal-mgmt \
 done
 ```
 
-Console password for `root`/`nixos` is persisted via SOPS at:
+Console password for `root`/`nixos` is persisted via SOPS in the nix-secrets
+repo at:
 
 `secrets/profiles/personal/servers/srv3/bootstrap-password.txt`
 
 Decrypt it on any personal desktop with:
 
 ```bash
-sops -d secrets/profiles/personal/servers/srv3/bootstrap-password.txt
+sops -d ../nix-secrets/secrets/profiles/personal/servers/srv3/bootstrap-password.txt
 ```
 
 ## 6. Trigger comin and verify rollout
@@ -359,10 +365,13 @@ scripts/homelab/unlock.sh srv3 \
 ### Flake build misses newly created secret file
 
 - Symptom: build error `path .../bootstrap-password.txt does not exist`.
-- Cause: new secret file exists locally but is untracked, so it is not part of flake source copy.
+- Cause: new secret file exists in the nix-secrets checkout but is untracked
+  (or the `nix-secrets` flake input is stale), so it is not part of the input.
 - Workaround:
 
 ```bash
-git add secrets/profiles/personal/servers/srv3/bootstrap-password.txt
+git -C ../nix-secrets add secrets/profiles/personal/servers/srv3/bootstrap-password.txt
+git -C ../nix-secrets commit -m "add srv3 bootstrap password" && git -C ../nix-secrets push
+nix flake update nix-secrets
 nix build .#nixosConfigurations.srv3.config.system.build.toplevel
 ```

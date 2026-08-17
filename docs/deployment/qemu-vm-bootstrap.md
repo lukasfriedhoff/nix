@@ -155,7 +155,8 @@ scripts/vms/new-qemu-vm.sh \
 ## Example 2: Local srv3-style VM bootstrap (tested flow)
 
 This is the runbook to reuse when creating a local homelab VM with a root disk,
-dedicated swap disk, and additional Ceph data disks.
+dedicated swap disk, and additional data disks (the `srv3-ceph*` serials below
+are historical names from the since-removed Ceph setup).
 
 1. Create/update host files in this repo first:
 
@@ -216,7 +217,7 @@ scripts/servers/deploy-from-iso.sh \
   root@<installer-ip> \
   --identity ~/.ssh/personal/srv3-personal-mgmt \
   --ssh-option IdentitiesOnly=yes \
-  --luks-secret secrets/profiles/personal/shared/luks/srv3.txt
+  --luks-secret ../nix-secrets/secrets/profiles/personal/shared/luks/srv3.txt
 ```
 
 5. First boot after install will wait for LUKS unlock (initrd SSH on `:2222`):
@@ -267,4 +268,3 @@ Expected disk shape for this example:
 - In `netboot` mode on `qemu:///system`, libvirt stages kernel/initrd under `/var/lib/libvirt/boot`.
   If that directory is missing, create it on the libvirt host (for example `sudo mkdir -p /var/lib/libvirt/boot`).
 - If you use `--bridge`, it is used instead of `--network`.
-- If Ceph units fail with “cluster with the same fsid already exists”, the Ceph disks still contain old cluster state and must be reprovisioned per `docs/services/ceph.md`.

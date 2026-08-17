@@ -3,12 +3,45 @@
 This document explains the `secretsByProfile` pattern used to route encrypted secrets
 to the correct hosts.
 
+## The nix-secrets split
+
+Encrypted secrets no longer live in this repository. They moved to the private
+repo [github.com/lukasfriedhoff/nix-secrets](https://github.com/lukasfriedhoff/nix-secrets),
+which this flake consumes as the `nix-secrets` input (`git+ssh`, `flake = false`):
+
+```nix
+nix-secrets.url = "git+ssh://git@github.com/lukasfriedhoff/nix-secrets?ref=main&shallow=1";
+nix-secrets.flake = false;
+```
+
+Key consequences:
+
+- This repo has **no `secrets/` directory and no `.sops.yaml`**. The private
+  repo keeps the old layout (`secrets/profiles/{common,personal,work}/...`)
+  with `.sops.yaml` at its root, so all existing `path_regex` rules still match.
+- `flake.nix` derives all secret roots from
+  `${inputs.nix-secrets}/secrets/profiles`.
+- Scripts resolve the local checkout via the `NIX_SECRETS_DIR` env var,
+  defaulting to `../nix-secrets` next to this repo (see `secrets_root()` in
+  `scripts/lib/common.sh`). Manual `sops` commands are run against that
+  checkout.
+- CI fetches the input with a read-only deploy key stored as the
+  `NIX_SECRETS_DEPLOY_KEY` repository secret.
+- Age key locations: desktops use `~/.config/sops/age/keys.txt` (bootstrapped
+  to `/var/lib/sops-nix/age/keys.txt`), servers use
+  `/var/lib/sops-nix/age/keys.txt`.
+
+All `secrets/profiles/...` paths in the rest of this document (and the other
+docs) refer to paths **inside the nix-secrets repo**.
+
 ## Overview
 
 Secrets are organized by profile (personal/work) and role (desktop/server), with each
 host receiving a tailored set of secret paths via `specialArgs`.
 
 ## Directory Structure
+
+In the nix-secrets repo:
 
 ```
 secrets/profiles/
@@ -39,26 +72,25 @@ secrets/profiles/
 
 ## The secretsByProfile Map
 
-In `flake.nix`, each host profile maps to a set of secret directories:
+In `flake.nix`, each host profile maps to a set of secret directories rooted in
+the nix-secrets input. Personal profiles all share one shape, built by
+`mkPersonalSecrets` (via `mkPersonalDesktopSecrets` / `mkPersonalServerSecrets`):
 
 ```nix
-secretsByProfile = {
-  tux = {
-    primary = personalDesktopRoot "tux-h4xx-01";      # Host-specific
-    shared = sharedCommonRoot;                         # Cross-profile
-    profileShared = personalSharedRoot;                # Personal profile shared
-    profileCommon = personalCommonDesktopRoot;         # Personal desktop common
-    ceph = "${personalProfileRoot}/servers/ceph";      # Ceph secrets
-    root = personalDesktopRoot "tux-h4xx-01";          # Alias for primary
-    personal = personalDesktopRoot "tux-h4xx-01";      # Personal alias
-  };
-  mac = {
-    primary = workDesktopRoot "macbook-pro";
-    shared = sharedCommonRoot;
-    profileShared = workSharedRoot;
-    root = workDesktopRoot "macbook-pro";
-    dacoso = workDesktopRoot "macbook-pro";            # Work alias
-  };
+profilesRoot = "${inputs.nix-secrets}/secrets/profiles";
+
+mkPersonalSecrets = primary: {
+  inherit primary;                                     # Host-specific
+  shared = sharedCommonRoot;                           # Cross-profile
+  profileShared = personalSharedRoot;                  # Personal profile shared
+  profileCommon = personalCommonDesktopRoot;           # Personal desktop common
+  root = primary;                                      # Alias for primary
+  personal = primary;                                  # Personal alias
+};
+
+secretsByProfile = nixpkgs.lib.genAttrs homelabHosts mkPersonalServerSecrets // {
+  tux = mkPersonalDesktopSecrets "tux-h4xx-01";
+  mac = mkWorkSecrets "${workProfileRoot}/desktops/macbook-pro";
   # ... other hosts
 };
 ```
@@ -94,26 +126,23 @@ The pattern supports multiple resolution strategies:
 1. **Direct path**: `secrets.primary` → host-specific directory
 2. **Shared path**: `secrets.shared` → cross-profile secrets
 3. **Profile shared**: `secrets.profileShared` → profile-level shared
-4. **Service-specific**: `secrets.ceph` → Ceph cluster secrets
+4. **Profile common**: `secrets.profileCommon` → personal desktop common material
 
 ## Adding a New Host
 
-1. Create secret directory:
+1. Create the secret directory in the nix-secrets checkout:
    ```bash
-   mkdir -p secrets/profiles/<profile>/<type>/<hostname>
+   mkdir -p "${NIX_SECRETS_DIR:-../nix-secrets}/secrets/profiles/<profile>/<type>/<hostname>"
    ```
 
-2. Add to `secretsByProfile` in `flake.nix`:
+2. Add to `secretsByProfile` in `flake.nix` (homelab hosts whose flake attr,
+   secrets profile, and host directory share one name only need an entry in
+   the `homelabHosts` list):
    ```nix
-   newhost = {
-     primary = <profile><Type>Root "<hostname>";
-     shared = sharedCommonRoot;
-     profileShared = <profile>SharedRoot;
-     # ... additional paths as needed
-   };
+   newhost = mkPersonalServerSecrets "<hostname>";  # or mkPersonalDesktopSecrets / mkWorkSecrets
    ```
 
-3. Update `.sops.yaml` with the host's Age public key:
+3. Update the `.sops.yaml` at the nix-secrets repo root with the host's Age public key:
    ```yaml
    keys:
      - &newhost age1...
@@ -128,7 +157,7 @@ The pattern supports multiple resolution strategies:
 
 | Profile | Description | Hosts |
 |---------|-------------|-------|
-| personal | Personal infrastructure | tux, tab, lenovo, srv4, srv1, srv2, srv3, srv5-k3s-stg1, srv6-k3s-stg2, srv7-k3s-stg3 |
+| personal | Personal infrastructure | tux, tab, lenovo, srv4, srv1, srv2, srv3, srv5-k3s-stg1, srv6-k3s-stg2, srv7-k3s-stg3, srv8, srv9, testingrke2-01..03 |
 | work | Customer/work infrastructure | mac, docker-host-01, timebutler-test-vm |
 
 ## Best Practices

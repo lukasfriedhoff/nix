@@ -57,7 +57,8 @@ The profile should be either "personal" or "work" depending on the host.
 
 ### 5. Add Host to Secrets Management
 
-Create the secret directories and add host-specific keys.
+Create the secret directories in the private nix-secrets checkout (default
+`../nix-secrets`, override with `NIX_SECRETS_DIR`) and add host-specific keys.
 
 Add to `flake.nix` in the `secretsByProfile` section:
 
@@ -70,7 +71,7 @@ Add to `flake.nix` in the `secretsByProfile` section:
 };
 ```
 
-Update `.sops.yaml` with the host's Age public key.
+Update the `.sops.yaml` at the nix-secrets repo root with the host's Age public key.
 
 ### 6. Configure Host in Flakes
 
@@ -183,7 +184,7 @@ Desktop hosts typically enable:
 
 Server hosts typically enable:
 - System services
-- Storage modules (Ceph, etc.)
+- Storage modules (Longhorn disks, etc.)
 - Network security modules
 - Monitoring tools
 - Automation modules

@@ -219,9 +219,13 @@ Each host must contain:
 
 ## 4) Secrets (Separate Staging Secrets)
 
+Secrets live in the private nix-secrets repo; run these commands in that
+checkout (default `../nix-secrets`, override with `NIX_SECRETS_DIR`).
+
 Create per-host secrets (examples):
 
 ```bash
+cd ../nix-secrets
 mkdir -p secrets/profiles/personal/servers/srv5-k3s-stg1
 mkdir -p secrets/profiles/personal/servers/srv6-k3s-stg2
 mkdir -p secrets/profiles/personal/servers/srv7-k3s-stg3
@@ -234,7 +238,7 @@ print(''.join(secrets.choice(alphabet) for _ in range(48)))
 PY
 ```
 
-Then store and encrypt:
+Then store and encrypt (still in the nix-secrets checkout):
 
 ```bash
 printf '<password>' > secrets/profiles/personal/servers/srv5-k3s-stg1/bootstrap-password.txt
@@ -306,8 +310,8 @@ kustomize build overlays/staging-3vm >/tmp/staging-3vm-render.yaml
 Create dedicated staging tunnel and credentials secret.
 
 ```bash
-# use mgmt token from sops secret
-cd /home/lukasf/git/lukasfriedhoff/nix
+# use mgmt token from sops secret (nix-secrets checkout)
+cd /home/lukasf/git/lukasfriedhoff/nix-secrets
 sops -d secrets/profiles/personal/shared/cloudflare/api-mgmt.token.txt > /tmp/cf-token.json
 export CLOUDFLARE_API_TOKEN="$(jq -r '.data' /tmp/cf-token.json)"
 ```
@@ -334,7 +338,7 @@ cd /home/lukasf/git/lukasfriedhoff/nix
 
 scripts/servers/deploy-from-iso.sh srv5-k3s-stg1 root@<ISO_IP_SRV5> \
   --identity ~/.ssh/personal/srv5-k3s-stg1-personal-mgmt \
-  --luks-secret secrets/profiles/personal/shared/luks/srv5-k3s-stg1.txt
+  --luks-secret ../nix-secrets/secrets/profiles/personal/shared/luks/srv5-k3s-stg1.txt
 ```
 
 Repeat for `srv6` and `srv7`.

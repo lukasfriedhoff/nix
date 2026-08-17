@@ -26,7 +26,7 @@ modules/
     ├── desktop/
     │   ├── gnome/nixos.nix
     │   └── aerospace/home.nix
-    ├── ceph/nixos.nix
+    ├── comin/nixos.nix
     ├── gaming/
     │   ├── nixos.nix
     │   └── icarus-mod-manager/home.nix

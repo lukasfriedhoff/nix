@@ -3,10 +3,13 @@
 Use this guide when a machine is booted into the stock NixOS installer (ISO,
 PXE, kexec). The workflow is optimised for two classes of machines:
 
-| Scope     | Managers that receive the private key | Secrets root                                           |
+| Scope     | Managers that receive the private key | Secrets root (in the nix-secrets repo)                 |
 |-----------|---------------------------------------|--------------------------------------------------------|
-| personal  | `tux-h4xx-01`, `tab-h4xx-02`, `lenovo-h4xx-03`, `lenovo-h4xx-04` | `secrets/profiles/personal/desktops/<manager>/ssh`     |
+| personal  | `tux-h4xx-01`, `tab-h4xx-02`, `lenovo-h4xx-03` | `secrets/profiles/personal/desktops/<manager>/ssh`     |
 | work      | `macbook-pro`                         | `secrets/profiles/work/desktops/macbook-pro/ssh`       |
+
+Secret material lives in the private nix-secrets repo; scripts locate the local
+checkout via `NIX_SECRETS_DIR` (default: `../nix-secrets` next to this repo).
 
 ### 0. Prerequisites
 
@@ -15,8 +18,8 @@ PXE, kexec). The workflow is optimised for two classes of machines:
   (the wrapper script calls it via `nix run`)
 - Reachability (wired LAN or console access) to the installer
 - The host’s secrets directory under
-  `secrets/profiles/<scope>/servers/<hostname>` – used to store bootstrap
-  credentials and authorized keys
+  `secrets/profiles/<scope>/servers/<hostname>` in the nix-secrets checkout –
+  used to store bootstrap credentials and authorized keys
 
 ### 1. Generate a dedicated management key
 
@@ -32,16 +35,17 @@ scripts/servers/create-management-key.sh my-homelab-node personal
 What this does:
 
 1. Generates an Ed25519 key pair under `tmp/`.
-2. Encrypts the private key into the appropriate secret directories (based on
-   `.sops.yaml` rules).
-3. Stores the public key under `secrets/profiles/<scope>/servers/<hostname>/ssh/`.
+2. Encrypts the private key into the appropriate directories of the nix-secrets
+   checkout (based on its `.sops.yaml` rules).
+3. Stores the public key under `secrets/profiles/<scope>/servers/<hostname>/ssh/`
+   in nix-secrets.
 4. Prints a ready-to-paste entry for `resources/ssh/hosts/personal.nix`.
 
-Commit the resulting secret files (they are encrypted). On the managing
-workstations you can decrypt/install the key with:
+Commit the resulting secret files in the nix-secrets repo (they are encrypted).
+On the managing workstations you can decrypt/install the key with:
 
 ```bash
-sops -d secrets/profiles/personal/desktops/tux-h4xx-01/ssh/<host>-personal-mgmt.priv > ~/.ssh/<host>-mgmt
+sops -d ../nix-secrets/secrets/profiles/personal/desktops/tux-h4xx-01/ssh/<host>-personal-mgmt.priv > ~/.ssh/<host>-mgmt
 chmod 600 ~/.ssh/<host>-mgmt
 ```
 
@@ -55,7 +59,7 @@ public key into `/root/.ssh/authorized_keys`:
 
 ```bash
 host=docker-host-01
-pub="secrets/profiles/work/servers/${host}/ssh/${host}-work-mgmt.pub"
+pub="../nix-secrets/secrets/profiles/work/servers/${host}/ssh/${host}-work-mgmt.pub"
 scp "${pub}" root@<installer-ip>:/tmp/mgmt.pub
 ssh root@<installer-ip> "mkdir -p /root/.ssh && cat /tmp/mgmt.pub >> /root/.ssh/authorized_keys"
 ```
@@ -97,7 +101,8 @@ After the machine reboots into the freshly installed system:
    sudo systemctl status comin.service
    sudo journalctl -u comin.service -n 50
    ```
-   By default it polls the `develop` branch on GitHub every minute.
+   By default it polls the `deploy` branch on GitHub every minute; CI
+   fast-forwards `deploy` from `develop` only after checks pass.
 
 ### 5. Updating SSH configs for operators
 

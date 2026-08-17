@@ -12,9 +12,12 @@ Each host has an Age key stored at:
 /var/lib/sops-nix/age/keys.txt          # Servers
 ```
 
+On personal desktops the user key is additionally bootstrapped to
+`/var/lib/sops-nix/age/keys.txt` so sops-nix can decrypt system secrets.
+
 **Backup procedure:**
 1. Export the key to a secure location (encrypted USB, password manager)
-2. Store the public key in `.sops.yaml` for the host
+2. Store the public key in the nix-secrets repo's `.sops.yaml` for the host
 
 **Recovery:**
 1. Copy the Age key to the appropriate location
@@ -22,65 +25,16 @@ Each host has an Age key stored at:
 
 ### Secret Files
 
-All secrets are stored encrypted in `secrets/profiles/` organized by:
+All secrets are stored encrypted in the private nix-secrets repo under
+`secrets/profiles/`, organized by:
 - `common/shared/` - Cross-profile secrets
 - `personal/desktops/<host>/` - Personal desktop secrets
 - `personal/servers/<host>/` - Personal server secrets
 - `work/desktops/<host>/` - Work desktop secrets
 - `work/servers/<host>/` - Work server secrets
 
-Secrets are automatically backed up via git. The encryption keys (Age) must be backed up separately.
-
-## Ceph Key Backup
-
-The Ceph module (`lukasf.ceph`) provides automatic encrypted backups when `backup.enable = true`.
-
-### Backup Location
-
-```
-/var/lib/ceph/backup/ceph-keys-<fsid>-<timestamp>.tar.gz.enc
-```
-
-### What's Backed Up
-
-- OSD lockbox keyrings
-- Client keyrings
-- Cluster configuration
-
-### Backup Schedule
-
-- **Frequency**: Daily at 03:00
-- **Retention**: 30 days
-
-### Encryption
-
-Backups are encrypted with AES-256-CTR using a passphrase stored as a SOPS secret:
-```
-secrets/profiles/personal/servers/ceph/<fsid>/backup.key
-```
-
-### Restore Procedure
-
-```bash
-# Decrypt the backup passphrase
-tmp_dir="$(mktemp -d)"
-sops -d secrets/profiles/personal/servers/ceph/<fsid>/backup.key > "$tmp_dir/backup.key"
-
-# Decrypt the backup archive
-openssl enc -d -aes-256-ctr -pbkdf2 -salt -md sha256 \
-  -pass "file:$tmp_dir/backup.key" \
-  -in /var/lib/ceph/backup/ceph-keys-<fsid>-<timestamp>.tar.gz.enc \
-  -out "$tmp_dir/ceph-keys.tar.gz"
-
-# Inspect contents first
-tar -tzf "$tmp_dir/ceph-keys.tar.gz"
-
-# Restore keyrings (carefully!)
-tar -xzf "$tmp_dir/ceph-keys.tar.gz" -C /
-
-# Cleanup
-rm -rf "$tmp_dir"
-```
+Secrets are automatically backed up via the nix-secrets repo's git history.
+The encryption keys (Age) must be backed up separately.
 
 ## SSH Keys
 
@@ -91,13 +45,13 @@ Management SSH keys for server access are created via:
 ./scripts/servers/create-management-key.sh <host> <personal|work>
 ```
 
-Keys are stored encrypted under:
+Keys are stored encrypted in the nix-secrets repo under:
 - manager paths (private + public): `secrets/profiles/personal/desktops/common/ssh/` or `secrets/profiles/work/desktops/macbook-pro/ssh/`
 - host paths (public): `secrets/profiles/<profile>/servers/<host>/ssh/`
 
 ### Backup Considerations
 
-- Private keys are SOPS-encrypted in git
+- Private keys are SOPS-encrypted in the nix-secrets repo's git history
 - SSH key deployment mappings are tracked in `resources/ssh/keys.nix`
 - Host SSH keys are generated during installation
 
@@ -116,24 +70,14 @@ Keys are stored encrypted under:
 1. Boot NixOS installer ISO
 2. Run deployment script: `./scripts/servers/deploy-from-iso.sh <host>`
 3. Restore Age key to the server
-4. For Ceph nodes: restore keyrings from backup
-5. Verify services: `systemctl status`
-
-### Lost Ceph OSD
-
-1. Replace failed disk
-2. Update `resources/homelab/disks.nix` with new device path
-3. Set `lukasf.ceph.osd.zapDevices = true` temporarily
-4. Deploy configuration
-5. Revert `zapDevices = false`
-6. Monitor recovery: `ceph -s`
+4. Verify services: `systemctl status`
 
 ### Lost All Encryption Keys
 
 If all Age keys are lost:
 1. Generate new Age keys for each host
-2. Update `.sops.yaml` with new public keys
-3. Re-encrypt all secrets: `sops updatekeys secrets/**/*.yaml`
-4. Commit and deploy
+2. Update the nix-secrets repo's `.sops.yaml` with new public keys
+3. Re-encrypt all secrets in the nix-secrets checkout: `sops updatekeys secrets/**/*.yaml`
+4. Commit (in nix-secrets) and deploy
 
 **Prevention**: Store Age private keys in multiple secure locations.

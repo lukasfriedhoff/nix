@@ -4,6 +4,10 @@ The MikroTik at Rüttenscheider Straße exposes a WireGuard hub (endpoint
 stored in `secrets/profiles/personal/shared/wireguard/endpoint.txt`). Every personal machine now has a
 `wg-homelab` interface that can be enabled declaratively.
 
+All secret paths in this document live in the private nix-secrets repo; run
+`sops` from that checkout (default `../nix-secrets`, override with
+`NIX_SECRETS_DIR`).
+
 ### Addresses per host
 
 | Host            | Address / CIDR  | Private key secret                                                           |
@@ -39,8 +43,8 @@ sops secrets/profiles/personal/desktops/tux-h4xx-01/wireguard/homelab.priv
 ```
 
 Repeat for `tab`, `lenovo`, and `srv4`. The files are encrypted with the per-host age
-recipient defined in `.sops.yaml`, so only that machine (plus the admin box)
-can decrypt them.
+recipient defined in the nix-secrets repo's `.sops.yaml`, so only that machine
+(plus the admin box) can decrypt them.
 
 ### Bringing the tunnel up
 
