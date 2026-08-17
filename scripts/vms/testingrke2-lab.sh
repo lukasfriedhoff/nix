@@ -2,8 +2,22 @@
 
 set -euo pipefail
 
+# Prefer Nix-provided Bash on macOS (default /bin/bash is 3.2; empty-array
+# expansion under `set -u` errors there).
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
+  for candidate in \
+    /run/current-system/sw/bin/bash \
+    "/etc/profiles/per-user/${USER:-}/bin/bash"; do
+    if [[ -x "$candidate" ]]; then
+      exec "$candidate" "$0" "$@"
+    fi
+  done
+fi
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
+
+. "${repo_root}/scripts/lib/common.sh"
 
 readonly network_name="testingrke2"
 readonly network_gateway="192.168.124.1"
@@ -51,15 +65,6 @@ Environment:
   TESTINGRKE2_KUBECONFIG         Destination kubeconfig
   TESTINGRKE2_DRY_RUN=1          Print mutating commands without running them
 EOF
-}
-
-log() {
-  printf '>> %s\n' "$*"
-}
-
-die() {
-  printf 'error: %s\n' "$*" >&2
-  exit 1
 }
 
 run() {
@@ -175,9 +180,11 @@ create_vms() {
 decrypt_node_key() {
   local node="$1"
   local destination="$2"
-  local source="secrets/profiles/personal/desktops/common/ssh/${node}-personal-mgmt.priv"
+  local secrets_dir source
+  secrets_dir="$(secrets_root)"
+  source="${secrets_dir}/secrets/profiles/personal/desktops/common/ssh/${node}-personal-mgmt.priv"
   [[ -f "$source" ]] || die "encrypted management key not found: ${source}"
-  SOPS_CONFIG="$repo_root/.sops.yaml" sops -d "$source" >"$destination"
+  SOPS_CONFIG="${secrets_dir}/.sops.yaml" sops -d "$source" >"$destination"
   chmod 0600 "$destination"
 }
 
@@ -261,9 +268,10 @@ wait_for_api() {
 
 deploy_one() (
   local node="$1"
-  local index ip key
+  local index ip key secrets_dir
   index="$(node_index "$node")"
   ip="${node_ips[$index]}"
+  secrets_dir="$(secrets_root)"
   key="$(mktemp)"
   trap 'rm -f "$key"' EXIT
   decrypt_node_key "$node" "$key"
@@ -274,7 +282,7 @@ deploy_one() (
     "root@${ip}" \
     --identity "$key" \
     --ssh-option IdentitiesOnly=yes \
-    --luks-secret "secrets/profiles/personal/shared/luks/${node}.txt"
+    --luks-secret "${secrets_dir}/secrets/profiles/personal/shared/luks/${node}.txt"
 
   if [[ "${TESTINGRKE2_DRY_RUN:-0}" == "1" ]]; then
     return

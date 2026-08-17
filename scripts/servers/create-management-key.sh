@@ -3,6 +3,20 @@
 
 set -euo pipefail
 
+# Prefer Nix-provided Bash on macOS (default /bin/bash is 3.2; empty-array
+# expansion under `set -u` errors there).
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
+  for candidate in \
+    /run/current-system/sw/bin/bash \
+    "/etc/profiles/per-user/${USER:-}/bin/bash"; do
+    if [[ -x "$candidate" ]]; then
+      exec "$candidate" "$0" "$@"
+    fi
+  done
+fi
+
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
+
 if [[ $# -lt 2 ]]; then
   cat <<'USAGE'
 Usage: scripts/servers/create-management-key.sh <host> <scope>
@@ -10,6 +24,9 @@ Usage: scripts/servers/create-management-key.sh <host> <scope>
 Scopes:
   personal   -> installs keys for ~/.ssh on tux + tab and writes public key for the host
   work/dacoso -> installs keys for the Macbook Pro secret tree
+
+Key material is written into the private nix-secrets checkout
+(default: ../nix-secrets, override with NIX_SECRETS_DIR).
 
 Example:
   scripts/servers/create-management-key.sh docker-host-01 dacoso
@@ -21,6 +38,9 @@ host="$1"
 scope="$2"
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+
+secrets_dir="$(secrets_root)"
+sops_cfg="${secrets_dir}/.sops.yaml"
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 key_label="${host}-${scope}-mgmt"
@@ -35,16 +55,16 @@ hosts_file="resources/ssh/hosts/personal.nix"
 case "${scope}" in
   personal)
     manager_paths=(
-      "secrets/profiles/personal/desktops/common/ssh"
+      "${secrets_dir}/secrets/profiles/personal/desktops/common/ssh"
     )
-    host_scope_dir="secrets/profiles/personal/servers/${host}/ssh"
+    host_scope_dir="${secrets_dir}/secrets/profiles/personal/servers/${host}/ssh"
     ;;
   dacoso|work)
     manager_paths=(
-      "secrets/profiles/work/desktops/macbook-pro/ssh"
+      "${secrets_dir}/secrets/profiles/work/desktops/macbook-pro/ssh"
     )
     hosts_file="resources/ssh/hosts/dacoso.nix"
-    host_scope_dir="secrets/profiles/work/servers/${host}/ssh"
+    host_scope_dir="${secrets_dir}/secrets/profiles/work/servers/${host}/ssh"
     ;;
   *)
     echo "!! Unknown scope '${scope}'. Use 'personal' or 'work' (alias 'dacoso')." >&2
@@ -59,7 +79,7 @@ for dir in "${manager_paths[@]}"; do
   if command -v sops >/dev/null 2>&1; then
     # Encrypt in place so creation rules match the destination path
     cp "${tmpdir}/id_ed25519" "${dest_priv}"
-    SOPS_CONFIG="${repo_root}/.sops.yaml" \
+    SOPS_CONFIG="$sops_cfg" \
       sops --verbose --encrypt --input-type binary --in-place "${dest_priv}"
   else
     echo "!! sops not found – writing unencrypted private key. Run 'nix run nixpkgs#sops -- --encrypt ${dest_priv}' later!" >&2
@@ -70,13 +90,13 @@ done
 mkdir -p "${host_scope_dir}"
 dest_host_pub="${host_scope_dir}/${key_label}.pub"
 cp "${tmpdir}/id_ed25519.pub" "${dest_host_pub}"
-SOPS_CONFIG="${repo_root}/.sops.yaml" \
+SOPS_CONFIG="$sops_cfg" \
   sops --verbose --encrypt --input-type binary --in-place "${dest_host_pub}"
 for dir in "${manager_paths[@]}"; do
   dest_pub="${dir}/${key_label}.pub"
   echo ">> Storing encrypted public key at ${dest_pub}"
   cp "${tmpdir}/id_ed25519.pub" "${dest_pub}"
-  SOPS_CONFIG="${repo_root}/.sops.yaml" \
+  SOPS_CONFIG="$sops_cfg" \
     sops --verbose --encrypt --input-type binary --in-place "${dest_pub}"
 done
 echo ">> Saved encrypted public key to ${dest_host_pub} and manager paths"
@@ -84,7 +104,7 @@ echo ">> Saved encrypted public key to ${dest_host_pub} and manager paths"
 cat <<EOF
 
 Next steps for ${host}:
-  1. Commit the new key material in secrets (they are encrypted according to .sops.yaml).
+  1. Commit the new key material in the nix-secrets repo (encrypted according to its .sops.yaml).
   2. Add the following entry to ${hosts_file} if it does not exist yet:
 
      {

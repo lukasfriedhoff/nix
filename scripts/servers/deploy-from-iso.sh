@@ -3,6 +3,20 @@
 
 set -euo pipefail
 
+# Prefer Nix-provided Bash on macOS (default /bin/bash is 3.2; empty-array
+# expansion under `set -u` errors there).
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
+  for candidate in \
+    /run/current-system/sw/bin/bash \
+    "/etc/profiles/per-user/${USER:-}/bin/bash"; do
+    if [[ -x "$candidate" ]]; then
+      exec "$candidate" "$0" "$@"
+    fi
+  done
+fi
+
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
+
 usage() {
   cat <<'USAGE'
 Usage: scripts/servers/deploy-from-iso.sh <nixosConfiguration> <target> [options] [extra nixos-anywhere args...]
@@ -10,14 +24,17 @@ Usage: scripts/servers/deploy-from-iso.sh <nixosConfiguration> <target> [options
 Examples:
   scripts/servers/deploy-from-iso.sh docker-host-01 root@10.7.5.5
   scripts/servers/deploy-from-iso.sh my-homelab-node root@192.168.42.15 --with-kexec
-  scripts/servers/deploy-from-iso.sh srv1 root@10.1.30.12 --luks-secret secrets/profiles/personal/shared/luks/srv1.txt
+  scripts/servers/deploy-from-iso.sh srv1 root@10.1.30.12 --luks-secret ../nix-secrets/secrets/profiles/personal/shared/luks/srv1.txt
   scripts/servers/deploy-from-iso.sh srv2 root@10.1.30.22 \
-    --luks-secret secrets/profiles/personal/shared/luks/srv2.txt \
-    --disk-secret /tmp/luks-mdraid.key secrets/profiles/personal/shared/luks/srv2-mdraid.txt
+    --luks-secret ../nix-secrets/secrets/profiles/personal/shared/luks/srv2.txt \
+    --disk-secret /tmp/luks-mdraid.key ../nix-secrets/secrets/profiles/personal/shared/luks/srv2-mdraid.txt
   scripts/servers/deploy-from-iso.sh srv3 root@192.168.122.56 --identity ~/.ssh/srv3-personal-mgmt
 
 This is a thin wrapper around nixos-anywhere. The first argument must match a nixosConfigurations.<name>
 defined in the flake. The target is the SSH destination of the temporary installer environment.
+
+Secrets live in the private nix-secrets checkout (default: ../nix-secrets,
+override with NIX_SECRETS_DIR).
 
 Options:
   --luks-secret <sops-file>  Decrypt and pass LUKS key via --disk-encryption-keys.
@@ -27,7 +44,9 @@ Options:
                              Decrypt and include host Age key at
                              /var/lib/sops-nix/age/keys.txt via
                              nixos-anywhere --extra-files. If omitted, defaults to
-                             secrets/profiles/personal/servers/<host>/age.key when present.
+                             <nix-secrets>/secrets/profiles/personal/servers/<host>/age.key,
+                             which must exist unless --no-age-key is passed.
+  --no-age-key               Deploy without bootstrapping a sops Age key.
   --identity <private-key>   SSH identity file for both preflight SSH and nixos-anywhere.
   --ssh-option <opt>         Extra SSH option (repeatable), e.g. --ssh-option IdentitiesOnly=yes
   --with-kexec               Include the kexec phase (default behavior skips kexec for ISO installs).
@@ -42,6 +61,7 @@ fi
 config="$1"; target="$2"; shift 2
 luks_secret=""
 age_key_secret=""
+no_age_key=false
 identity_file=""
 with_kexec=false
 user_ssh_options=()
@@ -67,6 +87,10 @@ while [[ $# -gt 0 ]]; do
     --age-key-secret)
       age_key_secret="$2"
       shift 2
+      ;;
+    --no-age-key)
+      no_age_key=true
+      shift
       ;;
     --identity)
       identity_file="$2"
@@ -101,7 +125,9 @@ cleanup() {
   if [[ -n "$tmp_key" && -f "$tmp_key" ]]; then
     rm -f "$tmp_key"
   fi
-  for key in "${tmp_keys[@]}"; do
+  # ${arr[@]+...} keeps the expansion safe on empty arrays under bash 3.2
+  # `set -u`, so decrypted keys are cleaned up even before the re-exec guard.
+  for key in ${tmp_keys[@]+"${tmp_keys[@]}"}; do
     [[ -f "$key" ]] && rm -f "$key"
   done
   if [[ -n "$tmp_age_key" && -f "$tmp_age_key" ]]; then
@@ -125,9 +151,19 @@ if [[ -n "$luks_secret" || ${#disk_secret_files[@]} -gt 0 ]]; then
   fi
 fi
 
+# Resolve and export SOPS_CONFIG from the nix-secrets checkout unless the
+# caller already provided one. Idempotent; called before every sops use.
+ensure_sops_config() {
+  if [[ -z "${SOPS_CONFIG:-}" ]]; then
+    SOPS_CONFIG="$(sops_config)"
+  fi
+  export SOPS_CONFIG
+}
+
 if [[ -n "$luks_secret" ]]; then
+  ensure_sops_config
   tmp_key="$(mktemp)"
-  SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "$luks_secret" | tr -d '\r\n' > "$tmp_key"
+  sops -d "$luks_secret" | tr -d '\r\n' > "$tmp_key"
   extra_args+=(--disk-encryption-keys /tmp/luks.key "$tmp_key")
 fi
 
@@ -143,10 +179,23 @@ has_option_prefix() {
   return 1
 }
 
-if [[ -z "$age_key_secret" ]]; then
-  default_age_key_secret="secrets/profiles/personal/servers/${config}/age.key"
+if [[ "$no_age_key" == true && -n "$age_key_secret" ]]; then
+  die "--no-age-key conflicts with --age-key-secret"
+fi
+
+if [[ "$no_age_key" == false && -z "$age_key_secret" ]]; then
+  secrets_dir="$(secrets_root)"
+  default_age_key_secret="${secrets_dir}/secrets/profiles/personal/servers/${config}/age.key"
   if [[ -f "$default_age_key_secret" ]]; then
     age_key_secret="$default_age_key_secret"
+  else
+    die "sops Age key for ${config} not found at ${default_age_key_secret}
+Deploying without it would leave the host unable to decrypt its secrets.
+Fix one of:
+  - generate it (scripts/homelab/new-host.sh) and re-run,
+  - set NIX_SECRETS_DIR if your nix-secrets checkout lives elsewhere,
+  - pass --age-key-secret <sops-file> explicitly, or
+  - pass --no-age-key to deploy without a sops Age key on purpose."
   fi
 fi
 
@@ -159,13 +208,14 @@ if [[ -n "$age_key_secret" ]]; then
     echo "error: sops not found but --age-key-secret was provided/detected" >&2
     exit 8
   fi
-  if has_option_prefix "--extra-files" "${extra_args[@]}"; then
+  if has_option_prefix "--extra-files" ${extra_args[@]+"${extra_args[@]}"}; then
     echo ">> Skipping auto Age key bootstrap because --extra-files is already set." >&2
     echo ">> Include /var/lib/sops-nix/age/keys.txt in your custom --extra-files payload." >&2
   else
+    ensure_sops_config
     tmp_age_key="$(mktemp)"
     tmp_extra_files="$(mktemp -d)"
-    SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "$age_key_secret" > "$tmp_age_key"
+    sops -d "$age_key_secret" > "$tmp_age_key"
     install -d -m 0700 "$tmp_extra_files/var/lib/sops-nix/age"
     install -m 0600 "$tmp_age_key" "$tmp_extra_files/var/lib/sops-nix/age/keys.txt"
     extra_args+=(--extra-files "$tmp_extra_files")
@@ -216,28 +266,26 @@ if not sanitized:
 print(sanitized + ("\n" if sanitized else ""))'
 }
 
-default_ssh_options=(
-  "StrictHostKeyChecking=no"
-  "UserKnownHostsFile=/dev/null"
-  "ConnectTimeout=5"
-  "ConnectionAttempts=1"
-)
-ssh_options=("${default_ssh_options[@]}")
-ssh_options+=("${user_ssh_options[@]}")
+ssh_options=()
+while IFS= read -r opt; do
+  ssh_options+=("$opt")
+done < <(ssh_base_opts)
+ssh_options+=(${user_ssh_options[@]+"${user_ssh_options[@]}"})
 
 if [[ -n "$identity_file" ]] && ! has_option_prefix "IdentitiesOnly" "${ssh_options[@]}"; then
   ssh_options+=("IdentitiesOnly=yes")
 fi
 
-for i in "${!disk_secret_files[@]}"; do
+for i in ${disk_secret_files[@]+"${!disk_secret_files[@]}"}; do
+  ensure_sops_config
   tmp_disk_key="$(mktemp)"
-  SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}" sops -d "${disk_secret_files[$i]}" | tr -d '\r\n' > "$tmp_disk_key"
+  sops -d "${disk_secret_files[$i]}" | tr -d '\r\n' > "$tmp_disk_key"
   tmp_keys+=("$tmp_disk_key")
   extra_args+=(--disk-encryption-keys "${disk_secret_paths[$i]}" "$tmp_disk_key")
 done
 
 copy_host_keys=true
-for arg in "${extra_args[@]}"; do
+for arg in ${extra_args[@]+"${extra_args[@]}"}; do
   if [[ "$arg" == "--copy-host-keys" ]]; then
     copy_host_keys=false
     break
@@ -248,7 +296,7 @@ if [[ "$copy_host_keys" == true ]]; then
 fi
 
 phases_already_set=false
-for arg in "${extra_args[@]}"; do
+for arg in ${extra_args[@]+"${extra_args[@]}"}; do
   if [[ "$arg" == "--phases" || "$arg" == "--phases="* || "$arg" == "--kexec" ]]; then
     phases_already_set=true
     break

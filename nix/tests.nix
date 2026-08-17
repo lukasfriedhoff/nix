@@ -373,9 +373,14 @@
         // x86_64LinuxOnlyChecks
         // collectAndMerge extractIntegrationTests
       );
+      # Guard the mac config with `nix flake check` on darwin. Kept behind
+      # optionalAttrs so Linux runs never evaluate darwinConfigurations.
+      darwinChecks = lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "aarch64-darwin") {
+        macbook-pro-eval = self.darwinConfigurations.macbook-pro.system;
+      };
     in
     {
-      checks = linuxChecks;
+      checks = linuxChecks // darwinChecks;
     };
 
   flake.nixosModules.integrationTests =

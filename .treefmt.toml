@@ -1,9 +1,0 @@
-excludes = [
-  "result/**",
-  "examples/**",
-  ".git/**",
-]
-
-[formatter.nixfmt]
-command = "nixfmt"
-includes = ["*.nix"]

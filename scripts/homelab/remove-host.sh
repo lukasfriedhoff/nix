@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
+
 usage() {
   cat <<'EOF'
 Usage: scripts/homelab/remove-host.sh --host <short> [--keep-host-dir] [--delete-secrets]
@@ -13,14 +15,12 @@ Removes a personal homelab host:
   - removes disk inventory entries from resources/homelab/disks.nix
   - removes host (and orphaned cluster) entries from resources/homelab/ceph.nix
   - drops flake.nix entries (secretsByProfile + nixosConfigurations)
-  - optionally deletes secrets/profiles/personal/servers/<host>/ plus shared LUKS/desktop mgmt keys when --delete-secrets is set
+  - purges the host's Age recipient from the nix-secrets .sops.yaml
+  - optionally deletes <nix-secrets>/secrets/profiles/personal/servers/<host>/ plus shared LUKS/desktop mgmt keys when --delete-secrets is set
+
+Secrets live in the private nix-secrets checkout (default: ../nix-secrets,
+override with NIX_SECRETS_DIR).
 EOF
-}
-
-die() { echo "error: $*" >&2; exit 1; }
-
-need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
 }
 
 host=""
@@ -44,6 +44,9 @@ need_cmd python3
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+
+# Resolve up-front so we fail before mutating anything.
+secrets_dir="$(secrets_root)"
 
 host_dir="hosts/homelab/${host}"
 if [[ -d "$host_dir" ]]; then
@@ -297,8 +300,8 @@ text = re.sub(
 path.write_text(text)
 PY
 
-# Purge host-specific Age recipient comments from .sops.yaml
-python3 - "$host" ".sops.yaml" <<'PY'
+# Purge host-specific Age recipient comments from the nix-secrets .sops.yaml
+python3 - "$host" "${secrets_dir}/.sops.yaml" <<'PY'
 import sys, pathlib
 host, path = sys.argv[1], pathlib.Path(sys.argv[2])
 text = path.read_text()
@@ -308,17 +311,17 @@ if host in text:
 PY
 
 if [[ "$delete_secrets" == true ]]; then
-  secrets_dir="secrets/profiles/personal/servers/${host}"
-  if [[ -d "$secrets_dir" ]]; then
-    echo ">> Deleting secrets dir ${secrets_dir}"
-    rm -rf -- "$secrets_dir"
+  host_secrets_dir="${secrets_dir}/secrets/profiles/personal/servers/${host}"
+  if [[ -d "$host_secrets_dir" ]]; then
+    echo ">> Deleting secrets dir ${host_secrets_dir}"
+    rm -rf -- "$host_secrets_dir"
   else
-    echo ">> Secrets dir not found (skipping): ${secrets_dir}"
+    echo ">> Secrets dir not found (skipping): ${host_secrets_dir}"
   fi
 
   # Remove desktop-common management key copies
-  desk_priv="secrets/profiles/personal/desktops/common/ssh/${host}-personal-mgmt.priv"
-  desk_pub="secrets/profiles/personal/desktops/common/ssh/${host}-personal-mgmt.pub"
+  desk_priv="${secrets_dir}/secrets/profiles/personal/desktops/common/ssh/${host}-personal-mgmt.priv"
+  desk_pub="${secrets_dir}/secrets/profiles/personal/desktops/common/ssh/${host}-personal-mgmt.pub"
   for f in "$desk_priv" "$desk_pub"; do
     if [[ -f "$f" ]]; then
       echo ">> Deleting ${f}"
@@ -328,7 +331,7 @@ if [[ "$delete_secrets" == true ]]; then
     fi
   done
 
-  shared_luks="secrets/profiles/personal/shared/luks/${host}.txt"
+  shared_luks="${secrets_dir}/secrets/profiles/personal/shared/luks/${host}.txt"
   if [[ -f "$shared_luks" ]]; then
     echo ">> Deleting ${shared_luks}"
     rm -f -- "$shared_luks"
@@ -336,7 +339,7 @@ if [[ "$delete_secrets" == true ]]; then
     echo ">> Shared LUKS secret not found (skipping): ${shared_luks}"
   fi
 else
-  echo ">> Secrets dir kept (use --delete-secrets to remove): secrets/profiles/personal/servers/${host}"
+  echo ">> Secrets dir kept (use --delete-secrets to remove): ${secrets_dir}/secrets/profiles/personal/servers/${host}"
 fi
 
 echo ">> Removal complete."

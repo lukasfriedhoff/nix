@@ -5,6 +5,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
+. "${repo_root}/scripts/lib/common.sh"
+
+secrets_dir="$(secrets_root)"
+
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
   exit 1
@@ -42,17 +46,17 @@ for index in 01 02 03; do
     || fail "missing host configuration for ${host}"
   test -f "hosts/homelab/${host}/initrd-authorized.pub" \
     || fail "missing initrd key for ${host}"
-  test -f "secrets/profiles/personal/servers/${host}/rke2-token.txt" \
+  test -f "${secrets_dir}/secrets/profiles/personal/servers/${host}/rke2-token.txt" \
     || fail "missing encrypted RKE2 token for ${host}"
-  test -f "secrets/profiles/personal/shared/luks/${host}.txt" \
+  test -f "${secrets_dir}/secrets/profiles/personal/shared/luks/${host}.txt" \
     || fail "missing encrypted LUKS secret for ${host}"
   assert_contains flake.nix "${host} ="
-  assert_contains .sops.yaml "# ${host}"
+  assert_contains "${secrets_dir}/.sops.yaml" "# ${host}"
 done
 
 token_hashes="$(
   for index in 01 02 03; do
-    sha256sum "secrets/profiles/personal/servers/testingrke2-${index}/rke2-token.txt"
+    sha256sum "${secrets_dir}/secrets/profiles/personal/servers/testingrke2-${index}/rke2-token.txt"
   done | cut -d' ' -f1 | sort -u | wc -l
 )"
 if [[ "$token_hashes" -ne 3 ]]; then

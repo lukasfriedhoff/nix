@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
+
 usage() {
   cat <<'EOF'
 Usage: scripts/homelab/new-host.sh --host <short> --fqdn <fqdn> --root-disk-id <by-id> [--ip <addr>] [--fs ext4|btrfs] [--allow-existing] [--rewrite-config] [--update-flake]
@@ -11,18 +13,15 @@ Automates personal homelab host bootstrap:
   - copies hosts/homelab/template to hosts/homelab/<host> and fills host/domain/ip/key paths
   - writes a disko layout (defaults to ext4) using /dev/disk/by-id/<root-disk-id>
   - generates per-host management SSH key via create-management-key.sh
-  - generates per-host Age key and appends it to .sops.yaml (with a hostname comment)
-  - creates an encrypted LUKS passphrase under secrets/profiles/personal/shared/luks/<host>.txt
+  - generates per-host Age key and appends it to the nix-secrets .sops.yaml (with a hostname comment)
+  - creates an encrypted LUKS passphrase under <nix-secrets>/secrets/profiles/personal/shared/luks/<host>.txt
   - adds SSH config entries (access + unlock) and key installation entries
+
+Secrets live in the private nix-secrets checkout (default: ../nix-secrets,
+override with NIX_SECRETS_DIR).
 
 Requires: git, sops, age-keygen, python3.
 EOF
-}
-
-die() { echo "error: $*" >&2; exit 1; }
-
-need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
 }
 
 host=""
@@ -65,6 +64,9 @@ need_cmd python3
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+secrets_dir="$(secrets_root)"
+sops_cfg="${secrets_dir}/.sops.yaml"
+
 template_dir="hosts/homelab/template"
 dest_dir="hosts/homelab/${host}"
 new_dir=false
@@ -84,7 +86,7 @@ fi
 domain="${fqdn#*.}"
 [[ "$domain" == "$fqdn" ]] && domain=""
 
-mgmt_pub_secret="secrets/profiles/personal/servers/${host}/ssh/${host}-personal-mgmt.pub"
+mgmt_pub_secret="${secrets_dir}/secrets/profiles/personal/servers/${host}/ssh/${host}-personal-mgmt.pub"
 if [[ -f "$mgmt_pub_secret" ]]; then
   echo ">> Reusing existing management key ${mgmt_pub_secret}"
 else
@@ -198,7 +200,7 @@ EOF
   fi
 fi
 
-age_key="secrets/profiles/personal/servers/${host}/age.key"
+age_key="${secrets_dir}/secrets/profiles/personal/servers/${host}/age.key"
 if [[ -f "$age_key" ]]; then
   echo ">> Reusing existing Age key ${age_key}"
 else
@@ -206,7 +208,7 @@ else
   mkdir -p "$(dirname "$age_key")"
   age-keygen -o "$age_key"
   echo ">> Encrypting Age key with sops"
-  SOPS_CONFIG="${repo_root}/.sops.yaml" sops --encrypt --input-type binary --in-place "$age_key"
+  SOPS_CONFIG="$sops_cfg" sops --encrypt --input-type binary --in-place "$age_key"
 fi
 
 echo ">> Deriving Age recipient"
@@ -215,13 +217,13 @@ if grep -q '^AGE-SECRET-KEY-' "$age_key" 2>/dev/null; then
 else
   # Encrypted with sops; decrypt to a temp file for deriving the recipient.
   tmp="$(mktemp)"
-  SOPS_CONFIG="${repo_root}/.sops.yaml" sops -d "$age_key" > "$tmp"
+  SOPS_CONFIG="$sops_cfg" sops -d "$age_key" > "$tmp"
   age_recipient="$(age-keygen -y "$tmp")"
   rm -f "$tmp"
 fi
 
-echo ">> Ensuring .sops.yaml contains Age recipient (commented with hostname)"
-python3 - "$host" "$age_recipient" ".sops.yaml" <<'PY'
+echo ">> Ensuring ${sops_cfg} contains Age recipient (commented with hostname)"
+python3 - "$host" "$age_recipient" "$sops_cfg" <<'PY'
 import sys, pathlib
 host, recipient, path = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
 lines = path.read_text().splitlines(keepends=True)
@@ -260,7 +262,7 @@ lines.insert(insert_pos, new_line)
 path.write_text("".join(lines))
 PY
 
-luks_secret="secrets/profiles/personal/shared/luks/${host}.txt"
+luks_secret="${secrets_dir}/secrets/profiles/personal/shared/luks/${host}.txt"
 if [[ -f "$luks_secret" ]]; then
   echo ">> LUKS passphrase already exists at ${luks_secret}"
 else
@@ -273,7 +275,7 @@ print(''.join(secrets.choice(alphabet) for _ in range(48)))
 PY
 )"
   printf "%s" "$pass" > "$luks_secret"
-  sops --encrypt --input-type binary --in-place "$luks_secret"
+  SOPS_CONFIG="$sops_cfg" sops --encrypt --input-type binary --in-place "$luks_secret"
 fi
 
 config_path="${dest_dir}/configuration.nix"

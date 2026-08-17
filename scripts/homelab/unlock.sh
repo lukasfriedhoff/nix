@@ -3,6 +3,20 @@
 
 set -euo pipefail
 
+# Prefer Nix-provided Bash on macOS (default /bin/bash is 3.2; empty-array
+# expansion under `set -u` errors there).
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
+  for candidate in \
+    /run/current-system/sw/bin/bash \
+    "/etc/profiles/per-user/${USER:-}/bin/bash"; do
+    if [[ -x "$candidate" ]]; then
+      exec "$candidate" "$0" "$@"
+    fi
+  done
+fi
+
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
+
 usage() {
   cat <<'EOF'
 Usage: scripts/homelab/unlock.sh <host> [options] [<secret-path> [<remote-path>]]
@@ -12,7 +26,8 @@ SSH listener for the given host, writing the passphrase to the target path
 (default: /crypt-ramfs/passphrase) with mode 600 so the boot process can continue.
 
 Defaults:
-  secret-path: secrets/profiles/personal/shared/luks/<host>.txt
+  secret-path: <nix-secrets>/secrets/profiles/personal/shared/luks/<host>.txt
+               (nix-secrets checkout: ../nix-secrets, override with NIX_SECRETS_DIR)
   ssh target:  unlock-<host> (defined in resources/ssh/hosts/personal.nix)
   remote-path: /crypt-ramfs/passphrase
 
@@ -28,11 +43,6 @@ Examples:
   scripts/homelab/unlock.sh srv3
   scripts/homelab/unlock.sh srv3 --target root@192.168.122.30 --port 2222 --identity ~/.ssh/personal/ci
 EOF
-}
-
-die() {
-  echo "error: $*" >&2
-  exit 1
 }
 
 has_option_prefix() {
@@ -55,7 +65,7 @@ fi
 host="$1"
 shift
 
-secret="secrets/profiles/personal/shared/luks/${host}.txt"
+secret=""
 target="unlock-${host}"
 target_overridden=false
 remote_path="/crypt-ramfs/passphrase"
@@ -110,6 +120,11 @@ if [[ "${#positionals[@]}" -gt 1 ]]; then
 fi
 if [[ "${#positionals[@]}" -gt 2 ]]; then
   die "too many positional arguments"
+fi
+
+if [[ -z "$secret" ]]; then
+  secrets_dir="$(secrets_root)"
+  secret="${secrets_dir}/secrets/profiles/personal/shared/luks/${host}.txt"
 fi
 
 if [[ ! -f "$secret" ]]; then
@@ -196,12 +211,19 @@ if [[ -n "$identity_file" ]]; then
   if [[ ! -f "$identity_file" ]]; then
     die "identity file not found: $identity_file"
   fi
-  if ! has_option_prefix "IdentitiesOnly" "${ssh_extra_opts[@]}"; then
+  if ! has_option_prefix "IdentitiesOnly" ${ssh_extra_opts[@]+"${ssh_extra_opts[@]}"}; then
     ssh_extra_opts+=("IdentitiesOnly=yes")
   fi
 fi
 
-SOPS_CONFIG="${SOPS_CONFIG:-${PWD}/.sops.yaml}"
+# sops -d reads its metadata from the file itself; the config only matters
+# when we resolved the secret out of the nix-secrets checkout.
+if [[ -z "${SOPS_CONFIG:-}" && -n "${secrets_dir:-}" ]]; then
+  SOPS_CONFIG="${secrets_dir}/.sops.yaml"
+fi
+if [[ -n "${SOPS_CONFIG:-}" ]]; then
+  export SOPS_CONFIG
+fi
 echo ">> Unlocking ${host} via ${target} using ${secret} -> ${remote_path}"
 
 build_ssh_cmd() {
@@ -213,11 +235,10 @@ build_ssh_cmd() {
     "PasswordAuthentication=no"
     "KbdInteractiveAuthentication=no"
     "NumberOfPasswordPrompts=0"
-    "ConnectTimeout=5"
-    "ConnectionAttempts=1"
-    "StrictHostKeyChecking=no"
-    "UserKnownHostsFile=/dev/null"
   )
+  while IFS= read -r opt; do
+    default_ssh_opts+=("$opt")
+  done < <(ssh_base_opts)
   if [[ -n "$identity_file" ]]; then
     ssh_cmd+=(-i "$identity_file")
   fi
@@ -227,7 +248,7 @@ build_ssh_cmd() {
   for opt in "${default_ssh_opts[@]}"; do
     ssh_cmd+=(-o "$opt")
   done
-  for opt in "${ssh_extra_opts[@]}"; do
+  for opt in ${ssh_extra_opts[@]+"${ssh_extra_opts[@]}"}; do
     ssh_cmd+=(-o "$opt")
   done
 }

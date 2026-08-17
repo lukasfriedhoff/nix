@@ -47,12 +47,8 @@ while IFS= read -r file; do
   fi
 done <<< "$staged_files"
 
-# Verify staged Nix files are formatted via nixfmt-tree.
-repo_root="$(git rev-parse --show-toplevel)"
-treefmt_config="${repo_root}/.treefmt.toml"
-if [[ ! -f "$treefmt_config" ]]; then
-  fail "missing ${treefmt_config}; add a treefmt config for Nix formatting"
-fi
+# Verify staged Nix files are formatted via the flake formatter
+# (`nix fmt` -> treefmt with nixfmt/statix/deadnix from nix/treefmt.nix).
 
 # Bash 3.x compatibility: avoid `mapfile` (not available on macOS default bash).
 nix_files=()
@@ -62,25 +58,23 @@ while IFS= read -r file; do
 done < <(git diff --cached --name-only --diff-filter=ACM -- '*.nix' || true)
 
 if (( ${#nix_files[@]} > 0 )); then
-  if command -v treefmt >/dev/null 2>&1; then
-    treefmt --fail-on-change --config-file "$treefmt_config" "${nix_files[@]}"
-  elif command -v nix >/dev/null 2>&1; then
-    nix run nixpkgs#nixfmt-tree -- --fail-on-change --config-file "$treefmt_config" "${nix_files[@]}"
-  else
-    fail "treefmt not available; install nixfmt-tree or nix"
-  fi
-fi
-
-# Quick flake syntax check (only if flake.nix is staged or Nix files changed).
-if git diff --cached --name-only | grep -qE '(flake\.nix|\.nix$)'; then
-  echo "pre-commit: checking flake syntax..."
   if command -v nix >/dev/null 2>&1; then
-    # Use --no-write-lock-file to avoid modifying flake.lock during commit
-    if ! nix flake check --no-build --no-write-lock-file "$repo_root" 2>/dev/null; then
-      # If quick check fails, show the actual error
-      nix flake check --no-build --no-write-lock-file "$repo_root" || \
-        fail "flake check failed; fix evaluation errors before committing"
-    fi
+    nix fmt -- --ci "${nix_files[@]}" \
+      || fail "formatting/lint issues in staged Nix files; run 'nix fmt' and restage"
+  else
+    fail "nix not available; install nix to run the flake formatter"
+  fi
+
+  # Fast syntax guard over the staged Nix files only. A full
+  # `nix flake check --no-build` is intentionally NOT run here: it evaluates
+  # the whole flake and fetches the private nix-secrets input on every commit.
+  # Run it in CI or manually before pushing instead.
+  if command -v nix-instantiate >/dev/null 2>&1; then
+    echo "pre-commit: parsing staged .nix files..."
+    for file in "${nix_files[@]}"; do
+      nix-instantiate --parse "$file" >/dev/null \
+        || fail "Nix syntax error in ${file}"
+    done
   fi
 fi
 
