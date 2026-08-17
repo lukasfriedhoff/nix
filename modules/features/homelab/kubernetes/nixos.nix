@@ -385,6 +385,12 @@ in
             # of three, which is also why disk-pressure alerts only ever fired
             # for the node that happened to be reachable.
             9100
+            # traefik via k3s servicelb (LoadBalancer): LAN clients reach
+            # *.h4xx.io directly (split-horizon DNS) instead of hairpinning
+            # through the Cloudflare tunnel, which is too slow and variable
+            # for streaming (~20-30 Mbit) and cuts requests at ~100s.
+            80
+            443
           ]
           ++ lib.optional isRke2 9345
           ++ lib.optional isRke2 2381
