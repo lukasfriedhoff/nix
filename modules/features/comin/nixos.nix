@@ -57,7 +57,9 @@ in
         {
           name = "origin";
           url = repoUrl;
-          branches.main.name = "develop";
+          # `deploy` is fast-forwarded by CI only after checks pass on
+          # develop, so servers never pull a broken eval.
+          branches.main.name = "deploy";
           branches.testing.name = "testing-${config.services.comin.hostname}";
         }
       ];

@@ -17,6 +17,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The nix-secrets flake input is fetched over SSH. Create a read-only
+      # deploy key on lukasfriedhoff/nix-secrets and store its private half
+      # as the NIX_SECRETS_DEPLOY_KEY repository secret.
+      - name: Set up SSH for the nix-secrets input
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.NIX_SECRETS_DEPLOY_KEY }}
+
       - name: Install Nix
         uses: cachix/install-nix-action@v30
         with:
@@ -28,5 +36,27 @@ jobs:
       - name: Format check
         run: nix fmt -- --check .
 
-      - name: Flake checks
-        run: nix flake check --print-build-logs
+      # --no-build: evaluate every host and check derivation. Building the
+      # VM tests (multi-node k3s, Wine-based icarus test) is far beyond what
+      # a hosted runner can do; evaluation failures are what break comin
+      # deploys, and this catches those.
+      - name: Flake checks (evaluate)
+        run: nix flake check --no-build --print-build-logs
+
+  # comin on the servers tracks the `deploy` branch. Fast-forward it only
+  # after checks pass, so a broken eval on develop can never reach a host.
+  promote:
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fast-forward deploy branch
+        run: |
+          git push origin HEAD:refs/heads/deploy

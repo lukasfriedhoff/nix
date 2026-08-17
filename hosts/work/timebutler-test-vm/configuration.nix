@@ -39,10 +39,8 @@
 
   dacoso.server = {
     # Pull hashed passwords / authorized keys from secrets/profiles/work/servers/timebutler-test-vm/.
-    passwordFiles = {
-      root = "root-password.hash";
-      nixos = "nixos-password.hash";
-    };
+    # Password hashes come from the module's default sops-encrypted files
+    # (root-password-hash.txt / nixos-password-hash.txt) in that directory.
     sshKeyFiles = {
       root = [ "root.authorized_keys" ];
       nixos = [ "nixos.authorized_keys" ];

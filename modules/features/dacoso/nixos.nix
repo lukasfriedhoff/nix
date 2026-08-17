@@ -3,6 +3,7 @@
   lib,
   pkgs,
   secrets ? { },
+  myLib ? import ../../../lib { inherit lib; },
   ...
 }:
 # Shared profile for Dacoso-managed servers. Secrets are resolved via the
@@ -12,38 +13,27 @@ let
   primaryRoot = secrets.primary or secrets.root or null;
   sharedRoot = secrets.shared or null;
 
-  resolve =
-    file:
-    if file == null then
-      null
-    else
-      let
-        pathString = toString file;
-        resolveRelative =
-          if cfg.secretsDirectory != null then
-            "${cfg.secretsDirectory}/${pathString}"
-          else
-            let
-              candidates =
-                (lib.optional (primaryRoot != null) "${primaryRoot}/${pathString}")
-                ++ (lib.optional (sharedRoot != null) "${sharedRoot}/${pathString}");
-              existing = lib.findFirst (p: builtins.pathExists p) null candidates;
-            in
-            if existing != null then
-              existing
-            else if candidates != [ ] then
-              lib.head candidates
-            else
-              pathString;
-      in
-      if lib.hasPrefix "/" pathString then pathString else resolveRelative;
-
-  readHash =
+  # secretsDirectory (defaults to the primary root) wins when set; otherwise
+  # fall back to the primary/shared candidate order, preferring files that
+  # actually exist. Absolute paths pass through unchanged in both helpers.
+  resolveSecret =
     file:
     let
-      resolved = resolve file;
+      path = if file == null then null else toString file;
     in
-    if resolved == null then null else lib.strings.trim (builtins.readFile resolved);
+    if cfg.secretsDirectory != null then
+      myLib.resolveSecretPath {
+        root = cfg.secretsDirectory;
+        inherit path;
+      }
+    else
+      myLib.resolveSecretFirst {
+        roots = [
+          primaryRoot
+          sharedRoot
+        ];
+        inherit path;
+      };
 
   readKeys =
     files:
@@ -51,7 +41,7 @@ let
       map (
         file:
         let
-          resolved = resolve file;
+          resolved = resolveSecret file;
         in
         if resolved == null then
           [ ]
@@ -61,18 +51,6 @@ let
           )
       ) files
     );
-
-  rootPasswordHash =
-    let
-      fromFile = readHash cfg.passwordFiles.root;
-    in
-    if fromFile != null then fromFile else cfg.hashedPasswords.root;
-
-  nixosPasswordHash =
-    let
-      fromFile = readHash cfg.passwordFiles.nixos;
-    in
-    if fromFile != null then fromFile else cfg.hashedPasswords.nixos;
 
   nixosAuthorizedKeys = cfg.sshKeys.nixos ++ readKeys cfg.sshKeyFiles.nixos;
   rootAuthorizedKeys = lib.unique (
@@ -151,29 +129,37 @@ in
       description = "Base directory containing work secrets; relative file references resolve against this path.";
     };
 
-    hashedPasswords = {
-      root = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = "SHA-512 hashed password for the root user.";
-      };
-      nixos = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = "SHA-512 hashed password for the service user nixos.";
-      };
-    };
-
     passwordFiles = {
       root = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = "Optional path (absolute or relative to secretsDirectory) containing the root password hash.";
+        default = "root-password-hash.txt";
+        description = ''
+          sops-encrypted file (absolute or relative to secretsDirectory)
+          containing the root password hash. Decrypted via sops-nix at
+          activation time; set to null to leave root's password unmanaged.
+        '';
       };
       nixos = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = "Optional path (absolute or relative to secretsDirectory) containing the nixos user password hash.";
+        default = "nixos-password-hash.txt";
+        description = ''
+          sops-encrypted file (absolute or relative to secretsDirectory)
+          containing the nixos user password hash. Decrypted via sops-nix at
+          activation time; set to null to leave the password unmanaged.
+        '';
+      };
+    };
+
+    ssh = {
+      permitRootLogin = lib.mkOption {
+        type = lib.types.str;
+        default = "prohibit-password";
+        description = "Value for sshd's PermitRootLogin (key-based root login stays possible).";
+      };
+      passwordAuthentication = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Whether sshd accepts password authentication.";
       };
     };
 
@@ -263,8 +249,8 @@ in
 
     firewallEnabled = lib.mkOption {
       type = lib.types.bool;
-      default = false;
-      description = "Firewall state override.";
+      default = true;
+      description = "Firewall state override (SSH stays reachable via services.openssh.openFirewall).";
     };
   };
 
@@ -272,11 +258,11 @@ in
     assertions = lib.optionals (cfg.secretsDirectory == null) [
       {
         assertion =
-          (cfg.passwordFiles.root or null) == null
-          && (cfg.passwordFiles.nixos or null) == null
+          cfg.passwordFiles.root == null
+          && cfg.passwordFiles.nixos == null
           && cfg.sshKeyFiles.root == [ ]
           && cfg.sshKeyFiles.nixos == [ ];
-        message = "Relative password/SSH key files require dacoso.server.secretsDirectory to be set.";
+        message = "Relative password/SSH key files require dacoso.server.secretsDirectory to be set (set dacoso.server.passwordFiles.* = null to opt out of managed passwords).";
       }
     ];
 
@@ -285,9 +271,25 @@ in
     services.openssh = {
       enable = true;
       settings = {
-        PermitRootLogin = "yes";
-        PasswordAuthentication = true;
+        PermitRootLogin = cfg.ssh.permitRootLogin;
+        PasswordAuthentication = cfg.ssh.passwordAuthentication;
+        KbdInteractiveAuthentication = cfg.ssh.passwordAuthentication;
       };
+    };
+
+    # Password hashes are decrypted by sops-nix early in activation
+    # (neededForUsers) so they never enter the world-readable nix store.
+    # Requires the host's age key at /var/lib/sops-nix/age/keys.txt.
+    sops.secrets."dacoso-root-password-hash" = lib.mkIf (cfg.passwordFiles.root != null) {
+      sopsFile = resolveSecret cfg.passwordFiles.root;
+      format = "binary";
+      neededForUsers = true;
+    };
+
+    sops.secrets."dacoso-nixos-password-hash" = lib.mkIf (cfg.passwordFiles.nixos != null) {
+      sopsFile = resolveSecret cfg.passwordFiles.nixos;
+      format = "binary";
+      neededForUsers = true;
     };
 
     services.openssh.authorizedKeysFiles = lib.mkIf (cfg.githubAccounts != [ ]) (
@@ -318,11 +320,6 @@ in
           };
         };
 
-    system.activationScripts.dacosoGithubKeys = lib.mkIf (cfg.githubAccounts != [ ]) ''
-      echo "syncing GitHub keys for dacoso server users"
-      ${syncGithubKeysScript}
-    '';
-
     services.prometheus.exporters.node.enable = cfg.enableNodeExporter;
 
     nix.settings.experimental-features = [
@@ -341,7 +338,9 @@ in
           keys = rootAuthorizedKeys;
           keyFiles = repoKeyFiles;
         };
-        hashedPassword = lib.mkIf (rootPasswordHash != null) rootPasswordHash;
+        hashedPasswordFile = lib.mkIf (
+          cfg.passwordFiles.root != null
+        ) config.sops.secrets."dacoso-root-password-hash".path;
       };
 
       nixos = {
@@ -357,7 +356,9 @@ in
           keys = nixosAuthorizedKeys;
           keyFiles = repoKeyFiles;
         };
-        hashedPassword = lib.mkIf (nixosPasswordHash != null) nixosPasswordHash;
+        hashedPasswordFile = lib.mkIf (
+          cfg.passwordFiles.nixos != null
+        ) config.sops.secrets."dacoso-nixos-password-hash".path;
       };
     };
 
