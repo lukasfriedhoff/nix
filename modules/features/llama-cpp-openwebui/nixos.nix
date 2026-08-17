@@ -98,7 +98,12 @@ in
     port = lib.mkOption {
       type = lib.types.port;
       default = 11434;
-      description = "Port llama.cpp listens on.";
+      description = ''
+        Port llama.cpp listens on. Defaults to 11434 (the Ollama default port)
+        so Ollama-style clients keep working. Note lukasf.ollama claims the
+        same default; do not enable both backends on the same host without
+        changing one port.
+      '';
     };
 
     defaultModel = lib.mkOption {
@@ -143,33 +148,11 @@ in
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Enable Open WebUI as a frontend for llama.cpp.";
-      };
-
-      autoStart = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Start the Open WebUI systemd service at boot.";
-      };
-
-      package = lib.mkPackageOption pkgs "open-webui" { };
-
-      host = lib.mkOption {
-        type = lib.types.str;
-        default = "127.0.0.1";
-        description = "Address Open WebUI binds to.";
-      };
-
-      port = lib.mkOption {
-        type = lib.types.port;
-        default = 8080;
-        description = "Port Open WebUI listens on.";
-      };
-
-      stateDir = lib.mkOption {
-        type = lib.types.path;
-        default = "/var/lib/open-webui";
-        description = "State directory for Open WebUI data and uploads.";
+        description = ''
+          Register llama.cpp as the backend for the shared Open WebUI frontend
+          (lukasf.openWebui). Configure the frontend itself (host, port,
+          autoStart, firewall, ...) via the lukasf.openWebui.* options.
+        '';
       };
 
       llamaCppBaseUrl = lib.mkOption {
@@ -177,24 +160,6 @@ in
         default = null;
         defaultText = lib.literalExpression "http://\${config.lukasf.llamaCpp.host}:\${toString config.lukasf.llamaCpp.port}/v1";
         description = "OpenAI-compatible llama.cpp base URL for Open WebUI.";
-      };
-
-      environment = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = { };
-        description = "Extra environment variables for Open WebUI.";
-      };
-
-      environmentFile = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = null;
-        description = "Environment file passed to the Open WebUI service.";
-      };
-
-      openFirewall = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Open the Open WebUI port in the firewall.";
       };
     };
   };
@@ -213,33 +178,25 @@ in
         ;
     };
 
-    services.open-webui = lib.mkIf cfg.ui.enable {
+    lukasf.openWebui = lib.mkIf cfg.ui.enable {
       enable = true;
-      inherit (cfg.ui)
-        package
-        host
-        port
-        stateDir
-        environmentFile
-        openFirewall
-        ;
-      environment = {
-        ENABLE_OLLAMA_API = "False";
-        ENABLE_OPENAI_API = "True";
-        OPENAI_API_BASE_URL = resolvedLlamaCppBaseUrl;
-        OPENAI_API_BASE_URLS = resolvedLlamaCppBaseUrl;
-        OPENAI_API_KEY = "sk-no-key-required";
-        OPENAI_API_KEYS = "sk-no-key-required";
-        DEFAULT_MODELS = cfg.defaultModel;
-      }
-      // cfg.ui.environment;
+      backend = {
+        name = "llama-cpp";
+        apiBaseUrl = resolvedLlamaCppBaseUrl;
+        extraEnvironment = {
+          ENABLE_OLLAMA_API = "False";
+          ENABLE_OPENAI_API = "True";
+          OPENAI_API_BASE_URL = resolvedLlamaCppBaseUrl;
+          OPENAI_API_BASE_URLS = resolvedLlamaCppBaseUrl;
+          OPENAI_API_KEY = "sk-no-key-required";
+          OPENAI_API_KEYS = "sk-no-key-required";
+          DEFAULT_MODELS = cfg.defaultModel;
+        };
+      };
+      backendClaims = [ "lukasf.llamaCpp" ];
     };
 
     systemd.services.llama-cpp = lib.mkIf (!cfg.autoStart) {
-      wantedBy = lib.mkForce [ ];
-    };
-
-    systemd.services.open-webui = lib.mkIf (cfg.ui.enable && !cfg.ui.autoStart) {
       wantedBy = lib.mkForce [ ];
     };
   };

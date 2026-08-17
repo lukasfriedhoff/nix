@@ -36,7 +36,11 @@ in
     port = lib.mkOption {
       type = lib.types.port;
       default = 11434;
-      description = "Port Ollama listens on.";
+      description = ''
+        Port Ollama listens on. Defaults to 11434 (the upstream Ollama default).
+        Note lukasf.llamaCpp also defaults to 11434 for Ollama-compatibility; do
+        not enable both backends on the same host without changing one port.
+      '';
     };
     rocmOverrideGfx = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
@@ -80,49 +84,17 @@ in
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Enable Open-WebUI as a frontend for Ollama.";
-      };
-      autoStart = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Start the Open-WebUI systemd service at boot (disable for on-demand use).";
-      };
-      package = lib.mkPackageOption pkgs "open-webui" { };
-      host = lib.mkOption {
-        type = lib.types.str;
-        default = "127.0.0.1";
-        description = "Address Open-WebUI binds to.";
-      };
-      port = lib.mkOption {
-        type = lib.types.port;
-        default = 8080;
-        description = "Port Open-WebUI listens on.";
-      };
-      stateDir = lib.mkOption {
-        type = lib.types.path;
-        default = "/var/lib/open-webui";
-        description = "State directory for Open-WebUI data and uploads.";
+        description = ''
+          Register Ollama as the backend for the shared Open-WebUI frontend
+          (lukasf.openWebui). Configure the frontend itself (host, port,
+          autoStart, firewall, ...) via the lukasf.openWebui.* options.
+        '';
       };
       ollamaUrl = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
         defaultText = lib.literalExpression "http://\${config.lukasf.ollama.host}:\${toString config.lukasf.ollama.port}";
-        description = "Base URL for the Ollama API (default derived from host/port).";
-      };
-      environment = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = { };
-        description = "Extra environment variables for the Open-WebUI service.";
-      };
-      environmentFile = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = null;
-        description = "Environment file passed to the Open-WebUI service (for secrets).";
-      };
-      openFirewall = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Open the Open-WebUI port in the firewall.";
+        description = "Base URL for the Ollama API used by Open-WebUI (default derived from host/port).";
       };
     };
   };
@@ -145,25 +117,19 @@ in
         inherit (cfg) openFirewall;
       };
 
-      services.open-webui = lib.mkIf cfg.ui.enable {
+      lukasf.openWebui = lib.mkIf cfg.ui.enable {
         enable = true;
-        inherit (cfg.ui) package;
-        inherit (cfg.ui) host;
-        inherit (cfg.ui) port;
-        inherit (cfg.ui) stateDir;
-        inherit (cfg.ui) environmentFile;
-        inherit (cfg.ui) openFirewall;
-        environment = {
-          OLLAMA_API_BASE_URL = resolvedOllamaUrl;
-        }
-        // cfg.ui.environment;
+        backend = {
+          name = "ollama";
+          apiBaseUrl = resolvedOllamaUrl;
+          extraEnvironment = {
+            OLLAMA_API_BASE_URL = resolvedOllamaUrl;
+          };
+        };
+        backendClaims = [ "lukasf.ollama" ];
       };
 
       systemd.services.ollama = lib.mkIf (!cfg.autoStart) {
-        wantedBy = lib.mkForce [ ];
-      };
-
-      systemd.services.open-webui = lib.mkIf (cfg.ui.enable && !cfg.ui.autoStart) {
         wantedBy = lib.mkForce [ ];
       };
     }
