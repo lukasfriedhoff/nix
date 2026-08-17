@@ -23,7 +23,6 @@
   desktop.personalWorkstation = {
     enable = true;
     wireguardAddress = "10.1.90.6/24";
-    cephClientName = "virtual-05";
   };
 
   lukasf.wireguard.homelab.userUnit.enable = true;

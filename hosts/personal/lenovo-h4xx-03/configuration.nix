@@ -1,6 +1,8 @@
 {
+  config,
   inputs,
   lib,
+  secrets,
   ...
 }:
 
@@ -39,7 +41,6 @@
   desktop.personalWorkstation = {
     enable = true;
     wireguardAddress = "10.1.90.5/24";
-    cephClientName = "lenovo";
   };
 
   # Match tux-h4xx-01 behavior: start homelab WireGuard from the user session.
@@ -60,5 +61,11 @@
     KERNEL=="uinput", MODE="0660", GROUP="input"
   '';
 
-  users.users.lukasf.hashedPassword = "$6$yzoypuzQDaJPoH3Q$jMjF9ciENiSRMMDfkeJJdGb9jMK1W35kNLvO3gH4B58rhWj285gYBI6n8.i8ry8jG5f7Ll3VxNbdvX5Sp2aGs0";
+  sops.secrets."login-password-hash" = {
+    sopsFile = "${secrets.profileShared}/login-password-hash.txt";
+    format = "binary";
+    neededForUsers = true;
+  };
+
+  users.users.lukasf.hashedPasswordFile = config.sops.secrets."login-password-hash".path;
 }

@@ -11,3 +11,4 @@ kubeconfig
 # the ISO blew past GitHub's LFS quota. Drop the file into artifacts/iso/
 # yourself, or point the scripts elsewhere via TESTINGRKE2_INSTALLER_ISO.
 /artifacts/iso/*.iso
+.DS_Store

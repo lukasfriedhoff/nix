@@ -46,6 +46,17 @@
 
     nix-vscode-extensions.url = "github:nix-community/nix-vscode-extensions";
     nix-vscode-extensions.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Vendored agent skills, linked into ~/.claude and ~/.opencode by
+    # modules/features/ai/home.nix. Plain source trees, not flakes.
+    flux-agent-skills.url = "github:fluxcd/agent-skills";
+    flux-agent-skills.flake = false;
+    anthropic-skills.url = "github:anthropics/skills";
+    anthropic-skills.flake = false;
+    nixos-management-skill.url = "github:michalzubkowicz/nixos-management-skill";
+    nixos-management-skill.flake = false;
+    community-claude-skills.url = "github:foxj77/claude-code-skills";
+    community-claude-skills.flake = false;
   };
 
   outputs =
@@ -94,7 +105,6 @@
             inherit (pkgs) velero_1_9_4;
           }
           // lib.optionalAttrs pkgs.stdenv.isLinux {
-            ceph-wrapped = pkgs.callPackage ./pkgs/ceph-wrapped { };
             shadow-client-appimage = pkgs.callPackage ./pkgs/shadow-client-appimage { };
             tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
             virtual-05-stream-image = pkgs.callPackage ./pkgs/virtual-05-stream-image { };
@@ -126,6 +136,8 @@
       flake =
         let
           linuxSystem = "x86_64-linux";
+          darwinSystem = "aarch64-darwin";
+
           localPackagesOverlay = import ./overlays/local-packages.nix;
           nixpkgsWorkaroundsOverlay = import ./overlays/nixpkgs-workarounds.nix;
           # Skip flaky openldap tests (test017-syncreplication-refresh).
@@ -146,8 +158,13 @@
               doCheck = false;
             });
           };
-          linuxOverlays = [
+          # Shared by every system so Home Manager sees the same package set
+          # everywhere (vscode-marketplace included on Linux and Darwin alike).
+          commonOverlays = [
             localPackagesOverlay
+            inputs.nix-vscode-extensions.overlays.default
+          ];
+          linuxOverlays = commonOverlays ++ [
             nixpkgsWorkaroundsOverlay
             openldapOverlay
           ];
@@ -171,7 +188,6 @@
               done
               mv "$target" "$backup"
             '';
-          darwinSystem = "aarch64-darwin";
 
           myLib = import ./lib { inherit (nixpkgs) lib; };
           featureRoot = ./modules/features;
@@ -189,178 +205,57 @@
           # .sops.yaml still matches and nothing needed re-encrypting.
           profilesRoot = "${inputs.nix-secrets}/secrets/profiles";
           sharedCommonRoot = "${profilesRoot}/common/shared";
-          personalCommonDesktopRoot = "${personalProfileRoot}/desktops/common";
           personalProfileRoot = "${profilesRoot}/personal";
           workProfileRoot = "${profilesRoot}/work";
-
-          personalDesktopRoot = host: "${personalProfileRoot}/desktops/${host}";
-          personalServerRoot = host: "${personalProfileRoot}/servers/${host}";
-          workDesktopRoot = host: "${workProfileRoot}/desktops/${host}";
-          workServerRoot = host: "${workProfileRoot}/servers/${host}";
-
+          personalCommonDesktopRoot = "${personalProfileRoot}/desktops/common";
           personalSharedRoot = "${personalProfileRoot}/shared";
           workSharedRoot = "${workProfileRoot}/shared";
 
-          # Secret roots per host / profile.
-          secretsByProfile = {
-            srv4 = {
-              primary = personalServerRoot "srv4-vm-01";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              ceph = "${personalProfileRoot}/servers/ceph";
-              root = personalServerRoot "srv4-vm-01";
-              personal = personalServerRoot "srv4-vm-01";
-            };
-            tux = {
-              primary = personalDesktopRoot "tux-h4xx-01";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              ceph = "${personalProfileRoot}/servers/ceph";
-              root = personalDesktopRoot "tux-h4xx-01";
-              personal = personalDesktopRoot "tux-h4xx-01";
-            };
-            tab = {
-              primary = personalDesktopRoot "tab-h4xx-02";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              ceph = "${personalProfileRoot}/servers/ceph";
-              root = personalDesktopRoot "tab-h4xx-02";
-              personal = personalDesktopRoot "tab-h4xx-02";
-            };
-            lenovo = {
-              primary = personalDesktopRoot "lenovo-h4xx-03";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              ceph = "${personalProfileRoot}/servers/ceph";
-              root = personalDesktopRoot "lenovo-h4xx-03";
-              personal = personalDesktopRoot "lenovo-h4xx-03";
-            };
-            mac = {
-              primary = workDesktopRoot "macbook-pro";
-              shared = sharedCommonRoot;
-              profileShared = workSharedRoot;
-              root = workDesktopRoot "macbook-pro";
-              dacoso = workDesktopRoot "macbook-pro";
-            };
-            docker-host-01 = {
-              primary = workServerRoot "docker-host-01";
-              shared = sharedCommonRoot;
-              profileShared = workSharedRoot;
-              root = workServerRoot "docker-host-01";
-              dacoso = workDesktopRoot "macbook-pro";
-            };
-            timebutler-test-vm = {
-              primary = workServerRoot "timebutler-test-vm";
-              shared = sharedCommonRoot;
-              profileShared = workSharedRoot;
-              root = workServerRoot "timebutler-test-vm";
-              dacoso = workDesktopRoot "macbook-pro";
-            };
+          # Secret roots per host / profile. Every personal profile gets the
+          # same layout; only the primary root differs (desktop vs server).
+          mkPersonalSecrets = primary: {
+            inherit primary;
+            shared = sharedCommonRoot;
+            profileShared = personalSharedRoot;
+            profileCommon = personalCommonDesktopRoot;
+            root = primary;
+            personal = primary;
+          };
+          mkPersonalDesktopSecrets = host: mkPersonalSecrets "${personalProfileRoot}/desktops/${host}";
+          mkPersonalServerSecrets = host: mkPersonalSecrets "${personalProfileRoot}/servers/${host}";
 
-            srv1 = {
-              primary = personalServerRoot "srv1";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              ceph = "${personalProfileRoot}/servers/ceph";
-              root = personalServerRoot "srv1";
-              personal = personalServerRoot "srv1";
-            };
+          mkWorkSecrets = primary: {
+            inherit primary;
+            shared = sharedCommonRoot;
+            profileShared = workSharedRoot;
+            root = primary;
+            dacoso = "${workProfileRoot}/desktops/macbook-pro";
+          };
 
-            srv2 = {
-              primary = personalServerRoot "srv2";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "srv2";
-              personal = personalServerRoot "srv2";
-            };
+          # Homelab hosts whose flake attr, secrets profile and host directory
+          # all share one name.
+          homelabHosts = [
+            "srv1"
+            "srv2"
+            "srv3"
+            "srv5-k3s-stg1"
+            "srv6-k3s-stg2"
+            "srv7-k3s-stg3"
+            "srv8"
+            "srv9"
+            "testingrke2-01"
+            "testingrke2-02"
+            "testingrke2-03"
+          ];
 
-            srv3 = {
-              primary = personalServerRoot "srv3";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              ceph = "${personalProfileRoot}/servers/ceph";
-              root = personalServerRoot "srv3";
-              personal = personalServerRoot "srv3";
-            };
-
-            testingrke2-01 = {
-              primary = personalServerRoot "testingrke2-01";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "testingrke2-01";
-              personal = personalServerRoot "testingrke2-01";
-            };
-
-            testingrke2-02 = {
-              primary = personalServerRoot "testingrke2-02";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "testingrke2-02";
-              personal = personalServerRoot "testingrke2-02";
-            };
-
-            testingrke2-03 = {
-              primary = personalServerRoot "testingrke2-03";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "testingrke2-03";
-              personal = personalServerRoot "testingrke2-03";
-            };
-
-            srv5-k3s-stg1 = {
-              primary = personalServerRoot "srv5-k3s-stg1";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "srv5-k3s-stg1";
-              personal = personalServerRoot "srv5-k3s-stg1";
-            };
-
-            srv6-k3s-stg2 = {
-              primary = personalServerRoot "srv6-k3s-stg2";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "srv6-k3s-stg2";
-              personal = personalServerRoot "srv6-k3s-stg2";
-            };
-
-            srv7-k3s-stg3 = {
-              primary = personalServerRoot "srv7-k3s-stg3";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "srv7-k3s-stg3";
-              personal = personalServerRoot "srv7-k3s-stg3";
-            };
-
-            srv8 = {
-              primary = personalServerRoot "srv8";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "srv8";
-              personal = personalServerRoot "srv8";
-            };
-
-            srv9 = {
-              primary = personalServerRoot "srv9";
-              shared = sharedCommonRoot;
-              profileShared = personalSharedRoot;
-              profileCommon = personalCommonDesktopRoot;
-              root = personalServerRoot "srv9";
-              personal = personalServerRoot "srv9";
-            };
+          secretsByProfile = nixpkgs.lib.genAttrs homelabHosts mkPersonalServerSecrets // {
+            srv4 = mkPersonalServerSecrets "srv4-vm-01";
+            tux = mkPersonalDesktopSecrets "tux-h4xx-01";
+            tab = mkPersonalDesktopSecrets "tab-h4xx-02";
+            lenovo = mkPersonalDesktopSecrets "lenovo-h4xx-03";
+            mac = mkWorkSecrets "${workProfileRoot}/desktops/macbook-pro";
+            docker-host-01 = mkWorkSecrets "${workProfileRoot}/servers/docker-host-01";
+            timebutler-test-vm = mkWorkSecrets "${workProfileRoot}/servers/timebutler-test-vm";
           };
 
           workProfiles = [
@@ -370,7 +265,12 @@
           ];
 
           mkSpecialArgs = profile: {
-            inherit inputs linuxUser macUser;
+            inherit
+              inputs
+              linuxUser
+              macUser
+              myLib
+              ;
             inherit profile;
             workSystem = builtins.elem profile workProfiles;
             repoRoot = self;
@@ -378,36 +278,13 @@
           };
 
           mkDesktopHome = profile: extraImports: {
-            home-manager.useGlobalPkgs = false;
+            home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "hm-backup";
             home-manager.backupCommand = mkHomeManagerBackupCommand linuxPkgs "hm-backup";
-            home-manager.extraSpecialArgs = mkSpecialArgs profile // {
-              pkgs = linuxPkgs;
-            };
+            home-manager.extraSpecialArgs = mkSpecialArgs profile;
             home-manager.users.${linuxUser} = {
               imports = featureModules.home ++ extraImports;
-            };
-          };
-
-          # Server home configuration (minimal, no GUI)
-          # deadnix: skip - exported for future server hosts with home-manager
-          mkServerHome = profile: extraImports: {
-            home-manager.useGlobalPkgs = false;
-            home-manager.useUserPackages = true;
-            home-manager.backupFileExtension = "hm-backup";
-            home-manager.backupCommand = mkHomeManagerBackupCommand linuxPkgs "hm-backup";
-            home-manager.extraSpecialArgs = mkSpecialArgs profile // {
-              pkgs = linuxPkgs;
-            };
-            home-manager.users.${linuxUser} = {
-              imports =
-                featureModules.home
-                ++ extraImports
-                ++ [
-                  # Explicitly enable server profile
-                  { profiles.server.enable = true; }
-                ];
             };
           };
 
@@ -423,9 +300,6 @@
             stylix.nixosModules.stylix
             home-manager.nixosModules.home-manager
           ];
-
-          # Additional modules for server hosts
-          serverExtras = [ ];
 
           # Composed from layers
           baseDesktopModules =
@@ -471,32 +345,33 @@
               dacoso.server.enable = lib.mkDefault true;
             };
 
-          baseServerModules =
-            coreModules
-            ++ serverExtras
-            ++ [
-              serverDefaultsModule
-              dacosoDefaultsModule
-            ];
+          baseServerModules = coreModules ++ [
+            serverDefaultsModule
+            dacosoDefaultsModule
+          ];
 
-          homelabServerModules =
-            coreModules
-            ++ serverExtras
-            ++ [
-              serverDefaultsModule
-            ];
+          homelabServerModules = coreModules ++ [
+            serverDefaultsModule
+          ];
 
           mkNixosHost =
             profile: extraModules:
             nixpkgs.lib.nixosSystem {
               system = linuxSystem;
-              specialArgs = mkSpecialArgs profile // {
-                inherit inputs;
-              };
+              specialArgs = mkSpecialArgs profile;
               modules = extraModules ++ [
                 { nixpkgs.overlays = linuxOverlays; }
               ];
             };
+
+          mkHomelabHost =
+            host:
+            mkNixosHost host (
+              homelabServerModules
+              ++ [
+                ./hosts/homelab/${host}/configuration.nix
+              ]
+            );
 
           virtual05Modules = gnomeDesktopModules ++ [
             ./hosts/personal/virtual-05/configuration.nix
@@ -522,7 +397,7 @@
           ];
         in
         {
-          nixosConfigurations = {
+          nixosConfigurations = nixpkgs.lib.genAttrs homelabHosts mkHomelabHost // {
             srv4-vm-01 = mkNixosHost "srv4" (
               plasmaDesktopModules
               ++ [
@@ -568,16 +443,6 @@
               ]
             );
 
-            lenovo-h4xx-04 = mkNixosHost "lenovo" (
-              gnomeDesktopModules
-              ++ [
-                ./hosts/personal/lenovo-h4xx-04/configuration.nix
-                (mkDesktopHome "lenovo" [
-                  stylix.homeModules.stylix
-                ])
-              ]
-            );
-
             docker-host-01 = mkNixosHost "docker-host-01" (
               baseServerModules
               ++ [
@@ -591,83 +456,6 @@
               ++ [
                 disko.nixosModules.disko
                 ./hosts/work/timebutler-test-vm/configuration.nix
-              ]
-            );
-
-            srv1 = mkNixosHost "srv1" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv1/configuration.nix
-              ]
-            );
-
-            srv2 = mkNixosHost "srv2" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv2/configuration.nix
-              ]
-            );
-
-            srv3 = mkNixosHost "srv3" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv3/configuration.nix
-              ]
-            );
-
-            testingrke2-01 = mkNixosHost "testingrke2-01" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/testingrke2-01/configuration.nix
-              ]
-            );
-
-            testingrke2-02 = mkNixosHost "testingrke2-02" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/testingrke2-02/configuration.nix
-              ]
-            );
-
-            testingrke2-03 = mkNixosHost "testingrke2-03" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/testingrke2-03/configuration.nix
-              ]
-            );
-
-            srv5-k3s-stg1 = mkNixosHost "srv5-k3s-stg1" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv5-k3s-stg1/configuration.nix
-              ]
-            );
-
-            srv6-k3s-stg2 = mkNixosHost "srv6-k3s-stg2" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv6-k3s-stg2/configuration.nix
-              ]
-            );
-
-            srv7-k3s-stg3 = mkNixosHost "srv7-k3s-stg3" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv7-k3s-stg3/configuration.nix
-              ]
-            );
-
-            srv8 = mkNixosHost "srv8" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv8/configuration.nix
-              ]
-            );
-
-            srv9 = mkNixosHost "srv9" (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/srv9/configuration.nix
               ]
             );
           };
@@ -686,20 +474,16 @@
               (
                 { pkgs, ... }:
                 {
+                  nixpkgs.config.allowUnfree = true;
+                  nixpkgs.overlays = commonOverlays;
+
                   home-manager = {
-                    useGlobalPkgs = false;
+                    useGlobalPkgs = true;
                     useUserPackages = true;
                     backupFileExtension = "nixbak";
                     backupCommand = mkHomeManagerBackupCommand pkgs "nixbak";
-                    extraSpecialArgs = mkSpecialArgs "mac" // {
-                      inherit inputs;
-                    };
+                    extraSpecialArgs = mkSpecialArgs "mac";
                     users.${macUser} = {
-                      nixpkgs.config.allowUnfree = true;
-                      nixpkgs.overlays = [
-                        localPackagesOverlay
-                        inputs.nix-vscode-extensions.overlays.default
-                      ];
                       imports = featureModules.home ++ [
                         stylix.homeModules.stylix
                       ];
@@ -718,8 +502,6 @@
           homeModules = {
             # Core shared configuration
             core = ./modules/features/profile/core/home.nix;
-            # Server profile (minimal, CLI only)
-            server = ./modules/features/profile/server/home.nix;
             # Desktop profile (full GUI and development tools)
             desktop = ./modules/features/profile/desktop/home.nix;
           };
@@ -736,15 +518,13 @@
                 let
                   hmPkgs = import nixpkgs {
                     inherit system;
-                    overlays = [ localPackagesOverlay ];
+                    overlays = if system == linuxSystem then linuxOverlays else commonOverlays;
                     config.allowUnfree = true;
                   };
                 in
                 home-manager.lib.homeManagerConfiguration {
                   pkgs = hmPkgs;
-                  extraSpecialArgs = mkSpecialArgs profile // {
-                    pkgs = hmPkgs;
-                  };
+                  extraSpecialArgs = mkSpecialArgs profile;
                   modules = featureModules.home ++ extraImports;
                   inherit username;
                   homeDirectory = if system == darwinSystem then "/Users/${username}" else "/home/${username}";

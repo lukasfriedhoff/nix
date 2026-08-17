@@ -2,6 +2,7 @@
   config,
   lib,
   secrets ? { },
+  myLib ? import ../../../lib { inherit lib; },
   ...
 }:
 
@@ -12,18 +13,18 @@ let
   sharedRoot = secrets.profileShared or secrets.shared or null;
   wireguardSecretsDir = "/var/lib/sops-nix/wireguard-homelab";
 
-  resolveSecret =
-    root: file:
-    if lib.hasPrefix "/" file then
-      file
-    else if root != null then
-      "${root}/${file}"
-    else
-      throw "desktop.wireguardHomelab: relative secret '${file}' requires a secrets root";
-
-  privateKeyPath = resolveSecret primaryRoot cfg.privateKeyFile;
-  domainPath = resolveSecret sharedRoot cfg.domainFile;
-  endpointPath = resolveSecret sharedRoot cfg.endpointFile;
+  privateKeyPath = myLib.resolveSecretPath {
+    root = primaryRoot;
+    path = cfg.privateKeyFile;
+  };
+  domainPath = myLib.resolveSecretPath {
+    root = sharedRoot;
+    path = cfg.domainFile;
+  };
+  endpointPath = myLib.resolveSecretPath {
+    root = sharedRoot;
+    path = cfg.endpointFile;
+  };
 in
 {
   options.desktop.wireguardHomelab = {

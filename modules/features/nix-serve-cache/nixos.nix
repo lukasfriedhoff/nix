@@ -2,6 +2,7 @@
   config,
   lib,
   secrets ? { },
+  myLib ? import ../../../lib { inherit lib; },
   ...
 }:
 
@@ -18,14 +19,10 @@ let
   primaryRoot = secrets.primary or secrets.root or null;
   resolveSecret =
     path:
-    if path == null then
-      null
-    else if lib.hasPrefix "/" path then
-      path
-    else if primaryRoot != null then
-      "${primaryRoot}/${path}"
-    else
-      throw "lukasf.nixCache: relative secret '${path}' requires secrets.primary/root";
+    myLib.resolveSecretPath {
+      root = primaryRoot;
+      inherit path;
+    };
 
   defaultHost =
     if cfg.cacheHost != null then

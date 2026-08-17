@@ -95,7 +95,6 @@
   desktop.personalWorkstation = {
     enable = true;
     wireguardAddress = "10.1.90.2/24";
-    cephClientName = "tux";
   };
 
   # Keep WireGuard system-managed so homelab DNS and remote builders are

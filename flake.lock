@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "anthropic-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786644594,
+        "narHash": "sha256-5/0f5AnGWX3oM+M9Xm/zSmooz11+S1YRdFPmAX+DXi0=",
+        "owner": "anthropics",
+        "repo": "skills",
+        "rev": "f6656c1256d5a8adfa37db9110046ef20bac644c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "anthropics",
+        "repo": "skills",
+        "type": "github"
+      }
+    },
     "base16": {
       "inputs": {
         "fromYaml": "fromYaml"
@@ -104,6 +120,22 @@
       "original": {
         "owner": "nlewo",
         "repo": "comin",
+        "type": "github"
+      }
+    },
+    "community-claude-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1770643394,
+        "narHash": "sha256-B/GXQRZpCRisqf+vpEeiZCqXwDN9JpxqONT9OgsLZu0=",
+        "owner": "foxj77",
+        "repo": "claude-code-skills",
+        "rev": "34f05a8831a527a67d17ab83857410e63d0724b0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "foxj77",
+        "repo": "claude-code-skills",
         "type": "github"
       }
     },
@@ -216,6 +248,22 @@
       "original": {
         "owner": "hercules-ci",
         "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flux-agent-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786432140,
+        "narHash": "sha256-OkJl9jPFpgdUz62ThohN1jad4hHEu45LeMEgAkMkqOw=",
+        "owner": "fluxcd",
+        "repo": "agent-skills",
+        "rev": "b49e531f18158797e80cd0201ef7753308b8931a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "fluxcd",
+        "repo": "agent-skills",
         "type": "github"
       }
     },
@@ -344,6 +392,22 @@
         "type": "github"
       }
     },
+    "nixos-management-skill": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784388419,
+        "narHash": "sha256-PUFWSO5+dNjmgK49xUbbgNtVqxjDsfexeMm4m/FfHkg=",
+        "owner": "michalzubkowicz",
+        "repo": "nixos-management-skill",
+        "rev": "aa1e3a3cec56308cd55e8de897eb728c5051b26d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "michalzubkowicz",
+        "repo": "nixos-management-skill",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1770107345,
@@ -418,15 +482,19 @@
     },
     "root": {
       "inputs": {
+        "anthropic-skills": "anthropic-skills",
         "comin": "comin",
+        "community-claude-skills": "community-claude-skills",
         "darwin": "darwin",
         "disko": "disko",
         "flake-parts": "flake-parts",
+        "flux-agent-skills": "flux-agent-skills",
         "home-manager": "home-manager",
         "nix-homebrew": "nix-homebrew",
         "nix-secrets": "nix-secrets",
         "nix-vscode-extensions": "nix-vscode-extensions",
         "nixos-facter-modules": "nixos-facter-modules",
+        "nixos-management-skill": "nixos-management-skill",
         "nixpkgs": "nixpkgs_2",
         "sops-nix": "sops-nix",
         "stylix": "stylix",
