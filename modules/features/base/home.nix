@@ -17,8 +17,6 @@ in
     file."hushlogin".text = "";
   };
 
-  nixpkgs.config.allowUnfree = lib.mkDefault true;
-
   home.packages =
     let
       basePackages = with pkgs; [

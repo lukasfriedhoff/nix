@@ -1,7 +1,36 @@
-{ config, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  secrets ? { },
+  ...
+}:
 let
   jdk = pkgs.temurin-bin-17;
   jdkHome = "${jdk}";
+
+  # Remote LUKS unlock helpers. Each host has an `unlock-<host>` SSH alias
+  # (resources/ssh/hosts/personal.nix) and a sops-encrypted passphrase at
+  # luks/<host>.txt under the profile-shared root of the private
+  # nix-secrets repo. Omitted entirely when no profileShared root is set.
+  luksUnlockHosts = [
+    "srv1"
+    "srv2"
+    "srv8"
+    "srv9"
+  ];
+  luksSecretsRoot = secrets.profileShared or null;
+  luksUnlockFunctions = lib.optionalString (luksSecretsRoot != null) (
+    lib.concatMapStrings (host: ''
+
+      # Unlock ${host} LUKS in one go
+      unlock-${host}-passphrase() {
+        local pass
+        pass="$(sops -d "${luksSecretsRoot}/luks/${host}.txt")"
+        echo -n "$pass" | ssh unlock-${host} 'umask 077; install -m 600 /dev/stdin /crypt-ramfs/passphrase'
+      }
+    '') luksUnlockHosts
+  );
 in
 {
   imports = [
@@ -29,29 +58,8 @@ in
 
       # Load user binaries
       export PATH="$PATH:$HOME/bin:$HOME/.local/bin:$HOME/go/bin"
-
-      # Source decrypted OpenAI secrets if available so Codex/Neovim inherit them
-      codex_secret="$HOME/.config/secrets/openai.env"
-      if [ -f "$codex_secret" ]; then
-        set -a
-        . "$codex_secret"
-        set +a
-      fi
-
-      # Unlock srv1 LUKS in one go
-      unlock-srv1-passphrase() {
-        local pass
-        pass="$(sops -d "$HOME/git/lukasfriedhoff/nix/secrets/profiles/personal/shared/luks/srv1.txt")"
-        echo -n "$pass" | ssh unlock-srv1 'umask 077; install -m 600 /dev/stdin /crypt-ramfs/passphrase'
-      }
-
-      # Unlock srv2 LUKS in one go
-      unlock-srv2-passphrase() {
-        local pass
-        pass="$(sops -d "$HOME/git/lukasfriedhoff/nix/secrets/profiles/personal/shared/luks/srv2.txt")"
-        echo -n "$pass" | ssh unlock-srv2 'umask 077; install -m 600 /dev/stdin /crypt-ramfs/passphrase'
-      }
-    '';
+    ''
+    + luksUnlockFunctions;
 
     # set some aliases, feel free to add more or remove some
     shellAliases = {

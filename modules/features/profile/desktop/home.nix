@@ -10,21 +10,8 @@
 }:
 
 let
-  # Use profile-based detection for backwards compatibility
-  personalDesktopProfiles = [
-    "srv4"
-    "tux"
-    "tab"
-    "lenovo"
-  ];
-  isPersonalDesktop = profile != null && lib.elem profile personalDesktopProfiles;
-
-  # Check profiles.desktop.enable if defined, otherwise fall back to profile detection
-  desktopEnabled =
-    if config ? profiles && config.profiles ? desktop then
-      config.profiles.desktop.enable
-    else
-      isPersonalDesktop;
+  # Single source of truth lives in profile/core/home.nix.
+  desktopEnabled = config.profiles.desktop.enable;
 
   # Workstation profiles get extra development tools
   personalWorkstationProfiles = [
@@ -80,38 +67,11 @@ let
   isLinuxDesktop = desktopEnabled && (!pkgs.stdenv.isDarwin);
   isPersonalWorkstation = profile != null && lib.elem profile personalWorkstationProfiles;
   isLinuxWorkstation = isPersonalWorkstation && (!pkgs.stdenv.isDarwin);
-
-  masterpdfeditorLicenseCompatible = pkgs.masterpdfeditor.overrideAttrs (_old: {
-    version = "5.9.60";
-    src = pkgs.fetchurl {
-      url = "https://code-industry.net/public/master-pdf-editor-5.9.60-qt5.x86_64.tar.gz";
-      hash = "sha256-KnqqoPhpcQA3mFuuGlZO6RyONgbKFDojDFz+hYFfq9c=";
-    };
-
-    installPhase = ''
-      runHook preInstall
-
-      substituteInPlace masterpdfeditor5.desktop \
-        --replace-fail "Exec=/opt/master-pdf-editor-5/masterpdfeditor5" "Exec=masterpdfeditor5" \
-        --replace-fail "Path=/opt/master-pdf-editor-5" "Path=$out/share/masterpdfeditor" \
-        --replace-fail "/opt/master-pdf-editor-5/masterpdfeditor5.png" "masterpdfeditor5"
-
-      install -Dm644 masterpdfeditor5.desktop -t $out/share/applications
-      install -Dm644 masterpdfeditor5.png -t $out/share/icons/hicolor/128x128/apps
-      install -Dm755 masterpdfeditor5 -t $out/share/masterpdfeditor
-      cp -r stamps templates lang fonts $out/share/masterpdfeditor
-
-      mkdir -p $out/bin
-      ln -s $out/share/masterpdfeditor/masterpdfeditor5 $out/bin/masterpdfeditor5
-
-      runHook postInstall
-    '';
-  });
 in
 {
   config = lib.mkMerge [
     (lib.mkIf isLinuxDesktop {
-      programs.kubeconfig = lib.mkIf isPersonalDesktop {
+      programs.kubeconfig = {
         enable = lib.mkDefault true;
         defaultContext = lib.mkDefault "homelab-prod";
         clusters = lib.mkDefault [
@@ -168,7 +128,7 @@ in
         pkgs.gopls
         pkgs.gcc
         pkgs.jameica
-        masterpdfeditorLicenseCompatible
+        pkgs.masterpdfeditorLicenseCompatible
         pkgs.nodejs_22
         pkgs.noto-fonts-color-emoji
         pkgs.font-awesome
@@ -185,7 +145,10 @@ in
         OPENCODE_MODEL = defaultOpencodeModel;
         OPENCODE_KIMI_API_MODEL = "kimi-api/${kimiApiModel}";
         OPENWEBUI_URL = resolvedOpenWebUiUrl;
+      }
+      // lib.optionalAttrs config.profiles.desktop.nixLd.enable {
         # Required for opencode plugins with native node modules (onnxruntime, etc.)
+        # Only meaningful on NixOS hosts with nix-ld; see profiles.desktop.nixLd.
         LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
       };
 
@@ -313,9 +276,6 @@ in
     })
     (lib.mkIf isLinuxWorkstation {
       programs.bash.shellAliases = {
-        llm-srv4-start = "ssh srv4 'sudo systemctl start llama-cpp-podman.service open-webui-podman.service'";
-        llm-srv4-stop = "ssh srv4 'sudo systemctl stop llama-cpp-podman.service open-webui-podman.service'";
-        llm-srv4-status = "ssh srv4 'systemctl status --no-pager llama-cpp-podman.service open-webui-podman.service'";
         llm-srv4-models = "ssh srv4 'curl -fsS http://127.0.0.1:11434/v1/models'";
         opencode-qwen3-coder = "OPENCODE_MODEL=llama-cpp/qwen3-coder:30b opencode";
         opencode-kimi-api = "OPENCODE_MODEL=kimi-api/${kimiApiModel} opencode";
@@ -325,13 +285,6 @@ in
         pkgs.podman
         pkgs.btop
       ];
-
-      # Remove old OpenAI API key file; prefer ChatGPT Plus, Gemini Pro, and Copilot sign-ins.
-      home.activation.decryptOpenAIEnv = lib.mkForce (
-        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          rm -f "${config.xdg.configHome}/secrets/openai.env"
-        ''
-      );
 
       programs.icarusModManager = {
         enable = true;

@@ -4,20 +4,15 @@
   pkgs,
   config,
   secrets,
-  profile ? null,
+  myLib ? import ../../../../lib { inherit lib; },
   workSystem ? false,
   ...
 }:
 
 let
   cfg = config.programs."sops-age";
-  personalDesktopProfiles = [
-    "srv4"
-    "tux"
-    "tab"
-    "lenovo"
-  ];
-  isPersonalDesktop = profile != null && lib.elem profile personalDesktopProfiles;
+  # Single source of truth lives in profile/core/home.nix.
+  isPersonalDesktop = config.profiles.desktop.enable;
 in
 {
   options.programs."sops-age" = {
@@ -30,34 +25,26 @@ in
     }
     (lib.mkIf cfg.enable (
       let
-        # The flake passes both profile-specific and shared roots.
-        primaryDir = secrets.primary or secrets.root;
-        profileSharedDir = secrets.profileShared or null;
-        profileCommonDir = secrets.profileCommon or null;
-        sharedDir = secrets.shared or null;
-
+        # The flake passes both profile-specific and shared roots; earlier
+        # roots win, an existing file is preferred, and the first candidate
+        # is the fallback so a missing secret still fails loudly at the
+        # sops/consumer layer.
         secretPath =
           name:
-          let
-            candidates =
-              (lib.optional (primaryDir != null) "${primaryDir}/${name}")
-              ++ (lib.optional (profileSharedDir != null) "${profileSharedDir}/${name}")
-              ++ (lib.optional (profileCommonDir != null) "${profileCommonDir}/${name}")
-              ++ (lib.optional (sharedDir != null) "${sharedDir}/${name}");
-            found = lib.findFirst (p: builtins.pathExists p) null candidates;
-          in
-          if candidates == [ ] then
-            throw "No secrets directory configured for ${name}"
-          else if found != null then
-            found
-          else
-            lib.head candidates;
+          myLib.resolveSecretFirst {
+            roots = [
+              (secrets.primary or secrets.root)
+              (secrets.profileShared or null)
+              (secrets.profileCommon or null)
+              (secrets.shared or null)
+            ];
+            path = name;
+          };
 
         sopsBin = lib.getExe pkgs.sops;
         gpgBin = lib.getExe pkgs.gnupg;
         sshKeyPrivSecret = secretPath "git-personal-ed25519.priv";
         gpgSecret = secretPath "git-personal-gpg.asc";
-        openAIEnv = secretPath "openai.env";
         cloudflareApiMgmtToken = secretPath "cloudflare/api-mgmt.token.txt";
         nextcloudConfig = secretPath "nextcloud/nextcloud.cfg.txt";
         nextcloudExclude = secretPath "nextcloud/sync-exclude.lst.txt";
@@ -195,26 +182,6 @@ in
             rm -rf "${config.home.homeDirectory}/.ssh/personal"
           ''
         );
-
-        home.activation.decryptOpenAIEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          set -eu
-
-          export SOPS_AGE_KEY_FILE='${ageKeyFile}'
-
-          cfg_dir="${config.xdg.configHome}/secrets"
-          "${pkgs.coreutils}/bin/mkdir" -p "$cfg_dir"
-
-          dst="$cfg_dir/openai.env"
-
-          if [ -f '${openAIEnv}' ]; then
-            tmp="$(mktemp)"
-            ${sopsBin} -d '${openAIEnv}' > "$tmp"
-            "${pkgs.coreutils}/bin/install" -m 600 "$tmp" "$dst"
-            "${pkgs.coreutils}/bin/rm" -f "$tmp"
-          elif [ -f "$dst" ]; then
-            "${pkgs.coreutils}/bin/rm" -f "$dst"
-          fi
-        '';
 
         home.activation.decryptCloudflareApiMgmtToken = lib.mkIf (!workSystem && isPersonalDesktop) (
           lib.hm.dag.entryAfter [ "writeBoundary" ] ''

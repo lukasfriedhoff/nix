@@ -15,40 +15,31 @@ let
     ps.notebook
   ]);
 
-  # Prefer the packaged Mermaid markdown extension when available.
+  # Prefer the nixpkgs-packaged Mermaid markdown extension; fall back to the
+  # marketplace build (the nix-vscode-extensions overlay is applied on both
+  # Linux and Darwin, so pkgs.vscode-marketplace always exists).
   mermaidExtension =
     if (pkgs.vscode-extensions ? bierner) && (pkgs.vscode-extensions.bierner ? markdown-mermaid) then
       pkgs.vscode-extensions.bierner.markdown-mermaid
-    else if
-      (pkgs ? vscode-marketplace)
-      && (pkgs.vscode-marketplace ? bierner)
-      && (pkgs.vscode-marketplace.bierner ? markdown-mermaid)
-    then
-      pkgs.vscode-marketplace.bierner.markdown-mermaid
     else
-      null;
+      pkgs.vscode-marketplace.bierner.markdown-mermaid;
 
   # Marketplace extensions (MS Fabric, SQL Server, Jupyter)
-  marketplaceExtensions =
-    if pkgs ? vscode-marketplace then
-      with pkgs.vscode-marketplace;
-      [
-        # MS Fabric extensions
-        fabric.vscode-fabric
-        # MS SQL Server extensions
-        ms-mssql.mssql
-        ms-mssql.data-workspace-vscode
-        ms-mssql.sql-database-projects-vscode
-        ms-mssql.sql-bindings-vscode
-        # Jupyter (required by Fabric)
-        ms-toolsai.jupyter
-        ms-toolsai.jupyter-keymap
-        ms-toolsai.jupyter-renderers
-        ms-toolsai.vscode-jupyter-cell-tags
-        ms-toolsai.vscode-jupyter-slideshow
-      ]
-    else
-      [ ];
+  marketplaceExtensions = with pkgs.vscode-marketplace; [
+    # MS Fabric extensions
+    fabric.vscode-fabric
+    # MS SQL Server extensions
+    ms-mssql.mssql
+    ms-mssql.data-workspace-vscode
+    ms-mssql.sql-database-projects-vscode
+    ms-mssql.sql-bindings-vscode
+    # Jupyter (required by Fabric)
+    ms-toolsai.jupyter
+    ms-toolsai.jupyter-keymap
+    ms-toolsai.jupyter-renderers
+    ms-toolsai.vscode-jupyter-cell-tags
+    ms-toolsai.vscode-jupyter-slideshow
+  ];
 
   # VSCode settings file path (platform-specific)
   settingsPath =
@@ -114,7 +105,7 @@ in
               github.copilot
               github.copilot-chat
             ])
-            ++ lib.optional (mermaidExtension != null) mermaidExtension
+            ++ [ mermaidExtension ]
             ++ marketplaceExtensions;
 
           userSettings = {
