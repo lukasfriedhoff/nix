@@ -43,6 +43,12 @@
     wireguardAddress = "10.1.90.5/24";
   };
 
+  # Sway session next to GNOME (GDM offers both); bindings mirror AeroSpace.
+  desktop.sway = {
+    enable = true;
+    nvidiaUnsupportedGpu = true;
+  };
+
   # Match tux-h4xx-01 behavior: start homelab WireGuard from the user session.
   lukasf.wireguard.homelab.userUnit.enable = true;
 

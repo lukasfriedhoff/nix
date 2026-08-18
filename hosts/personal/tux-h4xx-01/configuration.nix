@@ -97,6 +97,12 @@
     wireguardAddress = "10.1.90.2/24";
   };
 
+  # Sway session next to GNOME (GDM offers both); bindings mirror AeroSpace.
+  desktop.sway = {
+    enable = true;
+    nvidiaUnsupportedGpu = true;
+  };
+
   # Keep WireGuard system-managed so homelab DNS and remote builders are
   # available before rebuilds and other privileged automation.
   lukasf.wireguard.homelab.userUnit.enable = false;
