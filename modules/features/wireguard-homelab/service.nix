@@ -22,6 +22,17 @@ in
   options.lukasf.wireguard.homelab = {
     enable = lib.mkEnableOption "WireGuard client for the MikroTik homelab tunnel";
 
+    presharedKeyFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Path to a (secret) file containing the WireGuard preshared key for
+        the hub peer. A PSK adds a symmetric, quantum-resistant layer on
+        top of the Curve25519 handshake. Enable only after the same PSK is
+        configured on the MikroTik peer, or the tunnel will not come up.
+      '';
+    };
+
     privateKeyFile = lib.mkOption {
       type = lib.types.path;
       description = ''
@@ -288,6 +299,7 @@ in
             {
               publicKey = cfg.peerPublicKey;
               inherit (cfg) allowedIPs;
+              inherit (cfg) presharedKeyFile;
             }
           ];
         };

@@ -80,3 +80,28 @@ systemctl --user status wireguard-wg-homelab.service
 
 When user-mode startup is enabled, the periodic system refresh timer is
 disabled to avoid restarting the tunnel every few minutes.
+
+### Preshared keys (post-quantum hardening)
+
+Each host has a SOPS-encrypted PSK in nix-secrets at
+`secrets/profiles/personal/<desktops|servers>/<host>/wireguard/homelab-psk.txt`.
+A PSK adds a symmetric layer that stays secure against quantum attacks on
+Curve25519 ("harvest now, decrypt later").
+
+Rollout order matters — the MikroTik must know the PSK first:
+
+1. Read the host's PSK: `sops -d secrets/profiles/personal/desktops/tux-h4xx-01/wireguard/homelab-psk.txt`
+2. On the MikroTik, set it on the matching peer:
+   `/interface/wireguard/peers set [find comment="tux-h4xx-01"] preshared-key="<psk>"`
+3. Only then enable it on the host:
+
+   ```nix
+   sops.secrets."wireguard-homelab-psk" = {
+     sopsFile = "${secrets.primary}/wireguard/homelab-psk.txt";
+     format = "binary";
+   };
+   lukasf.wireguard.homelab.presharedKeyFile =
+     config.sops.secrets."wireguard-homelab-psk".path;
+   ```
+
+The module option defaults to null, so nothing changes until a host opts in.
