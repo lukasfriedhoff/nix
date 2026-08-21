@@ -1,6 +1,10 @@
 _: {
   networking.hostName = "macbook-pro";
 
+  # Let root fetch the private nix-secrets flake input during
+  # `sudo darwin-rebuild switch` (deploy key installed out of band).
+  lukasf.nixSecretsAccess.enable = true;
+
   # Make the remote OpenAI-compatible LLM API available to GUI and terminal apps.
   launchd.user.envVariables = {
     OLLAMA_HOST = "http://10.7.5.19:11434";
