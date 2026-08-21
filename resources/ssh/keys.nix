@@ -151,4 +151,9 @@
     path = ".ssh/work/netbox04";
     scope = "work";
   }
+  {
+    secret = "ssh/dacosoworksca01.priv";
+    path = ".ssh/work/dacosoworksca01";
+    scope = "work";
+  }
 ]

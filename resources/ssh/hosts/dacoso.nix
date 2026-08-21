@@ -59,4 +59,17 @@
     user = "netbox";
     keyName = "netbox04";
   }
+  {
+    match = "dacosoworksca01";
+    alias = "dacosoworksca01";
+    hostName = "10.0.33.26";
+    user = "ca";
+    keyName = "dacosoworksca01";
+    extraOptions = {
+      # Prefer post-quantum hybrid key exchange (^ prepends to the default
+      # list, so older servers still negotiate a classical KEX). Auth stays
+      # ed25519: OpenSSH has no PQ user-authentication keys yet.
+      KexAlgorithms = "^mlkem768x25519-sha256,sntrup761x25519-sha512@openssh.com";
+    };
+  }
 ]
