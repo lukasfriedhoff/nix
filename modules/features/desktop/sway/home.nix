@@ -54,7 +54,7 @@ in
       enable = true;
       config = {
         modifier = mod;
-        terminal = "foot";
+        terminal = "${lib.getExe pkgs.alacritty}";
         menu = "wofi --show drun";
         # Merged over Sway's stock bindings (mkOptionDefault), so anything
         # the shared definition does not cover keeps its upstream default.
@@ -65,8 +65,25 @@ in
             # then copy the written file — never prompt or grab twice.
             "Print" = "exec ${screenshotFull}";
             "Shift+Print" = "exec ${screenshotRegion}";
+            # Media and brightness keys (no modifier, work when locked too
+            # via the locked variants sway provides by default for XF86)
+            "XF86AudioRaiseVolume" =
+              "exec ${pkgs.wireplumber}/bin/wpctl set-volume -l 1.4 @DEFAULT_AUDIO_SINK@ 5%+";
+            "XF86AudioLowerVolume" = "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
+            "XF86AudioMute" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle";
+            "XF86AudioMicMute" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
+            "XF86MonBrightnessUp" = "exec ${lib.getExe pkgs.brightnessctl} set +5%";
+            "XF86MonBrightnessDown" = "exec ${lib.getExe pkgs.brightnessctl} set 5%-";
+            "XF86AudioPlay" = "exec ${lib.getExe pkgs.playerctl} play-pause";
+            "XF86AudioNext" = "exec ${lib.getExe pkgs.playerctl} next";
+            "XF86AudioPrev" = "exec ${lib.getExe pkgs.playerctl} previous";
           }
         );
+        window = {
+          titlebar = false;
+          border = 2;
+        };
+        floating.titlebar = false;
         modes = {
           service = lib.filterAttrs (_: cmd: cmd != null) (
             lib.mapAttrs' (
@@ -90,11 +107,50 @@ in
     # apps like VS Code find no org.freedesktop.secrets provider.
     services.gnome-keyring.enable = true;
 
+    # Desktop notifications (GNOME ships its own daemon; Sway needs one).
+    services.mako = {
+      enable = true;
+      settings.default-timeout = 8000;
+    };
+
     # Systemd-managed so it survives config reloads and comes back
     # restarted (not orphaned) after every Home Manager activation.
     programs.waybar = {
       enable = true;
       systemd.enable = true;
+      settings.mainBar = {
+        layer = "top";
+        position = "top";
+        height = 26;
+        modules-left = [
+          "sway/workspaces"
+          "sway/mode"
+        ];
+        modules-center = [ "sway/window" ];
+        modules-right = [
+          "wireplumber"
+          "network"
+          "battery"
+          "clock"
+          "tray"
+        ];
+        wireplumber = {
+          format = "vol {volume}%";
+          format-muted = "muted";
+        };
+        network = {
+          format-wifi = "{essid} {signalStrength}%";
+          format-ethernet = "eth {ifname}";
+          format-disconnected = "offline";
+        };
+        battery = {
+          format = "bat {capacity}%";
+          states.warning = 25;
+          states.critical = 10;
+        };
+        clock.format = "{:%a %d.%m %H:%M}";
+        tray.spacing = 8;
+      };
     };
     programs.swaylock.enable = true;
     services.swayidle = {
@@ -119,7 +175,7 @@ in
     };
 
     home.packages = [
-      pkgs.foot
+      pkgs.playerctl
       pkgs.wofi
       pkgs.wl-clipboard
       pkgs.grim
