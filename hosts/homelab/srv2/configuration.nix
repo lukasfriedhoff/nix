@@ -75,6 +75,11 @@ in
   homelab.kubernetes = {
     enable = true;
     longhorn.enable = true;
+    # Embedded etcd instead of the single-server sqlite default; k3s migrates
+    # the existing datastore in place on the first restart with this flag.
+    # Required before srv8/srv9 can join as control planes
+    # (docs/deployment/k3s-ha-migration.md).
+    clusterInit = true;
     tlsSans = [
       "srv2.lab.h4xx.io"
       "srv2"

@@ -127,11 +127,19 @@ in
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
     longhorn.enable = true;
-    role = "agent";
+    # Control-plane peer: joins srv2's embedded etcd. srv2 must be migrated
+    # off sqlite (clusterInit) before this role change is deployed
+    # (docs/deployment/k3s-ha-migration.md).
+    role = "server";
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
     nodeName = hostName;
     nodeIP = "10.1.30.31";
+    tlsSans = [
+      "srv9.lab.h4xx.io"
+      "srv9"
+      "10.1.30.31"
+    ];
     extraFlags = [ "--kubelet-arg=max-pods=250" ];
   };
 }
