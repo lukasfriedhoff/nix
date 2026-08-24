@@ -75,8 +75,7 @@ in
           inner = 10;
           smartGaps = true;
         };
-        bars = [ ]; # waybar below instead of swaybar
-        startup = [ { command = "${lib.getExe pkgs.waybar}"; } ];
+        bars = [ ]; # waybar runs as a user service bound to sway-session.target
         # Workspace->output pinning intentionally omitted: output names are
         # per-host; add workspaceOutputAssign in the host config once the
         # monitor names are known (swaymsg -t get_outputs).
@@ -87,7 +86,12 @@ in
     # apps like VS Code find no org.freedesktop.secrets provider.
     services.gnome-keyring.enable = true;
 
-    programs.waybar.enable = true;
+    # Systemd-managed so it survives config reloads and comes back
+    # restarted (not orphaned) after every Home Manager activation.
+    programs.waybar = {
+      enable = true;
+      systemd.enable = true;
+    };
     programs.swaylock.enable = true;
     services.swayidle = {
       enable = true;
