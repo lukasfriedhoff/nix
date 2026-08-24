@@ -162,4 +162,12 @@
     };
   };
 
+  # Sway output layout: LG 4K centered above the internal panel
+  # ((3840-2560)/2 = 640 x-offset; positions use scaled sizes).
+  home-manager.users.lukasf = {
+    wayland.windowManager.sway.config.output = {
+      "HDMI-A-1".position = "0 0";
+      "eDP-1".position = "640 2160";
+    };
+  };
 }
