@@ -39,10 +39,13 @@ let
     ${lib.getExe pkgs.grim} -g "$geom" "$f"
     ${pkgs.wl-clipboard}/bin/wl-copy < "$f"
   '';
+  # --to-code binds by physical keycode, so shifted symbol keys work:
+  # with plain keysym matching, Shift+semicolon arrives as "colon" and a
+  # Mod4+Shift+semicolon binding never fires (same for minus/equal).
   renderBindings =
     defs:
     lib.filterAttrs (_: cmd: cmd != null) (
-      lib.mapAttrs' (key: cmds: lib.nameValuePair (renderKey key) cmds.sway) defs
+      lib.mapAttrs' (key: cmds: lib.nameValuePair "--to-code ${renderKey key}" cmds.sway) defs
     );
 in
 {
@@ -67,7 +70,8 @@ in
         modes = {
           service = lib.filterAttrs (_: cmd: cmd != null) (
             lib.mapAttrs' (
-              key: cmds: lib.nameValuePair (if key == "esc" then "Escape" else renderKey key) cmds.sway
+              key: cmds:
+              lib.nameValuePair (if key == "esc" then "Escape" else "--to-code ${renderKey key}") cmds.sway
             ) tiling.serviceBindings
           );
         };
