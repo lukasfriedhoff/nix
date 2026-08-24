@@ -23,6 +23,22 @@ let
     };
   };
   # def key -> sway command, dropping entries without a Sway equivalent
+  screenshotDir = "$HOME/Pictures/screenshots";
+  screenshotFull = pkgs.writeShellScript "screenshot-full" ''
+    set -eu
+    mkdir -p "${screenshotDir}"
+    f="${screenshotDir}/$(date +%Y%m%d-%H%M%S).png"
+    ${lib.getExe pkgs.grim} "$f"
+    ${pkgs.wl-clipboard}/bin/wl-copy < "$f"
+  '';
+  screenshotRegion = pkgs.writeShellScript "screenshot-region" ''
+    set -eu
+    mkdir -p "${screenshotDir}"
+    f="${screenshotDir}/$(date +%Y%m%d-%H%M%S).png"
+    geom="$(${lib.getExe pkgs.slurp})" || exit 0
+    ${lib.getExe pkgs.grim} -g "$geom" "$f"
+    ${pkgs.wl-clipboard}/bin/wl-copy < "$f"
+  '';
   renderBindings =
     defs:
     lib.filterAttrs (_: cmd: cmd != null) (
@@ -42,13 +58,10 @@ in
         keybindings = lib.mkOptionDefault (
           renderBindings tiling.mainBindings
           // {
-            # Screenshots (Linux-only; macOS ships its own): full screen on
-            # Print, region on Shift+Print — saved under ~/Pictures and on
-            # the clipboard.
-            "Print" =
-              "exec mkdir -p ~/Pictures/screenshots && ${lib.getExe pkgs.grim} ~/Pictures/screenshots/$(date +%Y%m%d-%H%M%S).png && ${lib.getExe pkgs.grim} - | ${pkgs.wl-clipboard}/bin/wl-copy";
-            "Shift+Print" =
-              "exec mkdir -p ~/Pictures/screenshots && ${lib.getExe pkgs.slurp} | ${lib.getExe pkgs.grim} -g - ~/Pictures/screenshots/$(date +%Y%m%d-%H%M%S).png && ${lib.getExe pkgs.slurp} | ${lib.getExe pkgs.grim} -g - - | ${pkgs.wl-clipboard}/bin/wl-copy";
+            # Screenshots (Linux-only; macOS ships its own): capture once,
+            # then copy the written file — never prompt or grab twice.
+            "Print" = "exec ${screenshotFull}";
+            "Shift+Print" = "exec ${screenshotRegion}";
           }
         );
         modes = {
@@ -69,6 +82,10 @@ in
         # monitor names are known (swaymsg -t get_outputs).
       };
     };
+
+    # GNOME starts a keyring for its session; Sway must bring its own or
+    # apps like VS Code find no org.freedesktop.secrets provider.
+    services.gnome-keyring.enable = true;
 
     programs.waybar.enable = true;
     programs.swaylock.enable = true;
