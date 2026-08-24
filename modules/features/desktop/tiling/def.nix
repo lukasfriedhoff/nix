@@ -96,19 +96,9 @@ rec {
         sway = "workspace back_and_forth";
       };
 
-      # Linux-only session helpers (macOS handles these natively)
-      "return" = {
-        aerospace = null;
-        sway = "exec foot";
-      };
-      "d" = {
-        aerospace = null;
-        sway = "exec wofi --show drun";
-      };
-      "shift-q" = {
-        aerospace = null;
-        sway = "kill";
-      };
+      # Terminal (MOD+Return), launcher (MOD+d) and close (MOD+Shift+q)
+      # come from Home Manager's stock Sway bindings, which respect the
+      # module's terminal/menu settings — no overrides needed here.
 
       # Service mode entry
       "shift-semicolon" = both "mode service";
