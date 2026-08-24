@@ -11,7 +11,7 @@
 let
   enabled = (osConfig.desktop.sway.enable or false) && !pkgs.stdenv.isDarwin;
   tiling = import ../tiling/def.nix { inherit lib; };
-  mod = "Mod4";
+  mod = if (osConfig.desktop.sway.modifier or "super") == "alt" then "Mod1" else "Mod4";
   renderKey = tiling.renderKey {
     prefix = mod;
     sep = "+";
@@ -39,7 +39,18 @@ in
         menu = "wofi --show drun";
         # Merged over Sway's stock bindings (mkOptionDefault), so anything
         # the shared definition does not cover keeps its upstream default.
-        keybindings = lib.mkOptionDefault (renderBindings tiling.mainBindings);
+        keybindings = lib.mkOptionDefault (
+          renderBindings tiling.mainBindings
+          // {
+            # Screenshots (Linux-only; macOS ships its own): full screen on
+            # Print, region on Shift+Print — saved under ~/Pictures and on
+            # the clipboard.
+            "Print" =
+              "exec mkdir -p ~/Pictures/screenshots && ${lib.getExe pkgs.grim} ~/Pictures/screenshots/$(date +%Y%m%d-%H%M%S).png && ${lib.getExe pkgs.grim} - | ${pkgs.wl-clipboard}/bin/wl-copy";
+            "Shift+Print" =
+              "exec mkdir -p ~/Pictures/screenshots && ${lib.getExe pkgs.slurp} | ${lib.getExe pkgs.grim} -g - ~/Pictures/screenshots/$(date +%Y%m%d-%H%M%S).png && ${lib.getExe pkgs.slurp} | ${lib.getExe pkgs.grim} -g - - | ${pkgs.wl-clipboard}/bin/wl-copy";
+          }
+        );
         modes = {
           service = lib.filterAttrs (_: cmd: cmd != null) (
             lib.mapAttrs' (

@@ -14,6 +14,18 @@ in
 {
   options.desktop.sway = {
     enable = lib.mkEnableOption "Sway tiling Wayland session alongside the primary desktop";
+    modifier = lib.mkOption {
+      type = lib.types.enum [
+        "super"
+        "alt"
+      ];
+      default = "super";
+      description = ''
+        Logical modifier for the shared tiling bindings. "super" avoids
+        collisions with in-app Alt shortcuts on Linux; "alt" matches the
+        AeroSpace muscle memory exactly.
+      '';
+    };
     nvidiaUnsupportedGpu = lib.mkEnableOption "pass --unsupported-gpu on NVIDIA-rendered hosts";
   };
 
