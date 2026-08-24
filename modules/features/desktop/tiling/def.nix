@@ -151,6 +151,21 @@ rec {
       ];
       sway = null;
     };
+    # Throw the current workspace onto the previous/next monitor.
+    "h" = {
+      aerospace = [
+        "move-workspace-to-monitor --wrap-around prev"
+        "mode main"
+      ];
+      sway = "move workspace to output left; mode default";
+    };
+    "l" = {
+      aerospace = [
+        "move-workspace-to-monitor --wrap-around next"
+        "mode main"
+      ];
+      sway = "move workspace to output right; mode default";
+    };
     "shift-h" = {
       aerospace = [
         "join-with left"
