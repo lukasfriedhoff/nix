@@ -39,6 +39,101 @@ let
     ${lib.getExe pkgs.grim} -g "$geom" "$f"
     ${pkgs.wl-clipboard}/bin/wl-copy < "$f"
   '';
+  # Region capture that opens in swappy for annotation (arrows, crop, text);
+  # swappy's own copy/save buttons take over from there.
+  screenshotAnnotate = pkgs.writeShellScript "screenshot-annotate" ''
+    set -eu
+    mkdir -p "${screenshotDir}"
+    f="${screenshotDir}/$(date +%Y%m%d-%H%M%S).png"
+    geom="$(${lib.getExe pkgs.slurp})" || exit 0
+    ${lib.getExe pkgs.grim} -g "$geom" "$f"
+    exec ${lib.getExe pkgs.swappy} -f "$f"
+  '';
+  # Quake-style dropdown: first press launches, later presses toggle the
+  # scratchpad copy. The matching window rule floats/centers it.
+  dropdownToggle = pkgs.writeShellScript "dropdown-terminal" ''
+    if ! ${pkgs.sway}/bin/swaymsg '[app_id="dropdown-terminal"] scratchpad show'; then
+      ${lib.getExe pkgs.alacritty} --class dropdown-terminal &
+    fi
+  '';
+  clipboardPick = pkgs.writeShellScript "clipboard-pick" ''
+    set -eu
+    sel="$(${lib.getExe pkgs.cliphist} list | ${lib.getExe pkgs.wofi} --dmenu --prompt clipboard)" || exit 0
+    printf '%s' "$sel" | ${lib.getExe pkgs.cliphist} decode | ${pkgs.wl-clipboard}/bin/wl-copy
+  '';
+  # Renames workspaces to "N: app app" so the waybar workspace list shows
+  # what runs where; number-based switching keeps working because the
+  # bindings use "workspace number N". Text labels instead of glyph icons
+  # to match the bar's plain-text style (and no icon-font dependency).
+  autonamePython = pkgs.python3.withPackages (ps: [ ps.i3ipc ]);
+  autonameScript = pkgs.writeText "workspace-autoname.py" ''
+    import i3ipc
+
+    LABELS = {
+        "alacritty": "term",
+        "dropdown-terminal": "term",
+        "foot": "term",
+        "firefox": "web",
+        "chromium-browser": "web",
+        "code": "code",
+        "code-url-handler": "code",
+        "org.gnome.nautilus": "files",
+        "thunderbird": "mail",
+        "signal": "chat",
+        "org.telegram.desktop": "chat",
+        "discord": "chat",
+        "spotify": "music",
+        "mpv": "video",
+        "steam": "game",
+        "virt-manager": "vm",
+    }
+
+
+    def label(win):
+        app = (win.app_id or win.window_class or "").lower()
+        if not app:
+            return None
+        return LABELS.get(app, app.split(".")[-1][:10])
+
+
+    def refresh(conn, _event=None):
+        for ws in conn.get_tree().workspaces():
+            if ws.num < 0:  # scratchpad
+                continue
+            seen = []
+            for win in ws.leaves():
+                tag = label(win)
+                if tag and tag not in seen:
+                    seen.append(tag)
+            new = "%d: %s" % (ws.num, " ".join(seen)) if seen else "%d" % ws.num
+            if ws.name != new:
+                conn.command(
+                    'rename workspace "%s" to "%s"'
+                    % (ws.name.replace('"', ""), new.replace('"', ""))
+                )
+
+
+    conn = i3ipc.Connection()
+    for ev in ("window::new", "window::close", "window::move"):
+        conn.on(ev, refresh)
+    refresh(conn)
+    conn.main()
+  '';
+  # Bind helpers to the sway session so none of this leaks into a parallel
+  # GNOME login (kanshi would fight mutter's display config, gammastep
+  # would double GNOME's night light).
+  swaySessionService = description: execStart: {
+    Unit = {
+      Description = description;
+      PartOf = [ "sway-session.target" ];
+      After = [ "sway-session.target" ];
+    };
+    Service = {
+      ExecStart = execStart;
+      Restart = "on-failure";
+    };
+    Install.WantedBy = [ "sway-session.target" ];
+  };
   # --to-code binds by physical keycode, so shifted symbol keys work:
   # with plain keysym matching, Shift+semicolon arrives as "colon" and a
   # Mod4+Shift+semicolon binding never fires (same for minus/equal).
@@ -63,17 +158,24 @@ in
           // {
             # Screenshots (Linux-only; macOS ships its own): capture once,
             # then copy the written file — never prompt or grab twice.
+            # MOD+Print additionally opens the capture in swappy to annotate.
             "Print" = "exec ${screenshotFull}";
             "Shift+Print" = "exec ${screenshotRegion}";
+            "${mod}+Print" = "exec ${screenshotAnnotate}";
+            # Quake-style dropdown terminal and clipboard history picker.
+            "${mod}+grave" = "exec ${dropdownToggle}";
+            "${mod}+p" = "exec ${clipboardPick}";
             # Media and brightness keys (no modifier, work when locked too
-            # via the locked variants sway provides by default for XF86)
+            # via the locked variants sway provides by default for XF86).
+            # swayosd-client changes the value AND draws the on-screen bar;
+            # --max-volume 140 matches the old wpctl -l 1.4 headroom.
             "XF86AudioRaiseVolume" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-volume -l 1.4 @DEFAULT_AUDIO_SINK@ 5%+";
-            "XF86AudioLowerVolume" = "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
-            "XF86AudioMute" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle";
-            "XF86AudioMicMute" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
-            "XF86MonBrightnessUp" = "exec ${lib.getExe pkgs.brightnessctl} set +5%";
-            "XF86MonBrightnessDown" = "exec ${lib.getExe pkgs.brightnessctl} set 5%-";
+              "exec ${pkgs.swayosd}/bin/swayosd-client --max-volume 140 --output-volume raise";
+            "XF86AudioLowerVolume" = "exec ${pkgs.swayosd}/bin/swayosd-client --output-volume lower";
+            "XF86AudioMute" = "exec ${pkgs.swayosd}/bin/swayosd-client --output-volume mute-toggle";
+            "XF86AudioMicMute" = "exec ${pkgs.swayosd}/bin/swayosd-client --input-volume mute-toggle";
+            "XF86MonBrightnessUp" = "exec ${pkgs.swayosd}/bin/swayosd-client --brightness raise";
+            "XF86MonBrightnessDown" = "exec ${pkgs.swayosd}/bin/swayosd-client --brightness lower";
             "XF86AudioPlay" = "exec ${lib.getExe pkgs.playerctl} play-pause";
             "XF86AudioNext" = "exec ${lib.getExe pkgs.playerctl} next";
             "XF86AudioPrev" = "exec ${lib.getExe pkgs.playerctl} previous";
@@ -82,6 +184,12 @@ in
         window = {
           titlebar = false;
           border = 2;
+          commands = [
+            {
+              criteria.app_id = "dropdown-terminal";
+              command = "floating enable, resize set 60 ppt 60 ppt, move position center, move to scratchpad, scratchpad show";
+            }
+          ];
         };
         floating.titlebar = false;
         modes = {
@@ -118,6 +226,9 @@ in
     programs.waybar = {
       enable = true;
       systemd.enable = true;
+      # graphical-session.target is also reached by a GNOME login; bind to
+      # the sway target so GNOME sessions stay waybar-free.
+      systemd.target = "sway-session.target";
       settings.mainBar = {
         layer = "top";
         position = "top";
@@ -174,12 +285,41 @@ in
       ];
     };
 
+    # Output profiles switch on hotplug (dock/undock); hosts define the
+    # actual profiles via services.kanshi.settings next to their hardware.
+    services.kanshi = {
+      enable = true;
+      systemdTarget = "sway-session.target";
+    };
+
+    # Clipboard history (text and images); MOD+p opens the wofi picker.
+    services.cliphist = {
+      enable = true;
+      systemdTargets = [ "sway-session.target" ];
+    };
+
+    # OSD daemon behind the volume/brightness keybindings. Idle outside
+    # Sway: under GNOME nothing calls swayosd-client, so no target gating
+    # is needed (the HM module offers none).
+    services.swayosd.enable = true;
+
+    # AeroSpace tiles automatically; autotiling brings Sway closest to that
+    # by alternating split direction to follow the focused window's shape.
+    systemd.user.services.autotiling = swaySessionService "autotiling" "${lib.getExe pkgs.autotiling}";
+
+    # Night light for the Sway session (GNOME keeps its own). Central
+    # European coordinates; precision is irrelevant for color temperature.
+    systemd.user.services.gammastep = swaySessionService "gammastep" "${lib.getExe pkgs.gammastep} -l 50.1:8.7 -t 6500:4200";
+
+    systemd.user.services.workspace-autoname = swaySessionService "workspace autoname" "${autonamePython}/bin/python ${autonameScript}";
+
     home.packages = [
       pkgs.playerctl
       pkgs.wofi
       pkgs.wl-clipboard
       pkgs.grim
       pkgs.slurp
+      pkgs.swappy
       pkgs.brightnessctl
     ];
   };

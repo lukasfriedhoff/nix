@@ -6,6 +6,7 @@
   config,
   lib,
   pkgs,
+  linuxUser,
   ...
 }:
 let
@@ -38,6 +39,11 @@ in
 
     # swaylock authenticates through PAM; without this entry unlocking fails.
     security.pam.services.swaylock = { };
+
+    # swayosd writes the backlight through sysfs, not logind; its udev rule
+    # grants that to the video group.
+    services.udev.packages = [ pkgs.swayosd ];
+    users.users.${linuxUser}.extraGroups = lib.mkAfter [ "video" ];
 
     # Screen sharing under wlroots; GNOME's portal keeps serving its own session.
     xdg.portal = {

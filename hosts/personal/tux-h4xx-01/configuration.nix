@@ -162,12 +162,33 @@
     };
   };
 
-  # Sway output layout: LG 4K centered above the internal panel
-  # ((3840-2560)/2 = 640 x-offset; positions use scaled sizes).
+  # Sway output layout via kanshi (switches on hotplug): docked puts the
+  # LG 4K centered above the internal panel ((3840-2560)/2 = 640 x-offset;
+  # positions use scaled sizes), mobile is the panel alone.
   home-manager.users.lukasf = {
-    wayland.windowManager.sway.config.output = {
-      "HDMI-A-1".position = "0 0";
-      "eDP-1".position = "640 2160";
-    };
+    services.kanshi.settings = [
+      {
+        profile.name = "mobile";
+        profile.outputs = [
+          {
+            criteria = "eDP-1";
+            position = "0,0";
+          }
+        ];
+      }
+      {
+        profile.name = "docked";
+        profile.outputs = [
+          {
+            criteria = "HDMI-A-1";
+            position = "0,0";
+          }
+          {
+            criteria = "eDP-1";
+            position = "640,2160";
+          }
+        ];
+      }
+    ];
   };
 }

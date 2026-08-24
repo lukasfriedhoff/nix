@@ -21,10 +21,13 @@ platforms follow.
 | `MOD+Shift+minus / equal` | resize |
 | `MOD+Shift+;` | service mode (Escape reloads config) |
 
-Linux-only: `MOD+Return` terminal (foot), `MOD+d` launcher (wofi),
+Linux-only: `MOD+Return` terminal (alacritty), `MOD+d` launcher (wofi),
 `MOD+Shift+q` close window, `MOD+v`/`MOD+b` split vertical/horizontal,
 `Print` full-screen screenshot, `Shift+Print` region screenshot (both to
-`~/Pictures/screenshots/` and the clipboard).
+`~/Pictures/screenshots/` and the clipboard), `MOD+Print` region
+screenshot opened in swappy for annotation, `` MOD+` `` quake-style
+dropdown terminal (floating, centered, toggles via scratchpad),
+`MOD+p` clipboard-history picker (cliphist + wofi, includes images).
 
 ## Nested layouts ("one window left, two stacked right")
 
@@ -47,3 +50,20 @@ Workspace-to-monitor pinning on Linux is per-host (`swaymsg -t
 get_outputs` for names, then `wayland.windowManager.sway.config.workspaceOutputAssign`
 in the host's HM config). macOS pinning lives in the shared def
 (main/secondary).
+
+## Session services (Sway only)
+
+All bound to `sway-session.target`, so a parallel GNOME login is
+unaffected:
+
+- **kanshi** — output profiles on hotplug; hosts define
+  `services.kanshi.settings` (tux: `docked`/`mobile`).
+- **autotiling** — alternates split direction based on the focused
+  window's shape; closest match to AeroSpace's automatic tiling.
+- **cliphist** — clipboard history daemon behind `MOD+p`.
+- **swayosd** — on-screen bars for the volume/brightness keys (the keys
+  call `swayosd-client`, which changes the value and draws the OSD;
+  backlight access comes from swayosd's udev rule + `video` group).
+- **gammastep** — night light (6500K day / 4200K night).
+- **workspace-autoname** — renames workspaces to `N: term web ...` in
+  waybar; switching stays number-based (`workspace number N`).
