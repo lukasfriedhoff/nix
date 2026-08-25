@@ -134,7 +134,9 @@ fi
 expand_home_path() {
   local p="$1"
   if [[ "$p" == "~/"* ]]; then
-    printf "%s/%s" "$HOME" "${p#~/}"
+    # Quoted pattern: unquoted ~/ is itself tilde-expanded inside ${p#...},
+    # so the prefix never matches and the strip becomes a no-op.
+    printf "%s/%s" "$HOME" "${p#"~/"}"
   elif [[ "$p" == "~" ]]; then
     printf "%s" "$HOME"
   else
@@ -178,9 +180,12 @@ resolve_via_libvirt_if_needed() {
   fi
 
   local lease_ip
+  # `|| true` keeps set -e/pipefail from silently killing the script when
+  # the host is not a libvirt domain (physical hosts end up here whenever
+  # DNS is unavailable).
   lease_ip="$(
     virsh --connect qemu:///system domifaddr "$host" --source lease 2>/dev/null \
-      | awk '/ipv4/ {sub(/\/.*/, "", $4); print $4; exit}'
+      | awk '/ipv4/ {sub(/\/.*/, "", $4); print $4; exit}' || true
   )"
 
   if [[ -z "$lease_ip" ]]; then
@@ -266,6 +271,16 @@ unlock_once() {
 err_file="$(mktemp)"
 trap 'rm -f "$err_file"' EXIT
 if ! unlock_once "$err_file"; then
+  if grep -Eqi "timed out|No route to host" "$err_file"; then
+    die "cannot reach ${target}: the host has no network presence. The initrd \
+either never started or its NIC has no link — check the console and the \
+ethernet link LED before retrying."
+  fi
+  if grep -Eqi "Connection refused" "$err_file"; then
+    die "connection to ${target} refused: the host is on the network but no \
+initrd SSH listener is running — it either booted past the unlock prompt \
+already or is not in the initrd (check the console)."
+  fi
   if [[ "$target_overridden" == false ]] && grep -Eqi "Could not resolve hostname|Name or service not known|Temporary failure in name resolution" "$err_file"; then
     old_target="$target"
     old_port="$port"
