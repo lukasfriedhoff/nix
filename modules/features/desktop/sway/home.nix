@@ -181,6 +181,11 @@ in
             "XF86AudioPrev" = "exec ${lib.getExe pkgs.playerctl} previous";
           }
         );
+        input = {
+          "type:touchpad" = {
+            tap = "enabled";
+          };
+        };
         window = {
           titlebar = false;
           border = 2;
