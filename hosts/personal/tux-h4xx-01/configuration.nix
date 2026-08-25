@@ -196,11 +196,13 @@
         ];
       }
       {
-        # LG 4K: (3840-2560)/2 = 640 x-offset.
-        profile.name = "docked";
+        # LG 4K: (3840-2560)/2 = 640 x-offset. EDID-matched like the
+        # ultrawide: a generic HDMI-A-1 criteria races against slow EDID
+        # reads at session start and can capture the wrong monitor.
+        profile.name = "docked-4k";
         profile.outputs = [
           {
-            criteria = "HDMI-A-1";
+            criteria = "LG Electronics LG HDR 4K 0x000684D2";
             position = "0,0";
           }
           {
