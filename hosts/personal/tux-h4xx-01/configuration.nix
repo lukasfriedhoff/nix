@@ -162,9 +162,11 @@
     };
   };
 
-  # Sway output layout via kanshi (switches on hotplug): docked puts the
-  # LG 4K centered above the internal panel ((3840-2560)/2 = 640 x-offset;
-  # positions use scaled sizes), mobile is the panel alone.
+  # Sway output layout via kanshi (switches on hotplug): external screen
+  # above, internal panel centered below; positions use logical (scaled)
+  # sizes. Profiles are matched first-to-last, so the EDID-specific
+  # ultrawide entry must precede the generic HDMI fallback (LG 4K), which
+  # would otherwise also match the ultrawide.
   home-manager.users.lukasf = {
     services.kanshi.settings = [
       {
@@ -177,6 +179,23 @@
         ];
       }
       {
+        # 49" 5120x1440: scale 1 matches 27"-QHD density;
+        # (5120-2560)/2 = 1280 x-offset.
+        profile.name = "docked-ultrawide";
+        profile.outputs = [
+          {
+            criteria = "LG Electronics LG ULTRAWIDE 304NTFA5P539";
+            position = "0,0";
+            scale = 1.0;
+          }
+          {
+            criteria = "eDP-1";
+            position = "1280,1440";
+          }
+        ];
+      }
+      {
+        # LG 4K: (3840-2560)/2 = 640 x-offset.
         profile.name = "docked";
         profile.outputs = [
           {
