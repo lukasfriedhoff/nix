@@ -106,7 +106,11 @@ in
       VKD3D_CONFIG = "dxr11";
 
       # Proton enhancements
-      PROTON_ENABLE_WAYLAND = "1"; # Native Wayland support in games
+      # Wine's Wayland driver stays off: with NVIDIA + DLSS it segfaulted
+      # (Icarus, 2026-08-25, wine64-preloader SIGSEGV), and borderless mode
+      # loses its resolution/display picker. XWayland is the stable path;
+      # re-evaluate when Proton's Wayland driver leaves experimental.
+      PROTON_ENABLE_WAYLAND = "0";
       PROTON_ENABLE_HDR = "1"; # HDR support (when display supports it)
       PROTON_USE_NTSYNC = "1"; # Better Wine synchronization
       PROTON_USE_WOW64 = "1"; # Improved 32-bit game compatibility
