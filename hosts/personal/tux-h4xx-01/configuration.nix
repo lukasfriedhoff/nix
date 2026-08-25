@@ -169,6 +169,21 @@
   # ultrawide entry must precede the generic HDMI fallback (LG 4K), which
   # would otherwise also match the ultrawide.
   home-manager.users.lukasf = {
+    # Games belong on the external screen: sway spawns windows on the
+    # focused output, and a game that fullscreens on the internal panel
+    # locks in 2560x1600 and only gets scaled when moved. Proton's Wayland
+    # driver exposes app_ids like "icarus-win64-shipping.exe"; XWayland
+    # games use class "steam_app_<appid>".
+    wayland.windowManager.sway.config.window.commands = [
+      {
+        criteria.app_id = "\\.exe$";
+        command = "move window to output HDMI-A-1";
+      }
+      {
+        criteria.class = "^steam_app_";
+        command = "move window to output HDMI-A-1";
+      }
+    ];
     services.kanshi.settings = [
       {
         profile.name = "mobile";
