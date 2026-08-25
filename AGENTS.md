@@ -92,7 +92,7 @@
 - Override explicitly via `lukasf.facter.reportPath` if needed.
 
 ## Deployment model
-- Servers use comin in pull mode against the `deploy` branch; CI (`.github/workflows/ci.yml`) fast-forwards `deploy` from `develop` only after checks pass, so a broken eval never reaches a host.
+- Servers use comin in pull mode against the `deploy` branch; CI (`.github/workflows/ci.yml`) fast-forwards `deploy` from `develop` only after checks pass, so a broken eval never reaches a host. **Consequence: every push to `develop` reaches the production fleet automatically within ~30 minutes — treat `develop` as production and use feature branches for anything not ready to run on the servers.** (Learned 2026-08-25: the k3s HA migration deployed itself mid-outage-recovery.)
 - The CI checks job needs the `NIX_SECRETS_DEPLOY_KEY` repo secret (a read-only deploy key on nix-secrets) to fetch the private flake input.
 - Flake uses `flake-parts` as-is; avoid deeper migration without a clear need.
 

@@ -1,3 +1,9 @@
+> **Status: COMPLETED 2026-08-25.** All three nodes run as control-plane/etcd
+> members (verified: 3 API endpoints, 3 etcd members, srv2 migrated off sqlite).
+> Kept as reference for how it was done and for the rollback notes.
+> Note: step 3 happened automatically — CI fast-forwards `deploy` from
+> `develop` after checks pass; there is no manual promotion gate.
+
 # k3s HA Migration: Single Control Plane → 3-Server Embedded etcd
 
 ## Why
