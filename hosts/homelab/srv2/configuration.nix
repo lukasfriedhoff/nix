@@ -3,6 +3,7 @@
   secrets,
   inputs,
   lib,
+  pkgs,
   ...
 }:
 
@@ -111,6 +112,26 @@ in
   homelab.initrdSsh = {
     enable = true;
     authorizedKeyFile = ./initrd-authorized.pub;
+  };
+
+  # r8169 hang mitigation: the 2026-08-24 outage was this NIC stopping with
+  # "NETDEV WATCHDOG: transmit queue 0 timed out" and never recovering
+  # (kernel bugzilla 107421, RH bugs 1733837/1692075). ASPM, EEE and large
+  # offloads are the documented triggers. pcie_aspm applies at next reboot.
+  boot.kernelParams = [ "pcie_aspm=off" ];
+  systemd.services.r8169-nic-quirks = {
+    description = "Disable EEE and offloads on the Realtek NIC";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "sys-subsystem-net-devices-enp1s0.device" ];
+    bindsTo = [ "sys-subsystem-net-devices-enp1s0.device" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      ${pkgs.ethtool}/bin/ethtool --set-eee enp1s0 eee off || true
+      ${pkgs.ethtool}/bin/ethtool -K enp1s0 tso off gso off gro off || true
+    '';
   };
 
   boot.initrd.network.udhcpc.enable = true;
