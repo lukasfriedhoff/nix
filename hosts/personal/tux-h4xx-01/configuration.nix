@@ -123,6 +123,7 @@
 
   environment.systemPackages = with pkgs; [
     k3d
+    mumble
   ];
 
   users.users.lukasf.extraGroups = lib.mkAfter [
