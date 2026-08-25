@@ -165,6 +165,9 @@ in
             # Quake-style dropdown terminal and clipboard history picker.
             "${mod}+grave" = "exec ${dropdownToggle}";
             "${mod}+p" = "exec ${clipboardPick}";
+            # Cycle keyboard layouts (us -> de -> us); waybar shows the
+            # active one.
+            "${mod}+i" = "input type:keyboard xkb_switch_layout next";
             # Media and brightness keys (no modifier, work when locked too
             # via the locked variants sway provides by default for XF86).
             # swayosd-client changes the value AND draws the on-screen bar;
@@ -184,6 +187,12 @@ in
         input = {
           "type:touchpad" = {
             tap = "enabled";
+          };
+          # Same layouts as the GNOME/Plasma modules; sway does not read
+          # services.xserver.xkb, so they must be repeated here. MOD+i
+          # cycles (MOD+space is taken by sway's stock focus mode_toggle).
+          "type:keyboard" = {
+            xkb_layout = "us,de";
           };
         };
         window = {
@@ -244,12 +253,14 @@ in
         ];
         modules-center = [ "sway/window" ];
         modules-right = [
+          "sway/language"
           "wireplumber"
           "network"
           "battery"
           "clock"
           "tray"
         ];
+        "sway/language".format = "{short}";
         wireplumber = {
           format = "vol {volume}%";
           format-muted = "muted";
