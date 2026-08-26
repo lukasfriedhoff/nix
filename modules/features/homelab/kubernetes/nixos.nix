@@ -102,6 +102,12 @@ in
       description = "Initialize a new HA cluster using the embedded etcd datastore (k3s servers only).";
     };
 
+    embeddedRegistry = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable k3s' embedded Spegel registry mirror (P2P image cache between nodes).";
+    };
+
     tokenFile = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -413,6 +419,7 @@ in
             "--disable servicelb"
             "--write-kubeconfig-mode 640"
           ]
+          ++ lib.optional (isServer && cfg.embeddedRegistry) "--embedded-registry"
           ++ lib.optionals isServer tlsSanFlags
           ++ cfg.extraFlags
         );

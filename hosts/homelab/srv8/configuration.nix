@@ -108,6 +108,7 @@ in
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
     longhorn.enable = true;
+    embeddedRegistry = true;
     # Control-plane peer: joins srv2's embedded etcd. srv2 must be migrated
     # off sqlite (clusterInit) before this role change is deployed
     # (docs/deployment/k3s-ha-migration.md).

@@ -127,6 +127,7 @@ in
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
     longhorn.enable = true;
+    embeddedRegistry = true;
     # Control-plane peer: joins srv2's embedded etcd. srv2 must be migrated
     # off sqlite (clusterInit) before this role change is deployed
     # (docs/deployment/k3s-ha-migration.md).
@@ -141,5 +142,18 @@ in
       "10.1.30.31"
     ];
     extraFlags = [ "--kubelet-arg=max-pods=250" ];
+  };
+
+  # coturn (Matrix TURN relay) runs hostNetwork on this node; the router
+  # DNATs these ports from the WAN.
+  networking.firewall = {
+    allowedTCPPorts = [ 3478 ];
+    allowedUDPPorts = [ 3478 ];
+    allowedUDPPortRanges = [
+      {
+        from = 49500;
+        to = 49999;
+      }
+    ];
   };
 }

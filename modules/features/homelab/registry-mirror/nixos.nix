@@ -49,6 +49,11 @@ in
           "${cfg.registryHost}":
             endpoint:
               - "${cfg.endpoint}"
+          ${lib.optionalString config.homelab.kubernetes.embeddedRegistry ''
+            # Empty mirror entry: serve every registry through the embedded
+            # Spegel P2P cache (peers first, upstream as fallback).
+            "*":
+          ''}
         configs:
           "${cfg.registryHost}":
             auth:

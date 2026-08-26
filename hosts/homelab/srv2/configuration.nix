@@ -76,6 +76,7 @@ in
   homelab.kubernetes = {
     enable = true;
     longhorn.enable = true;
+    embeddedRegistry = true;
     # Embedded etcd instead of the single-server sqlite default; k3s migrates
     # the existing datastore in place on the first restart with this flag.
     # Required before srv8/srv9 can join as control planes
