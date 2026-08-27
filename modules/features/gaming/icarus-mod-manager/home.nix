@@ -667,7 +667,7 @@ in
 
     version = mkOption {
       type = types.str;
-      default = "2.4.9";
+      default = "2.5.2";
       description = "Upstream release version to download.";
     };
 
@@ -691,13 +691,13 @@ in
 
     patchSource = mkOption {
       type = types.nullOr types.str;
-      default = "https://github.com/Jimk72/Icarus-Mod-Manager-Beta/raw/main/IcarusModManagerPATCH249.zip";
+      default = "https://github.com/Jimk72/Icarus-Mod-Manager-Beta/raw/main/IcarusModManagerPATCH252.zip";
       description = "Optional upstream patch zip overlaid onto the standalone release.";
     };
 
     patchHash = mkOption {
       type = types.str;
-      default = "sha256-QvP/6IwH4jdYWn0ksvBKBs1rMoAqgdfAJQL6pN1KE3s=";
+      default = "sha256-QUWYzTGNiuTuGRQbdJOTYfGb1/0Bf0poo/I3sewl2ks=";
       description = "Hash of the optional patch archive in SRI format.";
     };
 
