@@ -169,6 +169,13 @@
   # ultrawide entry must precede the generic HDMI fallback (LG 4K), which
   # would otherwise also match the ultrawide.
   home-manager.users.lukasf = {
+    # Super+Shift+g: gaming toggle. Fullscreen games size themselves from
+    # the modes of the output they spawn on before any window rule runs,
+    # so the only deterministic multi-monitor fix is having one output.
+    # Kanshi re-applies the docked profile when the panel comes back.
+    wayland.windowManager.sway.config.keybindings = pkgs.lib.mkOptionDefault {
+      "Mod4+Shift+g" = "output eDP-1 toggle";
+    };
     # Games belong on the external screen: sway spawns windows on the
     # focused output, and a game that fullscreens on the internal panel
     # locks in 2560x1600 and only gets scaled when moved. Proton's Wayland
