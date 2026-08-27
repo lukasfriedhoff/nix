@@ -157,7 +157,10 @@ in
 
     programs.gamescope = {
       enable = true;
-      capSysNice = true;
+      # capSysNice's capability wrapper cannot be executed from inside
+      # Steam's pressure-vessel runtime ("failed to inherit capabilities")
+      # and kills gamescope instantly; nice-priority is not worth that.
+      capSysNice = false;
       # No baked-in resolution: per-game launch options pick the size
       # (e.g. gamescope -W 3840 -H 2160 -r 60 -f -e -- %command%), so the
       # virtual display matches the target monitor instead of a global pin.
