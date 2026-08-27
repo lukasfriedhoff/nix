@@ -183,6 +183,13 @@
         criteria.class = "^steam_app_";
         command = "move window to output HDMI-A-1";
       }
+      {
+        # gamescope's virtual display scales losslessly, so moving it is
+        # always safe - unlike bare game windows, which size themselves to
+        # their spawn output before any rule fires.
+        criteria.app_id = "^gamescope$";
+        command = "move window to output HDMI-A-1, fullscreen";
+      }
     ];
     services.kanshi.settings = [
       {

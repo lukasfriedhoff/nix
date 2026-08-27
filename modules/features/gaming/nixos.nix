@@ -158,13 +158,10 @@ in
     programs.gamescope = {
       enable = true;
       capSysNice = true;
-      args = [
-        "-f"
-        "-W 1920"
-        "-H 1080"
-        "-r 60"
-        "--hdr-enabled"
-      ];
+      # No baked-in resolution: per-game launch options pick the size
+      # (e.g. gamescope -W 3840 -H 2160 -r 60 -f -e -- %command%), so the
+      # virtual display matches the target monitor instead of a global pin.
+      args = [ "-f" ];
     };
 
     services.udev.extraRules = ''
