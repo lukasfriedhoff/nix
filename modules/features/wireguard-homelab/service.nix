@@ -107,7 +107,13 @@ in
     healthcheck = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true;
+        # Off by default: a failed ping restarts the whole unit, which
+        # thrash-loops on networks where the endpoint is legitimately
+        # unreachable (e.g. on-site without hairpin NAT) and resurrects
+        # tunnels that were stopped on purpose. Endpoint re-resolution
+        # for the dyndns host keeps running regardless - that part is
+        # what a "plain" WireGuard actually needs.
+        default = false;
         description = "Enable periodic reachability checks and self-healing restarts for the tunnel.";
       };
 

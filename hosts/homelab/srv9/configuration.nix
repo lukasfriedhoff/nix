@@ -143,17 +143,4 @@ in
     ];
     extraFlags = [ "--kubelet-arg=max-pods=250" ];
   };
-
-  # coturn (Matrix TURN relay) runs hostNetwork on this node; the router
-  # DNATs these ports from the WAN.
-  networking.firewall = {
-    allowedTCPPorts = [ 3478 ];
-    allowedUDPPorts = [ 3478 ];
-    allowedUDPPortRanges = [
-      {
-        from = 49500;
-        to = 49999;
-      }
-    ];
-  };
 }
