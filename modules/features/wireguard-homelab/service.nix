@@ -342,7 +342,11 @@ in
 
         systemd.services.${refreshServiceName} = {
           description = "Refresh homelab WireGuard endpoint/DNS settings";
-          wants = [ "${userServiceName}.service" ];
+          # Only pull the tunnel up as a dependency when autoRestart is on;
+          # otherwise the timer firing would resurrect a stopped tunnel via
+          # this wants= before the script's gate is even reached. `after`
+          # only orders, so it stays.
+          wants = lib.optional cfg.autoRestart "${userServiceName}.service";
           after = [
             "${userServiceName}.service"
             "network.target"
