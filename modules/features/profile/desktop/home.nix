@@ -106,9 +106,20 @@ in
       programs.evolution.enable = lib.mkDefault true;
       programs.evolution.nextcloud.enable = lib.mkDefault true;
 
+      # zathura for PDFs (vim-keys document viewer); feh for images.
+      # feh has no PDF backend, so PDFs deliberately do not point at it.
+      programs.zathura.enable = lib.mkDefault true;
+      programs.feh.enable = lib.mkDefault true;
+
       xdg.mimeApps = {
         enable = true;
         defaultApplications = {
+          "application/pdf" = [ "org.pwmt.zathura.desktop" ];
+          "image/jpeg" = [ "feh.desktop" ];
+          "image/png" = [ "feh.desktop" ];
+          "image/gif" = [ "feh.desktop" ];
+          "image/webp" = [ "feh.desktop" ];
+          "image/bmp" = [ "feh.desktop" ];
           "text/html" = [ "firefox.desktop" ];
           "x-scheme-handler/http" = [ "firefox.desktop" ];
           "x-scheme-handler/https" = [ "firefox.desktop" ];

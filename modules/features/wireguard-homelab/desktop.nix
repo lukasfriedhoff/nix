@@ -17,6 +17,13 @@ let
     root = primaryRoot;
     path = cfg.privateKeyFile;
   };
+  presharedKeyPath = myLib.resolveSecretPath {
+    root = primaryRoot;
+    path = cfg.presharedKeyFile;
+  };
+  # PSKs roll out host-by-host (PQ hardening phase 2); hosts without a
+  # generated key keep running without one until their secret lands.
+  hasPsk = presharedKeyPath != null && builtins.pathExists presharedKeyPath;
   domainPath = myLib.resolveSecretPath {
     root = sharedRoot;
     path = cfg.domainFile;
@@ -40,6 +47,12 @@ in
       type = lib.types.str;
       default = "wireguard/homelab.priv";
       description = "Path (absolute or relative to secrets.primary) to the WireGuard private key.";
+    };
+
+    presharedKeyFile = lib.mkOption {
+      type = lib.types.str;
+      default = "wireguard/homelab-psk.txt";
+      description = "Path (relative to secrets.primary) to the WireGuard preshared key (post-quantum hardening).";
     };
 
     domainFile = lib.mkOption {
@@ -71,6 +84,14 @@ in
       path = "${wireguardSecretsDir}/private-key";
     };
 
+    sops.secrets."wireguard-homelab-psk" = lib.mkIf hasPsk {
+      sopsFile = presharedKeyPath;
+      owner = "root";
+      format = "binary";
+      mode = "0400";
+      path = "${wireguardSecretsDir}/preshared-key";
+    };
+
     sops.secrets."wireguard-domain" = {
       sopsFile = domainPath;
       owner = "root";
@@ -95,6 +116,7 @@ in
       enable = true;
       inherit (cfg) address;
       privateKeyFile = config.sops.secrets."wireguard-homelab-priv".path;
+      presharedKeyFile = lib.mkIf hasPsk config.sops.secrets."wireguard-homelab-psk".path;
       dnsDomainFile = config.sops.secrets."wireguard-domain".path;
       endpointFile = config.sops.secrets."wireguard-endpoint".path;
     };
