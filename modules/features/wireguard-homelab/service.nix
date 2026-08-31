@@ -104,6 +104,17 @@ in
       '';
     };
 
+    autoRestart = lib.mkOption {
+      type = lib.types.bool;
+      # Off = plain WireGuard: a manually stopped tunnel stays stopped.
+      # When on, the refresh timer re-creates the interface if it finds it
+      # down (resurrects deliberate stops - the reactivation behaviour we
+      # deliberately dropped 2026-08-31). Endpoint DNS re-resolution for the
+      # dyndns peer runs regardless whenever the interface is up.
+      default = false;
+      description = "Recreate the tunnel interface from the refresh timer when found down.";
+    };
+
     healthcheck = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -245,17 +256,20 @@ in
         refreshScript = pkgs.writeShellScript "wg-homelab-refresh" ''
           set -euo pipefail
 
-          if ! ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
-            # Recover from skipped starts (e.g. secret not present earlier).
-            ${pkgs.systemd}/bin/systemctl start ${userServiceName}.service || true
-            for _ in $(seq 1 10); do
-              if ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
-                break
-              fi
-              sleep 1
-            done
-          fi
+          ${lib.optionalString cfg.autoRestart ''
+            if ! ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
+              # Recover from skipped starts (e.g. secret not present earlier).
+              ${pkgs.systemd}/bin/systemctl start ${userServiceName}.service || true
+              for _ in $(seq 1 10); do
+                if ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
+                  break
+                fi
+                sleep 1
+              done
+            fi
+          ''}
 
+          # Interface down (and no autoRestart): nothing to refresh, leave it.
           if ! ${pkgs.iproute2}/bin/ip link show dev ${iface} >/dev/null 2>&1; then
             exit 0
           fi
