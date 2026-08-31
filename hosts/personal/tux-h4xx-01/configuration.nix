@@ -163,6 +163,26 @@
     };
   };
 
+  # On-site (10.1.11.0/24 WiFi) network fixes, previously imperative on the
+  # NM profile and lost on every resolved/NM state desync (3rd recurrence):
+  # /25 routes beat the WG /24 (no hairpin NAT at the site) and lab DNS is
+  # answered by the local gateway. Dispatcher runs as root on every up/DHCP
+  # event, so it survives resolved restarts and profile churn.
+  networking.networkmanager.dispatcherScripts = [
+    {
+      type = "basic";
+      source = pkgs.writeText "onsite-lab-net" ''
+        [ "$1" = wlo1 ] || exit 0
+        case "$2" in up | dhcp4-change) : ;; *) exit 0 ;; esac
+        ip -4 addr show dev wlo1 | grep -q "inet 10\.1\.11\." || exit 0
+        resolvectl dns wlo1 10.1.11.1 || true
+        resolvectl domain wlo1 "~lab.h4xx.io" || true
+        ip route replace 10.1.30.0/25 via 10.1.11.1 dev wlo1 || true
+        ip route replace 10.1.30.128/25 via 10.1.11.1 dev wlo1 || true
+      '';
+    }
+  ];
+
   # Sway output layout via kanshi (switches on hotplug): external screen
   # above, internal panel centered below; positions use logical (scaled)
   # sizes. Profiles are matched first-to-last, so the EDID-specific
