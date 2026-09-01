@@ -96,7 +96,7 @@ in
               HostName github.com
               User git
               IdentitiesOnly yes
-              IdentityFile ~/.ssh/work/github
+              IdentityFile ~/.ssh/work/id_ed25519
           ''
         else
           ''
