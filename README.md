@@ -65,7 +65,7 @@ to this repo).
 | testingrke2-01 | Server VM | Homelab | Local RKE2 migration lab control-plane node 1 |
 | testingrke2-02 | Server VM | Homelab | Local RKE2 migration lab control-plane node 2 |
 | testingrke2-03 | Server VM | Homelab | Local RKE2 migration lab control-plane node 3 |
-| macbook-pro | Darwin | macOS | Work MacBook |
+| work-mbp-01 | Darwin | macOS | Group24 work MacBook |
 | docker-host-01 | Server | Work | Customer Docker host |
 | lf-timebutler-testvm-01 | Server | Work | Timebutler test VM |
 
@@ -123,7 +123,7 @@ the promote job fast-forwards the `deploy` branch that comin tracks.
 ### SSH + secrets
 
 SSH hosts and identities are consolidated under `resources/ssh/hosts.nix` (which
-imports `resources/ssh/hosts/personal.nix` and `resources/ssh/hosts/dacoso.nix`) and
+imports `resources/ssh/hosts/personal.nix` and `resources/ssh/hosts/work.nix`) and
 consumed by Home Manager. Keys are created through
 `scripts/servers/create-management-key.sh`, which also writes the SOPS-encrypted
 material into the correct directories of the local nix-secrets checkout.

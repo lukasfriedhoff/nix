@@ -21,8 +21,8 @@ coreModules            → Feature modules (`modules/features/**/nixos.nix`) + s
 ├── baseDesktopModules → + stylix + Home Manager
 │   ├── plasmaDesktopModules  → + KDE Plasma
 │   └── gnomeDesktopModules   → + GNOME + laptop power management
-├── baseServerModules  → + server defaults (+ dacoso defaults, for work servers)
-└── homelabServerModules → + server defaults (homelab personal servers; no dacoso)
+├── baseServerModules  → + server defaults (+ work.server defaults, for work servers)
+└── homelabServerModules → + server defaults (homelab personal servers; no work.server)
 ```
 
 ### Secret Routing

@@ -6,10 +6,10 @@
   myLib ? import ../../../lib { inherit lib; },
   ...
 }:
-# Shared profile for Dacoso-managed servers. Secrets are resolved via the
+# Shared profile for employer-managed work servers. Secrets are resolved via the
 # `secrets` specialArg so work and personal machines can remain isolated.
 let
-  cfg = config.dacoso.server;
+  cfg = config.work.server;
   primaryRoot = secrets.primary or secrets.root or null;
   sharedRoot = secrets.shared or null;
 
@@ -57,10 +57,10 @@ let
     cfg.sshKeys.root ++ readKeys cfg.sshKeyFiles.root ++ nixosAuthorizedKeys
   );
 
-  githubKeyDir = "/var/lib/dacoso-github-keys";
+  githubKeyDir = "/var/lib/work-github-keys";
   githubKeyFile = "${githubKeyDir}/github.keys";
   githubAccountsArg = lib.concatMapStringsSep " " (user: lib.escapeShellArg user) cfg.githubAccounts;
-  syncGithubKeysScript = pkgs.writeShellScript "dacoso-sync-github-keys" ''
+  syncGithubKeysScript = pkgs.writeShellScript "work-sync-github-keys" ''
     set -euo pipefail
 
     dest=${lib.escapeShellArg githubKeyFile}
@@ -110,18 +110,18 @@ let
               if builtins.pathExists path then
                 sanitize (builtins.readFile path)
               else
-                lib.warn "dacoso.server: repo file ${file} not found" [ ]
+                lib.warn "work.server: repo file ${file} not found" [ ]
             ) files
           )
         );
       in
-      if contents == "" then null else pkgs.writeText "dacoso-shared-keys" (contents + "\n");
+      if contents == "" then null else pkgs.writeText "work-shared-keys" (contents + "\n");
 
   repoKeyFiles = lib.optionals (repoKeysFile != null) [ repoKeysFile ];
 in
 {
-  options.dacoso.server = {
-    enable = lib.mkEnableOption "Dacoso server profile";
+  options.work.server = {
+    enable = lib.mkEnableOption "work server profile";
 
     secretsDirectory = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
@@ -262,7 +262,7 @@ in
           && cfg.passwordFiles.nixos == null
           && cfg.sshKeyFiles.root == [ ]
           && cfg.sshKeyFiles.nixos == [ ];
-        message = "Relative password/SSH key files require dacoso.server.secretsDirectory to be set (set dacoso.server.passwordFiles.* = null to opt out of managed passwords).";
+        message = "Relative password/SSH key files require work.server.secretsDirectory to be set (set work.server.passwordFiles.* = null to opt out of managed passwords).";
       }
     ];
 
@@ -280,13 +280,13 @@ in
     # Password hashes are decrypted by sops-nix early in activation
     # (neededForUsers) so they never enter the world-readable nix store.
     # Requires the host's age key at /var/lib/sops-nix/age/keys.txt.
-    sops.secrets."dacoso-root-password-hash" = lib.mkIf (cfg.passwordFiles.root != null) {
+    sops.secrets."work-root-password-hash" = lib.mkIf (cfg.passwordFiles.root != null) {
       sopsFile = resolveSecret cfg.passwordFiles.root;
       format = "binary";
       neededForUsers = true;
     };
 
-    sops.secrets."dacoso-nixos-password-hash" = lib.mkIf (cfg.passwordFiles.nixos != null) {
+    sops.secrets."work-nixos-password-hash" = lib.mkIf (cfg.passwordFiles.nixos != null) {
       sopsFile = resolveSecret cfg.passwordFiles.nixos;
       format = "binary";
       neededForUsers = true;
@@ -300,8 +300,8 @@ in
       "d ${githubKeyDir} 0700 root root -"
     ];
 
-    systemd.services.dacoso-github-keys = lib.mkIf (cfg.githubAccounts != [ ]) {
-      description = "Synchronise GitHub SSH keys for Dacoso server accounts";
+    systemd.services.work-github-keys = lib.mkIf (cfg.githubAccounts != [ ]) {
+      description = "Synchronise GitHub SSH keys for work server accounts";
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         Type = "oneshot";
@@ -309,7 +309,7 @@ in
       };
     };
 
-    systemd.timers.dacoso-github-keys =
+    systemd.timers.work-github-keys =
       lib.mkIf (cfg.githubAccounts != [ ] && cfg.githubRefreshInterval != null)
         {
           description = "Periodic refresh of GitHub SSH keys";
@@ -340,7 +340,7 @@ in
         };
         hashedPasswordFile = lib.mkIf (
           cfg.passwordFiles.root != null
-        ) config.sops.secrets."dacoso-root-password-hash".path;
+        ) config.sops.secrets."work-root-password-hash".path;
       };
 
       nixos = {
@@ -358,7 +358,7 @@ in
         };
         hashedPasswordFile = lib.mkIf (
           cfg.passwordFiles.nixos != null
-        ) config.sops.secrets."dacoso-nixos-password-hash".path;
+        ) config.sops.secrets."work-nixos-password-hash".path;
       };
     };
 

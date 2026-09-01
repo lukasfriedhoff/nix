@@ -37,7 +37,7 @@
     # "--debug" # Optionally add additional args to k3s
   ];
 
-  dacoso.server = {
+  work.server = {
     # Pull hashed passwords / authorized keys from secrets/profiles/work/servers/timebutler-test-vm/.
     # Password hashes come from the module's default sops-encrypted files
     # (root-password-hash.txt / nixos-password-hash.txt) in that directory.

@@ -228,7 +228,7 @@ resolve_hardware_config_path() {
   local candidate
   local matches=()
 
-  for scope in homelab personal work dacoso; do
+  for scope in homelab personal work; do
     candidate="hosts/${scope}/${cfg_name}/hardware-configuration.nix"
     if [[ -f "$candidate" ]]; then
       printf '%s\n' "$candidate"

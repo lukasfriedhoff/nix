@@ -1,5 +1,5 @@
 [
-  # Work desktop keys (installed on macbook-pro via work profile secrets).
+  # Work desktop keys (installed on the work MacBook via work profile secrets).
   {
     secret = "ssh/github.priv";
     path = ".ssh/work/github";

@@ -23,7 +23,7 @@
   - Service/features: `lukasf.<feature>`
   - Desktop profiles: `desktop.<feature>`
   - Homelab profiles: `homelab.<feature>`
-  - Dacoso profiles: `dacoso.<feature>`
+  - Work profiles: `work.<feature>`
   - Hardware profiles: `hardwareProfiles.<vendor>.<model>`
 - Always provide `enable = lib.mkEnableOption` (profiles default to false unless intentionally global).
 - Use `package = lib.mkPackageOption pkgs "<pkg>" { };` when wrapping a main package.
@@ -43,7 +43,7 @@
   - `secrets/profiles/personal/{desktops,servers,shared}` for personal scope.
   - `secrets/profiles/work/{desktops,servers,shared}` for work scope.
 - Age key locations: desktops `~/.config/sops/age/keys.txt` (bootstrapped to `/var/lib/sops-nix/age/keys.txt`), servers `/var/lib/sops-nix/age/keys.txt`.
-- Login password hashes come from sops: personal hosts share `secrets/profiles/personal/shared/login-password-hash.txt` (srv9 keeps a per-host copy); work servers consume `<server>/root-password-hash.txt` + `nixos-password-hash.txt` via `dacoso.server` and need their age key in place before deploying. `hashedPasswordFile` is declarative — edit the secret and redeploy to rotate.
+- Login password hashes come from sops: personal hosts share `secrets/profiles/personal/shared/login-password-hash.txt` (srv9 keeps a per-host copy); work servers consume `<server>/root-password-hash.txt` + `nixos-password-hash.txt` via `work.server` and need their age key in place before deploying. `hashedPasswordFile` is declarative — edit the secret and redeploy to rotate.
 - Keep private IPs out of git; put real hostnames in the nix-secrets repo under `secrets/.../ssh/hostnames-private.conf`.
 
 ## Host onboarding (docs/deployment/personal-homelab.md, docs/deployment/remote-servers.md)
@@ -51,7 +51,7 @@
 - Fetch hardware config with `scripts/homelab/probe-installer.sh`.
 - Generate per-host management SSH keys with `scripts/servers/create-management-key.sh <host> <scope>`.
 - Add SSH key install entries to `resources/ssh/keys.nix` and hosts to `resources/ssh/hosts/personal.nix`.
-- For work/dacoso hosts, maintain entries under `resources/ssh/hosts/dacoso.nix`.
+- For work hosts, maintain entries under `resources/ssh/hosts/work.nix`.
 - Prefer `keyName = "<host>-<scope>-mgmt"` in SSH host entries so Home Manager expands to `~/.ssh/personal/<keyName>`.
 - Add `secretsByProfile` and `nixosConfigurations` entries in `flake.nix`.
 - Deploy with `scripts/servers/deploy-from-iso.sh` (nixos-anywhere wrapper).

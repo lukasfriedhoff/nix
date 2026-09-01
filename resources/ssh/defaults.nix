@@ -10,10 +10,10 @@
     keyDir = "~/.ssh/personal";
   };
 
-  # Work / Dacoso defaults
-  dacoso = {
+  # Work defaults
+  work = {
     user = "lukasfriedhoff";
-    defaultIdentity = "~/.ssh/work/ci";
+    defaultIdentity = "~/.ssh/work/id_ed25519";
     keyDir = "~/.ssh/work";
   };
 }

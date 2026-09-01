@@ -13,7 +13,7 @@
   - Service/features: `lukasf.<feature>`
   - Desktop profiles: `desktop.<feature>`
   - Homelab profiles: `homelab.<feature>`
-  - Dacoso profiles: `dacoso.<feature>`
+  - Work profiles: `work.<feature>`
   - Base defaults: `profiles.base`
   - Hardware profiles: `hardwareProfiles.<vendor>.<model>`
 
