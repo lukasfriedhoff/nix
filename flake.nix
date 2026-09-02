@@ -17,8 +17,6 @@
     darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
     darwin.inputs.nixpkgs.follows = "nixpkgs";
 
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
-
     # Spotlight/Dock-compatible trampolines for nix-installed .app bundles.
     mac-app-util.url = "github:hraban/mac-app-util";
 
@@ -70,7 +68,6 @@
       home-manager,
       stylix,
       darwin,
-      nix-homebrew,
       disko,
       sops-nix,
       comin,
@@ -106,6 +103,9 @@
 
           packages = {
             inherit (pkgs) velero_1_9_4;
+          }
+          // lib.optionalAttrs pkgs.stdenv.isDarwin {
+            inherit (pkgs) macmon;
           }
           // lib.optionalAttrs pkgs.stdenv.isLinux {
             shadow-client-appimage = pkgs.callPackage ./pkgs/shadow-client-appimage { };
@@ -471,7 +471,6 @@
             modules = featureModules.darwin ++ [
               ./hosts/work/work-mbp-01/configuration.nix
               home-manager.darwinModules.home-manager
-              nix-homebrew.darwinModules.nix-homebrew
               inputs.mac-app-util.darwinModules.default
               sops-nix.darwinModules.sops
               (
@@ -493,7 +492,6 @@
                       ];
                     };
                   };
-                  nix-homebrew.user = macUser;
                 }
               )
             ];

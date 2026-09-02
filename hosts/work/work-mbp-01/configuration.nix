@@ -63,18 +63,8 @@ in
     };
 
     programs.dockerHeadless.enable = true;
+
+    # GPU/SoC monitoring (local macmon package; nixpkgs' 0.6.1 panics on M5 Max)
+    programs.macmon.enable = true;
   };
-
-  # host-specific homebrew casks
-  homebrew.casks = [
-    "aerospace"
-  ];
-
-  # SketchyBar via homebrew tap
-  homebrew.taps = [
-    "FelixKratz/formulae"
-  ];
-  homebrew.brews = [
-    "sketchybar"
-  ];
 }

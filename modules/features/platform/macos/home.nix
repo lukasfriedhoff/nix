@@ -64,9 +64,6 @@
   # AeroSpace tiling window manager
   programs.aerospace.enable = lib.mkIf pkgs.stdenv.isDarwin (lib.mkDefault true);
 
-  # SketchyBar status bar
-  programs.sketchybar.enable = lib.mkIf pkgs.stdenv.isDarwin (lib.mkForce false);
-
   # XDG directories on macOS
   xdg = lib.mkIf pkgs.stdenv.isDarwin {
     enable = true;
