@@ -51,10 +51,13 @@ jobs:
             echo
             echo "::endgroup::"
           done
-          echo "::group::darwinConfigurations.macbook-pro"
-          nix eval --raw ".#darwinConfigurations.macbook-pro.system.drvPath"
-          echo
-          echo "::endgroup::"
+          darwins=$(nix eval --json .#darwinConfigurations --apply builtins.attrNames | jq -r '.[]')
+          for h in $darwins; do
+            echo "::group::darwinConfigurations.$h"
+            nix eval --raw ".#darwinConfigurations.\"$h\".system.drvPath"
+            echo
+            echo "::endgroup::"
+          done
 
   # comin on the servers tracks the `deploy` branch. Fast-forward it only
   # after checks pass, so a broken eval on develop can never reach a host.
