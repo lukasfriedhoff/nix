@@ -19,7 +19,7 @@ in
     (lib.mkIf cfg.enable {
       # Keep local workspaces ready; directory creation uses the XDG home to stay portable.
       home.activation.ensureGitDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        mkdir -p "${homeDir}/git/lukasfriedhoff" "${homeDir}/git/dacoso-devops" "${homeDir}/git/chaospott"
+        mkdir -p "${homeDir}/git/lukasfriedhoff" "${homeDir}/git/group24" "${homeDir}/git/chaospott"
       '';
 
       programs.git = {
@@ -57,8 +57,8 @@ in
           "includeIf \"gitdir:${homeDir}/git/lukasfriedhoff/\"" = {
             path = "~/.gitconfig-personal";
           };
-          "includeIf \"gitdir:${homeDir}/git/dacoso-devops/\"" = {
-            path = "~/.gitconfig-dacoso-devops";
+          "includeIf \"gitdir:${homeDir}/git/group24/\"" = {
+            path = "~/.gitconfig-group24";
           };
           "includeIf \"gitdir:${homeDir}/git/chaospott/\"" = {
             path = "~/.gitconfig-chaospott";
@@ -80,14 +80,15 @@ in
           hooksPath = .githooks
       '';
 
-      # org per-path config (fill in your org key fingerprint)
-      home.file.".gitconfig-dacoso-devops".text = ''
+      # org per-path config
+      # TODO(group24): generate a work GPG key, add its fingerprint as
+      # signingkey and flip gpgSign to true.
+      home.file.".gitconfig-group24".text = ''
         [user]
           name  = Lukas Friedhoff
-          email = lukas.friedhoff@dacoso.com
-          signingkey = 22C3C5DEAA39D79FB12328CFE43A3F179FCDD279
+          email = l.friedhoff@group24.de
         [commit]
-          gpgSign = true
+          gpgSign = false
         [gpg]
           program = gpg
         [core]

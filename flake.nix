@@ -19,6 +19,9 @@
 
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
 
+    # Spotlight/Dock-compatible trampolines for nix-installed .app bundles.
+    mac-app-util.url = "github:hraban/mac-app-util";
+
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -229,7 +232,6 @@
             shared = sharedCommonRoot;
             profileShared = workSharedRoot;
             root = primary;
-            dacoso = "${workProfileRoot}/desktops/macbook-pro";
           };
 
           # Homelab hosts whose flake attr, secrets profile and host directory
@@ -253,7 +255,7 @@
             tux = mkPersonalDesktopSecrets "tux-h4xx-01";
             tab = mkPersonalDesktopSecrets "tab-h4xx-02";
             lenovo = mkPersonalDesktopSecrets "lenovo-h4xx-03";
-            mac = mkWorkSecrets "${workProfileRoot}/desktops/macbook-pro";
+            mac = mkWorkSecrets "${workProfileRoot}/desktops/work-mbp-01";
             docker-host-01 = mkWorkSecrets "${workProfileRoot}/servers/docker-host-01";
             timebutler-test-vm = mkWorkSecrets "${workProfileRoot}/servers/timebutler-test-vm";
           };
@@ -339,15 +341,15 @@
               lukasf.serverDeployment.enable = lib.mkDefault true;
             };
 
-          dacosoDefaultsModule =
+          workServerDefaultsModule =
             { lib, ... }:
             {
-              dacoso.server.enable = lib.mkDefault true;
+              work.server.enable = lib.mkDefault true;
             };
 
           baseServerModules = coreModules ++ [
             serverDefaultsModule
-            dacosoDefaultsModule
+            workServerDefaultsModule
           ];
 
           homelabServerModules = coreModules ++ [
@@ -464,12 +466,13 @@
             _name: nixosConfiguration: nixosConfiguration.config.system.build.toplevel
           ) self.nixosConfigurations;
 
-          darwinConfigurations.macbook-pro = darwin.lib.darwinSystem {
+          darwinConfigurations.work-mbp-01 = darwin.lib.darwinSystem {
             system = darwinSystem;
             modules = featureModules.darwin ++ [
-              ./hosts/work/macbook-pro/configuration.nix
+              ./hosts/work/work-mbp-01/configuration.nix
               home-manager.darwinModules.home-manager
               nix-homebrew.darwinModules.nix-homebrew
+              inputs.mac-app-util.darwinModules.default
               sops-nix.darwinModules.sops
               (
                 { pkgs, ... }:
@@ -486,6 +489,7 @@
                     users.${macUser} = {
                       imports = featureModules.home ++ [
                         stylix.homeModules.stylix
+                        inputs.mac-app-util.homeManagerModules.default
                       ];
                     };
                   };
@@ -539,7 +543,7 @@
                   stylix.homeModules.stylix
                 ];
               };
-              "${macUser}@macbook-pro" = mkStandaloneHome {
+              "${macUser}@work-mbp-01" = mkStandaloneHome {
                 username = macUser;
                 system = darwinSystem;
                 profile = "mac";

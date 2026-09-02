@@ -93,6 +93,13 @@ in
             };
           };
         }
+        (lib.mkIf pkgs.stdenv.isDarwin {
+          # On darwin stylix is imported only at the HM level, so nothing
+          # disables the nixpkgs.overlays it injects; with useGlobalPkgs that
+          # overlay is ignored anyway and only triggers a deprecation warning.
+          # The targets used here (alacritty, vscode) don't need overlays.
+          stylix.overlays.enable = false;
+        })
         (lib.mkIf pkgs.stdenv.isLinux {
           # Stylix/Kvantum sometimes leaves a legacy symlinked Base16Kvantum dir from
           # older generations. HM then tries to back up files inside /nix/store and

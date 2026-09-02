@@ -42,7 +42,7 @@
     ];
   };
 
-  dacoso.server = {
+  work.server = {
     # Password/key material lives under secrets/profiles/work/servers/docker-host-01/ to keep work credentials separate.
     # Password hashes come from the module's default sops-encrypted files
     # (root-password-hash.txt / nixos-password-hash.txt) in that directory.

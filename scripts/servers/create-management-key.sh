@@ -23,13 +23,13 @@ Usage: scripts/servers/create-management-key.sh <host> <scope>
 
 Scopes:
   personal   -> installs keys for ~/.ssh on tux + tab and writes public key for the host
-  work/dacoso -> installs keys for the Macbook Pro secret tree
+  work       -> installs keys for the work MacBook secret tree
 
 Key material is written into the private nix-secrets checkout
 (default: ../nix-secrets, override with NIX_SECRETS_DIR).
 
 Example:
-  scripts/servers/create-management-key.sh docker-host-01 dacoso
+  scripts/servers/create-management-key.sh docker-host-01 work
 USAGE
   exit 1
 fi
@@ -59,15 +59,15 @@ case "${scope}" in
     )
     host_scope_dir="${secrets_dir}/secrets/profiles/personal/servers/${host}/ssh"
     ;;
-  dacoso|work)
+  work)
     manager_paths=(
-      "${secrets_dir}/secrets/profiles/work/desktops/macbook-pro/ssh"
+      "${secrets_dir}/secrets/profiles/work/desktops/work-mbp-01/ssh"
     )
-    hosts_file="resources/ssh/hosts/dacoso.nix"
+    hosts_file="resources/ssh/hosts/work.nix"
     host_scope_dir="${secrets_dir}/secrets/profiles/work/servers/${host}/ssh"
     ;;
   *)
-    echo "!! Unknown scope '${scope}'. Use 'personal' or 'work' (alias 'dacoso')." >&2
+    echo "!! Unknown scope '${scope}'. Use 'personal' or 'work'." >&2
     exit 2
     ;;
 esac

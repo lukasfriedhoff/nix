@@ -1,25 +1,6 @@
 [
-  # Work desktop keys (installed on macbook-pro via work profile secrets).
-  {
-    secret = "ssh/github.priv";
-    path = ".ssh/work/github";
-    scope = "work";
-  }
-  {
-    secret = "ssh/bitbucket.priv";
-    path = ".ssh/work/bitbucket";
-    scope = "work";
-  }
-  {
-    secret = "ssh/ci.priv";
-    path = ".ssh/work/ci";
-    scope = "work";
-  }
-  {
-    secret = "ssh/aruba3.priv";
-    path = ".ssh/work/aruba3";
-    scope = "work";
-  }
+  # Work keys land in ~/.ssh/work via work profile secrets; add group24
+  # entries here as access is provisioned (scope = "work").
 
   # Add new personal homelab management keys here, e.g.:
   # { secret = "ssh/<short>-personal-mgmt.priv"; path = ".ssh/personal/<short>-personal-mgmt"; }
@@ -137,23 +118,8 @@
     scope = "personal";
   }
   {
-    secret = "ssh/clientportdown01.priv";
-    path = ".ssh/work/clientportdown01";
-    scope = "work";
-  }
-  {
     secret = "ssh/srv9-personal-mgmt.priv";
     path = ".ssh/personal/srv9-personal-mgmt";
     scope = "personal";
-  }
-  {
-    secret = "ssh/netbox04.priv";
-    path = ".ssh/work/netbox04";
-    scope = "work";
-  }
-  {
-    secret = "ssh/dacosoworksca01.priv";
-    path = ".ssh/work/dacosoworksca01";
-    scope = "work";
   }
 ]
