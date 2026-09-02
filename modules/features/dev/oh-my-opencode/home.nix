@@ -5,99 +5,81 @@
   ...
 }:
 
+# Declarative oh-my-opencode setup. The upstream `bunx oh-my-opencode
+# install` wizard only adds the plugin to opencode.json and writes an
+# oh-my-opencode.json with agent/category model routing - but it cannot edit
+# the Home Manager-managed opencode.json (read-only store symlink), so both
+# files are generated here instead. OpenCode installs plugins listed in its
+# config by itself on startup.
 let
   cfg = config.programs.oh-my-opencode;
-  configRoot = config.xdg.configHome or "${config.home.homeDirectory}/.config";
-  opencodeConfigDir = "${configRoot}/opencode";
-  packageVersion = if cfg.version == null then "latest" else cfg.version;
-  packageSpecifier = "oh-my-opencode" + (if cfg.version == null then "" else "@${cfg.version}");
 
-  installFlags = [
-    "--no-tui"
-    "--claude=${cfg.subscriptions.claude}"
-    "--openai=${cfg.subscriptions.openai}"
-    "--gemini=${cfg.subscriptions.gemini}"
-    "--copilot=${cfg.subscriptions.copilot}"
-    "--opencode-zen=${cfg.subscriptions.opencodeZen}"
-    "--zai-coding-plan=${cfg.subscriptions.zaiCodingPlan}"
-  ]
-  ++ cfg.extraFlags;
+  agentNames = [
+    "sisyphus"
+    "oracle"
+    "librarian"
+    "explore"
+    "multimodal-looker"
+    "prometheus"
+    "metis"
+    "momus"
+    "atlas"
+  ];
 
-  installCmd = "${pkgs.bun}/bin/bunx ${packageSpecifier} install ${lib.escapeShellArgs installFlags}";
+  categoryNames = [
+    "visual-engineering"
+    "ultrabrain"
+    "deep"
+    "artistry"
+    "quick"
+    "unspecified-low"
+    "unspecified-high"
+    "writing"
+  ];
+
+  modelRouting = lib.optionalAttrs (cfg.agentModel != null) {
+    agents = lib.genAttrs agentNames (_: {
+      model = cfg.agentModel;
+    });
+    categories = lib.genAttrs categoryNames (_: {
+      model = cfg.agentModel;
+    });
+  };
+
+  settings = lib.recursiveUpdate (
+    {
+      "$schema" =
+        "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
+    }
+    // modelRouting
+  ) cfg.extraSettings;
 in
 {
   options.programs.oh-my-opencode = {
-    enable = lib.mkEnableOption "Oh My OpenCode plugin installer (non-interactive)";
+    enable = lib.mkEnableOption "oh-my-opencode opencode plugin (declarative)";
 
     version = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = "3.1.10";
-      description = "oh-my-opencode npm version to install (null follows upstream latest).";
+      description = "oh-my-opencode npm version pinned in the plugin entry (null follows latest).";
       example = "3.1.10";
     };
 
-    subscriptions = {
-      claude = lib.mkOption {
-        type = lib.types.enum [
-          "yes"
-          "no"
-          "max20"
-        ];
-        default = "no";
-        description = "Claude subscription flag for the installer.";
-      };
-
-      openai = lib.mkOption {
-        type = lib.types.enum [
-          "yes"
-          "no"
-        ];
-        default = "no";
-        description = "OpenAI/ChatGPT Plus availability flag.";
-      };
-
-      gemini = lib.mkOption {
-        type = lib.types.enum [
-          "yes"
-          "no"
-        ];
-        default = "no";
-        description = "Gemini access flag.";
-      };
-
-      copilot = lib.mkOption {
-        type = lib.types.enum [
-          "yes"
-          "no"
-        ];
-        default = "no";
-        description = "GitHub Copilot subscription flag.";
-      };
-
-      opencodeZen = lib.mkOption {
-        type = lib.types.enum [
-          "yes"
-          "no"
-        ];
-        default = "no";
-        description = "OpenCode Zen access flag.";
-      };
-
-      zaiCodingPlan = lib.mkOption {
-        type = lib.types.enum [
-          "yes"
-          "no"
-        ];
-        default = "no";
-        description = "Z.ai Coding Plan availability flag.";
-      };
+    agentModel = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        opencode model (provider/model) all oh-my-opencode agents and
+        categories route to. null leaves the plugin's own defaults, which
+        assume hosted providers.
+      '';
+      example = "llama-cpp/qwen3-coder:30b";
     };
 
-    extraFlags = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "Additional flags passed to bunx oh-my-opencode install.";
-      example = [ "--variant=high" ];
+    extraSettings = lib.mkOption {
+      type = lib.types.attrs;
+      default = { };
+      description = "Extra oh-my-opencode.json settings merged over the generated routing.";
     };
   };
 
@@ -107,24 +89,10 @@ in
       pkgs.bun
     ];
 
-    home.activation.ohMyOpenCodeInstall = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      set -euo pipefail
-      config_dir="${opencodeConfigDir}"
-      marker="$config_dir/.oh-my-opencode-installed"
+    programs.opencode.settings.plugin = [
+      ("oh-my-opencode" + lib.optionalString (cfg.version != null) "@${cfg.version}")
+    ];
 
-      mkdir -p "$config_dir"
-
-      current_version=""
-      if [ -f "$marker" ]; then
-        current_version="$(cat "$marker")"
-      fi
-
-      desired_version='${packageVersion}'
-
-      if [ "$current_version" != "$desired_version" ]; then
-        ${installCmd}
-        echo "$desired_version" > "$marker"
-      fi
-    '';
+    xdg.configFile."opencode/oh-my-opencode.json".text = builtins.toJSON settings;
   };
 }

@@ -35,14 +35,7 @@ in
 
     programs.oh-my-opencode = {
       enable = true;
-      subscriptions = {
-        claude = "no";
-        openai = "no";
-        gemini = "no";
-        copilot = "no";
-        opencodeZen = "no";
-        zaiCodingPlan = "no";
-      };
+      agentModel = "llama-cpp/${llamaModel}";
     };
 
     programs.opencode = {
