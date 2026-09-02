@@ -13,14 +13,16 @@
 let
   cfg = config.programs.easyMoveResize;
 
-  # NSEventModifierFlags bits
-  modifierBits = {
-    shift = 131072;
-    ctrl = 262144;
-    alt = 524288;
-    cmd = 1048576;
+  # The app stores ModifierFlags as a comma-joined string of key names
+  # (EMRPreferences.m), NOT as a bitmask.
+  modifierNames = {
+    shift = "SHIFT";
+    ctrl = "CTRL";
+    alt = "ALT";
+    cmd = "CMD";
+    fn = "FN";
   };
-  modifierMask = lib.foldl' (acc: m: acc + modifierBits.${m}) 0 (lib.unique cfg.modifiers);
+  modifierString = lib.concatMapStringsSep "," (m: modifierNames.${m}) (lib.unique cfg.modifiers);
 
   appBinary = "${cfg.package}/Applications/Easy Move+Resize.app/Contents/MacOS/Easy Move+Resize";
 in
@@ -31,7 +33,7 @@ in
     package = lib.mkPackageOption pkgs "easy-move-resize" { };
 
     modifiers = lib.mkOption {
-      type = lib.types.listOf (lib.types.enum (lib.attrNames modifierBits));
+      type = lib.types.listOf (lib.types.enum (lib.attrNames modifierNames));
       default = [ "alt" ];
       description = ''
         Modifier keys that must be held for mouse move/resize. All listed
@@ -68,7 +70,7 @@ in
     };
 
     home.activation.easyMoveResizePrefs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      /usr/bin/defaults write org.dmarcotte.Easy-Move-Resize ModifierFlags -int ${toString modifierMask}
+      /usr/bin/defaults write org.dmarcotte.Easy-Move-Resize ModifierFlags -string "${modifierString}"
     '';
   };
 }
