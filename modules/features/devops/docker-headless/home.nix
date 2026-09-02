@@ -84,7 +84,7 @@ in
       configDir = "${config.xdg.configHome}/docker";
       settings = {
         credsStore = lib.mkDefault "osxkeychain";
-        features.buildkit = true;
+        features.buildkit = "true";
       };
     };
 
