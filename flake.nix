@@ -19,6 +19,9 @@
 
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
 
+    # Spotlight/Dock-compatible trampolines for nix-installed .app bundles.
+    mac-app-util.url = "github:hraban/mac-app-util";
+
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -469,6 +472,7 @@
               ./hosts/work/work-mbp-01/configuration.nix
               home-manager.darwinModules.home-manager
               nix-homebrew.darwinModules.nix-homebrew
+              inputs.mac-app-util.darwinModules.default
               sops-nix.darwinModules.sops
               (
                 { pkgs, ... }:
@@ -485,6 +489,7 @@
                     users.${macUser} = {
                       imports = featureModules.home ++ [
                         stylix.homeModules.stylix
+                        inputs.mac-app-util.homeManagerModules.default
                       ];
                     };
                   };
