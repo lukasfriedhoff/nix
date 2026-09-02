@@ -16,6 +16,12 @@ in
     (lib.mkIf cfg.enable {
       programs.alacritty.settings = {
         env.TERM = "xterm-256color";
+        # macOS Alacritty does not spawn a login shell, so ~/.profile (and
+        # with it hm-session-vars.sh: DOCKER_HOST, EDITOR, ...) never loads.
+        terminal.shell = lib.mkIf pkgs.stdenv.isDarwin {
+          program = "/run/current-system/sw/bin/bash";
+          args = [ "--login" ];
+        };
         font = {
           size = lib.mkDefault 12;
           normal = lib.mkIf pkgs.stdenv.isDarwin {
