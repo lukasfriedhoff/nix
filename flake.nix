@@ -105,7 +105,7 @@
             inherit (pkgs) velero_1_9_4;
           }
           // lib.optionalAttrs pkgs.stdenv.isDarwin {
-            inherit (pkgs) macmon;
+            inherit (pkgs) macmon easy-move-resize;
           }
           // lib.optionalAttrs pkgs.stdenv.isLinux {
             shadow-client-appimage = pkgs.callPackage ./pkgs/shadow-client-appimage { };
