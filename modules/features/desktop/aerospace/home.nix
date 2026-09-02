@@ -68,6 +68,13 @@ in
         # SketchyBar starts via its own Home Manager launchd service.
         after-startup-command = [ ];
 
+        # Keep SketchyBar's workspace indicator in sync.
+        exec-on-workspace-change = lib.mkIf config.programs.sketchybar.enable [
+          "/bin/bash"
+          "-c"
+          "${lib.getExe config.programs.sketchybar.package} --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE"
+        ];
+
         # Keep workspace IDs alive even if empty
         persistent-workspaces = tiling.workspaces;
 
