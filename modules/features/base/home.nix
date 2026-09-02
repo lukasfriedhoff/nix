@@ -12,6 +12,8 @@ in
 {
   home = {
     username = lib.mkDefault fallbackUser;
+    # User-local scripts and tools (pipx, cargo install --root, ad-hoc bins).
+    sessionPath = [ "$HOME/.local/bin" ];
     homeDirectory = lib.mkDefault fallbackHome;
     stateVersion = "25.05";
     file."hushlogin".text = "";

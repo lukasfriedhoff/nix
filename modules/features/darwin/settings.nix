@@ -24,6 +24,9 @@
       };
 
       NSGlobalDomain = {
+        # SketchyBar owns the top edge (bar display=all); keep the system
+        # menu bar hidden unless the cursor hits the top of the screen.
+        _HIHideMenuBar = true;
         NSAutomaticSpellingCorrectionEnabled = false;
         NSAutomaticCapitalizationEnabled = false;
         NSAutomaticPeriodSubstitutionEnabled = false;

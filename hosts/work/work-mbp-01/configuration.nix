@@ -66,5 +66,8 @@ in
 
     # GPU/SoC monitoring (local macmon package; nixpkgs' 0.6.1 panics on M5 Max)
     programs.macmon.enable = true;
+
+    # Sway-style alt+drag window move/resize
+    programs.easyMoveResize.enable = true;
   };
 }
