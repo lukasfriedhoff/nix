@@ -24,7 +24,7 @@ let
   };
   modifierString = lib.concatMapStringsSep "," (m: modifierNames.${m}) (lib.unique cfg.modifiers);
 
-  appBinary = "${cfg.package}/Applications/Easy Move+Resize.app/Contents/MacOS/Easy Move+Resize";
+  appBundle = "${cfg.package}/Applications/Easy Move+Resize.app";
 in
 {
   options.programs.easyMoveResize = {
@@ -63,9 +63,20 @@ in
     launchd.agents.easy-move-resize = {
       enable = true;
       config = {
-        ProgramArguments = [ appBinary ];
+        # Launch through LaunchServices (open -W) instead of exec'ing the
+        # binary: a directly spawned instance is treated as a background
+        # daemon and its event tap services clicks with up to seconds of
+        # latency (App Nap/window-server throttling), so macOS times the tap
+        # out and modifier-drags fall through. -W keeps `open` alive for
+        # KeepAlive semantics.
+        ProgramArguments = [
+          "/usr/bin/open"
+          "-W"
+          appBundle
+        ];
         KeepAlive = true;
         RunAtLoad = true;
+        ProcessType = "Interactive";
       };
     };
 
