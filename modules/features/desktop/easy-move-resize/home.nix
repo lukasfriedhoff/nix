@@ -66,6 +66,10 @@ in
         ProgramArguments = [ appBinary ];
         KeepAlive = true;
         RunAtLoad = true;
+        # Without this the agent spawns as daemon-class and App Nap throttles
+        # it; its event tap then services clicks with multi-second latency,
+        # macOS times the tap out, and drags fall through to the app below.
+        ProcessType = "Interactive";
       };
     };
 
