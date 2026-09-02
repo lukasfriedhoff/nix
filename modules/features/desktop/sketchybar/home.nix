@@ -9,11 +9,13 @@
 }:
 let
   cfg = config.programs.sketchybar;
+  tiling = import ../tiling/def.nix { inherit lib; };
+  workspaceList = lib.concatStringsSep " " tiling.workspaces;
   sketchybarrc = ''
     # Upstream default demo config (with AeroSpace workspace clicks)
     PLUGIN_DIR="$CONFIG_DIR/plugins"
 
-    sketchybar --bar position=top height=40 blur_radius=30 color=0x40000000
+    sketchybar --bar position=top height=40 blur_radius=30 color=0x40000000 display=all
 
     default=(
       padding_left=5
@@ -29,23 +31,28 @@ let
     )
     sketchybar --default "''${default[@]}"
 
-    SPACE_ICONS=("1" "2" "3" "4" "5" "6" "7" "8" "9" "10")
-    for i in "''${!SPACE_ICONS[@]}"
+    # AeroSpace workspaces are virtual (all inside one macOS space), so
+    # plain items driven by the aerospace_workspace_change event replace the
+    # native `space` items of the upstream demo config.
+    sketchybar --add event aerospace_workspace_change
+
+    for sid in ${workspaceList}
     do
-      sid="$(($i+1))"
       space=(
-        space="$sid"
-        icon="''${SPACE_ICONS[i]}"
+        icon="$sid"
         icon.padding_left=7
         icon.padding_right=7
         background.color=0x40ffffff
         background.corner_radius=5
         background.height=25
+        background.drawing=off
         label.drawing=off
         script="$PLUGIN_DIR/space.sh"
         click_script="aerospace workspace $sid"
       )
-      sketchybar --add space space."$sid" left --set space."$sid" "''${space[@]}"
+      sketchybar --add item space."$sid" left \
+                 --set space."$sid" "''${space[@]}" \
+                 --subscribe space."$sid" aerospace_workspace_change
     done
 
     sketchybar --add item chevron left \
@@ -64,6 +71,7 @@ let
                --subscribe battery system_woke power_source_change
 
     sketchybar --update
+    sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE="$(aerospace list-workspaces --focused)"
   '';
 
   plugins = {
@@ -95,7 +103,12 @@ let
 
     "space.sh" = ''
       #!/bin/sh
-      sketchybar --set "$NAME" background.drawing="$SELECTED"
+      # Highlight the focused AeroSpace workspace; NAME is "space.<id>".
+      if [ "$FOCUSED_WORKSPACE" = "''${NAME#space.}" ]; then
+        sketchybar --set "$NAME" background.drawing=on
+      else
+        sketchybar --set "$NAME" background.drawing=off
+      fi
     '';
 
     "volume.sh" = ''
@@ -119,6 +132,10 @@ in
     }
     (lib.mkIf (cfg.enable && pkgs.stdenv.isDarwin) {
       programs.sketchybar.config = lib.mkDefault sketchybarrc;
+
+      # aerospace must be callable from the service (workspace clicks and
+      # the initial focused-workspace query).
+      programs.sketchybar.extraPackages = [ config.programs.aerospace.package ];
 
       # Install plugin scripts referenced by the config
       xdg.configFile = lib.mapAttrs' (
