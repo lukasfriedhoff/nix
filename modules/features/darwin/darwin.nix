@@ -36,10 +36,16 @@
 
   # macOS-specific settings
   system.primaryUser = macUser;
+  # knownUsers lets nix-darwin manage the account (required for the shell
+  # setting to actually reach Directory Services); uid must match the
+  # existing account.
+  users.knownUsers = [ macUser ];
   users.users.${macUser} = {
+    uid = 501;
     home = "/Users/${macUser}";
     shell = pkgs.bashInteractive;
   };
+  environment.shells = [ pkgs.bashInteractive ];
   environment = {
     systemPath = [
       "/opt/homebrew/bin"
