@@ -22,7 +22,9 @@ let
       hf-repo = "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF";
       hf-file = "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf";
       alias = "qwen3-coder:30b,qwen3-coder";
-      c = "32768";
+      # 64k so agentic opencode sessions don't hit the window; fit=on
+      # shrinks it if the KV cache would not fit in memory.
+      c = "65536";
       fit = "on";
       jinja = "on";
       temp = "0.2";
@@ -81,14 +83,15 @@ in
 
     extraFlags = lib.mkOption {
       type = lib.types.listOf lib.types.str;
+      # No --parallel: llama-server splits the context between slots, and a
+      # single local opencode user is better served by one slot with the
+      # full window (requests over the per-slot limit trigger opencode's
+      # compaction loop).
       default = [
         "--models-max"
         "1"
         "--cache-ram"
         "8192"
-        "--parallel"
-        "2"
-        "--cont-batching"
       ];
       description = "Extra flags passed to llama-server.";
     };
