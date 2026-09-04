@@ -69,5 +69,8 @@ in
 
     # Sway-style alt+drag window move/resize
     programs.easyMoveResize.enable = true;
+
+    # Keep-awake menu bar app
+    programs.caffeine.enable = true;
   };
 }
