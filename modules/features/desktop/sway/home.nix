@@ -134,6 +134,18 @@ let
     };
     Install.WantedBy = [ "sway-session.target" ];
   };
+  # Exit 0 when running on AC (any mains adapter online), else 1. Idle
+  # timeout commands call this so a single swayidle config behaves
+  # differently on AC vs battery, re-checked at each timeout's fire time
+  # (so unplugging mid-idle takes effect immediately).
+  onAC = pkgs.writeShellScript "on-ac" ''
+    for f in /sys/class/power_supply/*/online; do
+      [ -r "$f" ] && [ "$(cat "$f")" = 1 ] && exit 0
+    done
+    exit 1
+  '';
+  lock = "${lib.getExe pkgs.swaylock} -f";
+  suspend = "${pkgs.systemd}/bin/systemctl suspend";
   # --to-code binds by physical keycode, so shifted symbol keys work:
   # with plain keysym matching, Shift+semicolon arrives as "colon" and a
   # Mod4+Shift+semicolon binding never fires (same for minus/equal).
@@ -280,23 +292,35 @@ in
       };
     };
     programs.swaylock.enable = true;
+    # Power-aware idle: each command gates on ${onAC}, so the battery-side
+    # timeouts (|| = only when NOT on AC) and AC-side timeouts (&& = only
+    # when on AC) coexist in one config. before-sleep locks on any suspend.
+    #   battery: lock 5min,  suspend 10min
+    #   AC:      lock 30min, suspend 3h
     services.swayidle = {
       enable = true;
       events = [
         {
           event = "before-sleep";
-          command = "${lib.getExe pkgs.swaylock} -f";
+          command = lock;
         }
       ];
       timeouts = [
         {
-          timeout = 300;
-          command = "${lib.getExe pkgs.swaylock} -f";
+          timeout = 300; # battery: lock after 5min
+          command = "${onAC} || ${lock}";
         }
         {
-          timeout = 600;
-          command = "${pkgs.sway}/bin/swaymsg 'output * power off'";
-          resumeCommand = "${pkgs.sway}/bin/swaymsg 'output * power on'";
+          timeout = 600; # battery: suspend after 10min
+          command = "${onAC} || ${suspend}";
+        }
+        {
+          timeout = 1800; # AC: lock after 30min
+          command = "${onAC} && ${lock}";
+        }
+        {
+          timeout = 10800; # AC: suspend after 3h
+          command = "${onAC} && ${suspend}";
         }
       ];
     };
