@@ -254,7 +254,7 @@ in
       systemd.enable = true;
       # graphical-session.target is also reached by a GNOME login; bind to
       # the sway target so GNOME sessions stay waybar-free.
-      systemd.target = "sway-session.target";
+      systemd.targets = [ "sway-session.target" ];
       settings.mainBar = {
         layer = "top";
         position = "top";
@@ -299,12 +299,7 @@ in
     #   AC:      lock 30min, suspend 3h
     services.swayidle = {
       enable = true;
-      events = [
-        {
-          event = "before-sleep";
-          command = lock;
-        }
-      ];
+      events.before-sleep = lock;
       timeouts = [
         {
           timeout = 300; # battery: lock after 5min
