@@ -36,7 +36,7 @@ let
       hf-repo = "unsloth/Qwen3.8-27B-GGUF";
       hf-file = "Qwen3.8-27B-UD-Q4_K_M.gguf";
       alias = "qwen3.8:27b";
-      c = "32768";
+      c = "65536";
       fit = "on";
       jinja = "on";
     };
@@ -45,7 +45,7 @@ let
       hf-repo = "Qwen/Qwen3-8B-GGUF";
       hf-file = "Qwen3-8B-Q4_K_M.gguf";
       alias = "qwen3:8b,qwen3-fast";
-      c = "32768";
+      c = "65536";
       fit = "on";
       jinja = "on";
     };
