@@ -298,7 +298,12 @@ in
     home.activation.refreshKubeconfig = lib.mkIf cfg.refreshOnActivation (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         if [ -x "${config.home.homeDirectory}/.local/bin/kubeconfig-refresh" ]; then
-          "${config.home.homeDirectory}/.local/bin/kubeconfig-refresh" || true
+          # Bound the refresh: off-network, DNS resolution of the lab hosts
+          # hangs ~30s each before failing (ConnectTimeout only bounds the
+          # TCP connect, not the lookup), which blocks the whole activation
+          # for minutes. Cap it — best-effort, skip on timeout.
+          ${pkgs.coreutils}/bin/timeout 30 \
+            "${config.home.homeDirectory}/.local/bin/kubeconfig-refresh" || true
         fi
       ''
     );
