@@ -45,6 +45,11 @@
     witr.url = "github:pranshuparmar/witr";
     witr.inputs.nixpkgs.follows = "nixpkgs";
 
+    # Kubernetes TUI (k9s reimagining, Rust). Not in nixpkgs; upstream ships
+    # a flake, so consume its package directly on desktops.
+    sofka.url = "github:nklmilojevic/sofka";
+    sofka.inputs.nixpkgs.follows = "nixpkgs";
+
     nix-vscode-extensions.url = "github:nix-community/nix-vscode-extensions";
     nix-vscode-extensions.inputs.nixpkgs.follows = "nixpkgs";
 

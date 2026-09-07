@@ -639,10 +639,31 @@
         "nixos-facter-modules": "nixos-facter-modules",
         "nixos-management-skill": "nixos-management-skill",
         "nixpkgs": "nixpkgs_6",
+        "sofka": "sofka",
         "sops-nix": "sops-nix",
         "stylix": "stylix",
         "treefmt-nix": "treefmt-nix_4",
         "witr": "witr"
+      }
+    },
+    "sofka": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1788723252,
+        "narHash": "sha256-O2dp7EwvEaT+6SR+/gBv1OUYmOcqiDmnoc/PtOAHvGQ=",
+        "owner": "nklmilojevic",
+        "repo": "sofka",
+        "rev": "6b6d614108cfa58cf20c2b36bf526ed87a523d4e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nklmilojevic",
+        "repo": "sofka",
+        "type": "github"
       }
     },
     "sops-nix": {

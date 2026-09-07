@@ -145,6 +145,7 @@ in
         pkgs.font-awesome
         pkgs.nerd-fonts.symbols-only
         inputs.witr.packages.${pkgs.stdenv.hostPlatform.system}.default
+        inputs.sofka.packages.${pkgs.stdenv.hostPlatform.system}.default
       ];
 
       home.sessionVariables = {
