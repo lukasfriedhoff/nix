@@ -139,8 +139,13 @@ let
   # differently on AC vs battery, re-checked at each timeout's fire time
   # (so unplugging mid-idle takes effect immediately).
   onAC = pkgs.writeShellScript "on-ac" ''
+    # Use the `read` builtin, not `cat`: swayidle runs timeout commands with
+    # a minimal PATH where coreutils is absent, so `cat` fails, the check
+    # falls through to "battery", and the 5min battery-lock fires on AC.
     for f in /sys/class/power_supply/*/online; do
-      [ -r "$f" ] && [ "$(cat "$f")" = 1 ] && exit 0
+      [ -r "$f" ] || continue
+      read -r online < "$f" || continue
+      [ "$online" = 1 ] && exit 0
     done
     exit 1
   '';
