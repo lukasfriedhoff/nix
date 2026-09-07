@@ -302,7 +302,7 @@ in
           # hangs ~30s each before failing (ConnectTimeout only bounds the
           # TCP connect, not the lookup), which blocks the whole activation
           # for minutes. Cap it — best-effort, skip on timeout.
-          ${pkgs.coreutils}/bin/timeout 30 \
+          ${pkgs.coreutils}/bin/timeout 10 \
             "${config.home.homeDirectory}/.local/bin/kubeconfig-refresh" || true
         fi
       ''
