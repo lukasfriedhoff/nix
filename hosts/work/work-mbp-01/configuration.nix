@@ -77,6 +77,9 @@ in
     };
 
     programs.dockerHeadless.enable = true;
+    # Start the Docker VM on demand (docker-start), not at login; see
+    # docs/services/docker-colima.md.
+    programs.dockerHeadless.startAtLogin = false;
 
     # GPU/SoC monitoring (local macmon package; nixpkgs' 0.6.1 panics on M5 Max)
     programs.macmon.enable = true;
