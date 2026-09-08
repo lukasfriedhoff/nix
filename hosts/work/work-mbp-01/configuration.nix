@@ -53,11 +53,25 @@ in
           npm = "@ai-sdk/openai-compatible";
           name = "llama.cpp (local)";
           options.baseURL = "${llamaBaseUrl}/v1";
-          models = {
-            "qwen3-coder:30b".name = "qwen3-coder:30b";
-            "qwen3.8:27b".name = "qwen3.8:27b";
-            "qwen3:8b".name = "qwen3:8b";
-          };
+          # limit.context must match the llama-server preset window (c in
+          # modules/features/llama-cpp-server/home.nix): without it opencode
+          # assumes a huge default, never compacts proactively, and requests
+          # grow until the server rejects them - the compaction loop.
+          models =
+            let
+              mkModel = name: {
+                inherit name;
+                limit = {
+                  context = 65536;
+                  output = 8192;
+                };
+              };
+            in
+            {
+              "qwen3-coder:30b" = mkModel "qwen3-coder:30b";
+              "qwen3.8:27b" = mkModel "qwen3.8:27b";
+              "qwen3:8b" = mkModel "qwen3:8b";
+            };
         };
       };
     };
