@@ -10,6 +10,7 @@
       with pkgs;
       [
         htop
+        bpytop
         intel-gpu-tools
         pavucontrol
         element-desktop

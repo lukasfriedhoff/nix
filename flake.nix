@@ -107,7 +107,7 @@
           };
 
           packages = {
-            inherit (pkgs) velero_1_9_4;
+            inherit (pkgs) velero_1_9_4 bpytop;
           }
           // lib.optionalAttrs pkgs.stdenv.isDarwin {
             inherit (pkgs) macmon easy-move-resize;
