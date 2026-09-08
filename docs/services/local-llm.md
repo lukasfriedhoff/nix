@@ -1,0 +1,44 @@
+# Local LLM servers on work-mbp-01
+
+Two OpenAI-compatible servers, both **started on demand** (no login
+autostart). Model weights download from Hugging Face on first use into
+`~/.cache/huggingface`.
+
+| | llama.cpp | MLX |
+|---|---|---|
+| Module | `lukasf.llamaCppServer` | `lukasf.mlxLm` |
+| Port | 11434 | 11435 |
+| Format | GGUF (router mode, preset INI) | MLX quantizations |
+| Start | `llama-start` | `mlx-start` |
+| Stop | `llama-stop` | `mlx-stop` |
+| Logs | `llama-logs` | `mlx-logs` |
+| opencode provider | `llama-cpp` | `mlx` |
+
+Both servers are launchd agents with `RunAtLoad`/`KeepAlive` off; the
+aliases drive `launchctl kickstart` / `launchctl kill`. Only start what you
+need - each loaded model claims GPU memory until its server stops.
+
+## llama.cpp
+
+Router mode: `/v1/models` lists the presets from
+`modules/features/llama-cpp-server/home.nix` (qwen3-coder:30b,
+qwen3.8:27b, qwen3:8b - all 64k context); the model for a request is
+loaded on first use, `--models-max 1` keeps a single model resident.
+
+## MLX
+
+`mlx_lm.server` serves one model chosen at startup
+(`lukasf.mlxLm.model`, default the MLX 4-bit build of qwen3-coder:30b).
+To serve a different model ad hoc:
+
+```bash
+mlx_lm.server --host 127.0.0.1 --port 11435 --model mlx-community/<repo>
+```
+
+## opencode
+
+Model entries declare `limit.context` matching the server windows; opencode
+compacts before hitting them (see the compaction-loop postmortem in the
+git history of `hosts/work/work-mbp-01/configuration.nix`). Select models
+with `/models` in opencode; the `mlx/...` entries require the MLX server
+to be running.

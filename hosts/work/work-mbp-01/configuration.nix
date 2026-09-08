@@ -21,8 +21,13 @@ in
   };
 
   home-manager.users.lukasfriedhoff = {
-    # Local llama.cpp server (launchd agent, Metal, router mode).
-    lukasf.llamaCppServer.enable = true;
+    # Local LLM servers, both started on demand (llama-start / mlx-start,
+    # see docs/services/local-llm.md).
+    lukasf.llamaCppServer = {
+      enable = true;
+      autoStart = false;
+    };
+    lukasf.mlxLm.enable = true;
 
     home.sessionVariables = {
       OLLAMA_HOST = llamaBaseUrl;
@@ -49,6 +54,18 @@ in
           "google"
           "opencode"
         ];
+        provider.mlx = {
+          npm = "@ai-sdk/openai-compatible";
+          name = "MLX (local)";
+          options.baseURL = "http://127.0.0.1:11435/v1";
+          models."mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit" = {
+            name = "qwen3-coder:30b (mlx)";
+            limit = {
+              context = 65536;
+              output = 8192;
+            };
+          };
+        };
         provider.llama-cpp = {
           npm = "@ai-sdk/openai-compatible";
           name = "llama.cpp (local)";
