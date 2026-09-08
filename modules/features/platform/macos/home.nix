@@ -30,6 +30,7 @@
 
       # System utilities
       pstree # process tree viewer
+      bpytop # Python reimplementation of btop
       terminal-notifier # macOS notifications from CLI
     ]
   );
