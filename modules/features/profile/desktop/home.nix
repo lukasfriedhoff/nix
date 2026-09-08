@@ -134,6 +134,7 @@ in
 
       home.packages = [
         pkgs.gpodder
+        pkgs.obsidian
         pkgs.cloudflared
         pkgs.go
         pkgs.gopls
