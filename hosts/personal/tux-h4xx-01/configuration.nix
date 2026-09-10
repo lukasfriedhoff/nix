@@ -1,6 +1,8 @@
 {
+  config,
   lib,
   pkgs,
+  secrets,
   ...
 }:
 
@@ -137,6 +139,23 @@
   services.udev.extraRules = ''
     KERNEL=="uinput", MODE="0660", GROUP="input"
   '';
+
+  # SSH access: the shared personal-desktop identity pub comes from sops
+  # (desktops share one keypair), the dedicated Mac -> tux tunnel pub is
+  # checked in next to this config. Both are wired via AuthorizedKeysFile
+  # (read by sshd at login, so the sops path works) instead of rewriting
+  # ~/.ssh/authorized_keys, which would drop imperatively added keys.
+  sops.secrets."personal-desktop-key-pub" = {
+    sopsFile = "${secrets.profileCommon}/ssh/id_ed25519.pub";
+    format = "binary";
+    mode = "0444";
+    owner = "root";
+  };
+
+  services.openssh.authorizedKeysFiles = lib.mkAfter [
+    config.sops.secrets."personal-desktop-key-pub".path
+    (toString ./tunnel-tux.pub)
+  ];
 
   # Power management
   powerManagement.powertop.enable = false;

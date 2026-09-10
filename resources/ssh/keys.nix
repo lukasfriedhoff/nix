@@ -1,6 +1,11 @@
 [
   # Work keys land in ~/.ssh/work via work profile secrets; add group24
   # entries here as access is provisioned (scope = "work").
+  {
+    secret = "ssh/tunnel-tux.priv";
+    path = ".ssh/work/tunnel-tux";
+    scope = "work";
+  }
 
   # Add new personal homelab management keys here, e.g.:
   # { secret = "ssh/<short>-personal-mgmt.priv"; path = ".ssh/personal/<short>-personal-mgmt"; }
