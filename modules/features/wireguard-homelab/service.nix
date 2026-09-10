@@ -237,11 +237,19 @@ in
 
           retries="''${WG_ENDPOINT_RESOLUTION_RETRIES:-20}"
           attempt=0
+          resolved=""
           while true; do
-            if ${lib.getExe' pkgs.getent "getent"} ahostsv4 "$endpoint_host" >/dev/null 2>&1 || \
-               ${lib.getExe' pkgs.getent "getent"} ahostsv6 "$endpoint_host" >/dev/null 2>&1; then
-              break
+            # Prefer the A record and pin a concrete address. The homelab
+            # endpoint is reached over IPv4; its published AAAA is unreliable
+            # (MikroTik IP Cloud keeps publishing a stale/garbage IPv6 derived
+            # from a disabled Telekom pool interface). Handing the bare
+            # hostname to `wg set` lets getaddrinfo pick that dead IPv6, so the
+            # handshake silently fails. Resolve IPv4 first, fall back to IPv6.
+            resolved="$(${lib.getExe' pkgs.getent "getent"} ahostsv4 "$endpoint_host" 2>/dev/null | ${pkgs.gawk}/bin/awk 'NR==1{print $1}')" || true
+            if [ -z "$resolved" ]; then
+              resolved="$(${lib.getExe' pkgs.getent "getent"} ahostsv6 "$endpoint_host" 2>/dev/null | ${pkgs.gawk}/bin/awk 'NR==1{print $1}')" || true
             fi
+            [ -n "$resolved" ] && break
             attempt=$((attempt + 1))
             if [ "$retries" != "infinity" ] && [ "$attempt" -ge "$retries" ]; then
               echo "wg-homelab: cannot resolve endpoint host '$endpoint_host' after $attempt tries" >&2
@@ -250,7 +258,7 @@ in
             sleep 2
           done
 
-          ${pkgs.wireguard-tools}/bin/wg set "$iface" peer ${cfg.peerPublicKey} persistent-keepalive ${toString cfg.persistentKeepalive} endpoint "$endpoint"
+          ${pkgs.wireguard-tools}/bin/wg set "$iface" peer ${cfg.peerPublicKey} persistent-keepalive ${toString cfg.persistentKeepalive} endpoint "$resolved:$endpoint_port"
         '';
 
         refreshScript = pkgs.writeShellScript "wg-homelab-refresh" ''
