@@ -60,7 +60,11 @@ in
       }
     ];
 
-    home.packages = [ cfg.package ];
+    # cfg.package is intentionally NOT in home.packages. macOS must expose
+    # exactly one python3 store path to buildEnv, so the mlx-lm runtime
+    # reaches PATH via the platform/macos/home.nix env instead. The launchd
+    # agent below references cfg.package by absolute path, so the agent
+    # works without mlx-lm on PATH.
 
     launchd.agents.mlx-lm = {
       enable = true;
