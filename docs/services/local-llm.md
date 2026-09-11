@@ -18,6 +18,24 @@ Both servers are launchd agents with `RunAtLoad`/`KeepAlive` off; the
 aliases drive `launchctl kickstart` / `launchctl kill`. Only start what you
 need - each loaded model claims GPU memory until its server stops.
 
+## Pull first, then start
+
+Both servers can download models on first use, but their in-process
+downloaders hang when the CDN drops a connection mid-transfer (common on
+20 GB pulls). Pre-fetch with the standalone Hugging Face CLI instead,
+which resumes and uses the `hf-token` secret:
+
+```bash
+llama-pull                 # default preset (qwen3.8:27b)
+llama-pull qwen3-coder:30b # any preset name from the llama.cpp module
+mlx-pull                   # the configured MLX model
+mlx-pull mlx-community/<repo>
+```
+
+Progress: `du -sh ~/.cache/huggingface/hub/models--<org>--<repo>`; a pull
+is complete when `blobs/` holds no `*.incomplete` files. If a pull stalls
+(size stops growing for minutes), ctrl+c and re-run it - it resumes.
+
 ## llama.cpp
 
 Router mode: `/v1/models` lists the presets from

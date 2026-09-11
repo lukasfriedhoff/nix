@@ -37,6 +37,24 @@ let
     ''}
     exec ${lib.escapeShellArgs serverArgs}
   '';
+
+  # Pre-download with the standalone HF CLI: the in-server downloader hangs
+  # when the CDN drops a connection mid-transfer on multi-GB pulls. A plain
+  # shell script referencing the env by store path, so it can live in
+  # home.packages without a second python3 in buildEnv.
+  pullScript = pkgs.writeShellScriptBin "mlx-pull" ''
+    set -euo pipefail
+    repo="''${1:-${cfg.model}}"
+    ${lib.optionalString (cfg.hfTokenFile != null) ''
+      if [ -r "${cfg.hfTokenFile}" ]; then
+        HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
+        export HF_TOKEN
+      fi
+    ''}
+    export HF_HUB_DOWNLOAD_TIMEOUT=30
+    echo "pulling $repo into ~/.cache/huggingface (resumable; re-run if it stalls)" >&2
+    exec ${cfg.package}/bin/hf download "$repo"
+  '';
 in
 {
   options.lukasf.mlxLm = {
@@ -97,6 +115,7 @@ in
     # reaches PATH via the platform/macos/home.nix env instead. The launchd
     # agent below references cfg.package by absolute path, so the agent
     # works without mlx-lm on PATH.
+    home.packages = [ pullScript ];
 
     launchd.agents.mlx-lm = {
       enable = true;

@@ -141,6 +141,8 @@ material into the correct directories of the local nix-secrets checkout.
 | Architecture decisions | [`docs/architecture/`](docs/architecture/) |
 | Module development | [`docs/development/module_development.md`](docs/development/module_development.md) |
 | Host onboarding | [`docs/development/host_onboarding.md`](docs/development/host_onboarding.md) |
+| Local LLM servers on macOS (llama.cpp, MLX, tux tunnel) | [`docs/services/local-llm.md`](docs/services/local-llm.md) |
+| Docker on macOS (Colima) | [`docs/services/docker-colima.md`](docs/services/docker-colima.md) |
 
 ### Architecture Documents
 
