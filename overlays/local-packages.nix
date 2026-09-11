@@ -4,7 +4,6 @@ _final: prev:
   velero_1_9_4 = prev.callPackage ../pkgs/velero_1_9_4 { };
   macmon = prev.callPackage ../pkgs/macmon { };
   bpytop = prev.callPackage ../pkgs/bpytop { };
-  easy-move-resize = prev.callPackage ../pkgs/easy-move-resize { };
 
   # Master PDF Editor pinned to 5.9.60, the newest release the purchased
   # license activates. Consumed by modules/features/profile/desktop/home.nix.
