@@ -1,7 +1,8 @@
 _:
 let
   llamaBaseUrl = "http://127.0.0.1:11434";
-  llamaModel = "qwen3-coder:30b";
+  # Default model for opencode, oh-my-opencode agents and neovim.
+  llamaModel = "qwen3.8:27b";
 in
 {
   networking.hostName = "work-mbp-01";
@@ -26,6 +27,7 @@ in
     lukasf.llamaCppServer = {
       enable = true;
       autoStart = false;
+      defaultModel = llamaModel;
     };
     lukasf.mlxLm.enable = true;
 
