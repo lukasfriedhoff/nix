@@ -1,8 +1,19 @@
 _:
 let
   llamaBaseUrl = "http://127.0.0.1:11434";
-  # Default model for opencode, oh-my-opencode agents and neovim.
+  # llama.cpp preset used by the neovim/Ollama-style env (port 11434).
   llamaModel = "qwen3.8:27b";
+  # MLX build served by mlx-start; default for opencode and its agents
+  # (also reachable from tux through mlx-share-tux).
+  mlxModel = "mlx-community/Qwen3.8-27B-4bit";
+  defaultOpencodeModel = "mlx/${mlxModel}";
+  mkMlxModel = name: {
+    inherit name;
+    limit = {
+      context = 65536;
+      output = 8192;
+    };
+  };
 in
 {
   networking.hostName = "work-mbp-01";
@@ -29,11 +40,24 @@ in
       autoStart = false;
       defaultModel = llamaModel;
     };
-    lukasf.mlxLm.enable = true;
+    lukasf.mlxLm = {
+      enable = true;
+      model = mlxModel;
+    };
 
     # Expose the local MLX server on tux via a reverse tunnel (mac initiates;
     # tux then reaches it as localhost:11435). Requires mlx-start first.
-    programs.bash.shellAliases.mlx-share-tux = "ssh -N -o ExitOnForwardFailure=yes -R 127.0.0.1:11435:127.0.0.1:11435 tux";
+    # tux has no stable address, so the target is an argument (default: mDNS);
+    # -o Hostname overrides only the address while the `tux` ssh alias keeps
+    # supplying user and tunnel key.
+    programs.bash.initExtra = ''
+      mlx-share-tux() {
+        local host="''${1:-tux-h4xx-01.local}"
+        echo "reverse tunnel: ''${host} -> localhost:11435 (ctrl+c stops it)" >&2
+        ssh -N -o ExitOnForwardFailure=yes -o "Hostname=''${host}" \
+          -R 127.0.0.1:11435:127.0.0.1:11435 tux
+      }
+    '';
 
     home.sessionVariables = {
       OLLAMA_HOST = llamaBaseUrl;
@@ -41,18 +65,18 @@ in
       NVIM_OLLAMA_MODEL = llamaModel;
       NVIM_LLM_BASE_URL = "${llamaBaseUrl}/v1";
       NVIM_LLM_MODEL = llamaModel;
-      OPENCODE_MODEL = "llama-cpp/${llamaModel}";
+      OPENCODE_MODEL = defaultOpencodeModel;
     };
 
     programs.oh-my-opencode = {
       enable = true;
-      agentModel = "llama-cpp/${llamaModel}";
+      agentModel = defaultOpencodeModel;
     };
 
     programs.opencode = {
       enable = true;
       settings = {
-        model = "llama-cpp/${llamaModel}";
+        model = defaultOpencodeModel;
         disabled_providers = [
           "anthropic"
           "openai"
@@ -64,12 +88,9 @@ in
           npm = "@ai-sdk/openai-compatible";
           name = "MLX (local)";
           options.baseURL = "http://127.0.0.1:11435/v1";
-          models."mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit" = {
-            name = "qwen3-coder:30b (mlx)";
-            limit = {
-              context = 65536;
-              output = 8192;
-            };
+          models = {
+            "${mlxModel}" = mkMlxModel "qwen3.8:27b (mlx)";
+            "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit" = mkMlxModel "qwen3-coder:30b (mlx)";
           };
         };
         provider.llama-cpp = {
