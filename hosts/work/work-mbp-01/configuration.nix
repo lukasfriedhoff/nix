@@ -29,6 +29,10 @@ in
     };
     lukasf.mlxLm.enable = true;
 
+    # Expose the local MLX server on tux via a reverse tunnel (mac initiates;
+    # tux then reaches it as localhost:11435). Requires mlx-start first.
+    programs.bash.shellAliases.mlx-share-tux = "ssh -N -o ExitOnForwardFailure=yes -R 127.0.0.1:11435:127.0.0.1:11435 tux";
+
     home.sessionVariables = {
       OLLAMA_HOST = llamaBaseUrl;
       NVIM_OLLAMA_URL = llamaBaseUrl;

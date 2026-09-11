@@ -196,6 +196,22 @@ in
               }) favoriteLlmModels
             );
           };
+          # MLX server on the work MacBook, reachable through the reverse
+          # SSH tunnel it opens to this desktop (mlx-share-tux on the Mac,
+          # docs/services/local-llm.md). Only meaningful while the tunnel
+          # and the Mac's MLX server are up.
+          provider.mlx-tunnel = lib.mkIf (profile == "tux") {
+            npm = "@ai-sdk/openai-compatible";
+            name = "MLX via work-mbp-01";
+            options.baseURL = "http://127.0.0.1:11435/v1";
+            models."mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit" = {
+              name = "qwen3-coder:30b (mlx tunnel)";
+              limit = {
+                context = 65536;
+                output = 8192;
+              };
+            };
+          };
           provider."kimi-api" = {
             npm = "@ai-sdk/openai-compatible";
             name = "Kimi API";

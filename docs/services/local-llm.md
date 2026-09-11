@@ -42,3 +42,18 @@ compacts before hitting them (see the compaction-loop postmortem in the
 git history of `hosts/work/work-mbp-01/configuration.nix`). Select models
 with `/models` in opencode; the `mlx/...` entries require the MLX server
 to be running.
+
+## Sharing the Mac's MLX server with tux
+
+tux (x86_64) cannot run MLX; instead the Mac serves and tux consumes it
+through a reverse SSH tunnel the Mac initiates:
+
+```bash
+mlx-start        # load the MLX model locally
+mlx-share-tux    # ssh -N -R 11435:localhost:11435 tux (foreground; ctrl+c ends it)
+```
+
+On tux, opencode then offers `mlx-tunnel/...` ("MLX via work-mbp-01") at
+`localhost:11435`. Requirements: the `tux` SSH alias resolves via the
+work `hostnames-private.conf` secret, and the dedicated tunnel key
+(`~/.ssh/work/tunnel-tux`, authorized on tux) is installed.
