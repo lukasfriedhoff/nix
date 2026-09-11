@@ -12,8 +12,8 @@ let
   # 6-bit (~22 GB) is the largest Qwen3.8-27B build that fits beside a 64k
   # KV cache within the default ~27 GB GPU-wired limit of a 36 GB Mac.
   mlxModel = "lmstudio-community/Qwen3.8-27B-MLX-6bit";
-  # nixpkgs builds MLX without Metal (closed-source shader compiler), so the
-  # MLX server runs on the CPU: unusable for 27B. llama.cpp has Metal.
+  # llama.cpp stays the default; the MLX server (PyPI Metal wheels) is
+  # selectable in opencode as "qwen3.8:27b (mlx)".
   defaultOpencodeModel = "llama-cpp/${llamaModel}";
   mkMlxModel = name: {
     inherit name;
@@ -60,7 +60,7 @@ in
       hfTokenFile = config.sops.secrets.hf-token.path;
     };
     lukasf.mlxLm = {
-      enable = false; # CPU-only build, see defaultOpencodeModel comment
+      enable = true; # Metal-enabled PyPI wheels in a uv venv (see the module)
       model = mlxModel;
       hfTokenFile = config.sops.secrets.hf-token.path;
     };

@@ -45,6 +45,12 @@ loaded on first use, `--models-max 1` keeps a single model resident.
 
 ## MLX
 
+The runtime comes from Apple's PyPI wheels in a uv venv
+(`~/.local/share/mlx-lm/venv`, versions pinned in `lukasf.mlxLm.pypiVersions`,
+installed during `darwin-rebuild switch` - needs network once). nixpkgs'
+mlx is built without Metal and runs on the CPU, which is unusable for LLMs;
+verify with `~/.local/share/mlx-lm/venv/bin/python -c 'import mlx.core as mx; print(mx.metal.is_available())'`.
+
 `mlx_lm.server` serves one model chosen at startup
 (`lukasf.mlxLm.model`, default the MLX 4-bit build of qwen3-coder:30b).
 To serve a different model ad hoc:

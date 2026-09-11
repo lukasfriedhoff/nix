@@ -5,19 +5,33 @@
   ...
 }:
 
-# MLX runtime for Apple silicon: serves MLX-quantized models over an
-# OpenAI-compatible API via mlx_lm.server. Complements lukasf.llamaCppServer
-# (GGUF); models download from Hugging Face into ~/.cache/huggingface.
-# The launchd agent exists only for supervision - it does NOT start at
-# login; use mlx-start / mlx-stop (docs/services/local-llm.md).
+# MLX runtime for Apple silicon, served over an OpenAI-compatible API by
+# mlx_lm.server on demand (no login autostart; mlx-start / mlx-stop).
+#
+# nixpkgs' mlx is built with MLX_BUILD_METAL=false (Apple's Metal shader
+# compiler cannot run in the sandbox), which makes it CPU-only and useless
+# for LLMs. The Metal-enabled runtime therefore comes from Apple's official
+# PyPI wheels, installed into a uv-managed venv by an activation step. That
+# part is impure by necessity: pinned here, downloaded at activation.
 let
   cfg = config.lukasf.mlxLm;
 
   logDir = "${config.xdg.stateHome}/mlx-lm";
   agentLabel = "org.nix-community.home.mlx-lm";
+  venv = cfg.venvDir;
+  specs = lib.concatStringsSep " " (
+    lib.mapAttrsToList (name: version: lib.escapeShellArg "${name}==${version}") cfg.pypiVersions
+  );
+
+  readToken = lib.optionalString (cfg.hfTokenFile != null) ''
+    if [ -r "${cfg.hfTokenFile}" ]; then
+      HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
+      export HF_TOKEN
+    fi
+  '';
 
   serverArgs = [
-    "${cfg.package}/bin/mlx_lm.server"
+    "${venv}/bin/mlx_lm.server"
     "--host"
     cfg.host
     "--port"
@@ -29,42 +43,41 @@ let
 
   # launchd cannot read a token file into the environment itself.
   serverWrapper = pkgs.writeShellScript "mlx-lm-server" ''
-    ${lib.optionalString (cfg.hfTokenFile != null) ''
-      if [ -r "${cfg.hfTokenFile}" ]; then
-        HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
-        export HF_TOKEN
-      fi
-    ''}
+    ${readToken}
     exec ${lib.escapeShellArgs serverArgs}
   '';
 
-  # Pre-download with the standalone HF CLI: the in-server downloader hangs
-  # when the CDN drops a connection mid-transfer on multi-GB pulls. A plain
-  # shell script referencing the env by store path, so it can live in
-  # home.packages without a second python3 in buildEnv.
+  # Pre-download with the standalone HF CLI (resumable); the in-server
+  # downloader hangs when the CDN drops a connection mid-transfer.
   pullScript = pkgs.writeShellScriptBin "mlx-pull" ''
     set -euo pipefail
     repo="''${1:-${cfg.model}}"
-    ${lib.optionalString (cfg.hfTokenFile != null) ''
-      if [ -r "${cfg.hfTokenFile}" ]; then
-        HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
-        export HF_TOKEN
-      fi
-    ''}
+    ${readToken}
     export HF_HUB_DOWNLOAD_TIMEOUT=30
     echo "pulling $repo into ~/.cache/huggingface (resumable; re-run if it stalls)" >&2
-    exec ${cfg.package}/bin/hf download "$repo"
+    exec ${venv}/bin/hf download "$repo"
   '';
 in
 {
   options.lukasf.mlxLm = {
-    enable = lib.mkEnableOption "mlx-lm server (on demand, Apple silicon)";
+    enable = lib.mkEnableOption "mlx-lm server (on demand, Apple silicon, PyPI Metal wheels)";
 
-    package = lib.mkOption {
-      type = lib.types.package;
-      default = pkgs.python3.withPackages (ps: [ ps.mlx-lm ]);
-      defaultText = lib.literalExpression "pkgs.python3.withPackages (ps: [ ps.mlx-lm ])";
-      description = "Python environment providing mlx_lm.server.";
+    python = lib.mkPackageOption pkgs "python3" { };
+
+    venvDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.xdg.dataHome}/mlx-lm/venv";
+      defaultText = lib.literalExpression ''"''${config.xdg.dataHome}/mlx-lm/venv"'';
+      description = "uv-managed virtualenv holding the Metal-enabled mlx wheels.";
+    };
+
+    pypiVersions = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = {
+        mlx = "0.32.2";
+        mlx-lm = "0.31.3";
+      };
+      description = "Exact PyPI versions installed into the venv (changing them reinstalls).";
     };
 
     host = lib.mkOption {
@@ -110,12 +123,27 @@ in
       }
     ];
 
-    # cfg.package is intentionally NOT in home.packages. macOS must expose
-    # exactly one python3 store path to buildEnv, so the mlx-lm runtime
-    # reaches PATH via the platform/macos/home.nix env instead. The launchd
-    # agent below references cfg.package by absolute path, so the agent
-    # works without mlx-lm on PATH.
-    home.packages = [ pullScript ];
+    home.packages = [
+      pkgs.uv
+      pullScript
+    ];
+
+    # (Re)create the venv when missing or when the pinned versions change.
+    # Needs network; a failed install only warns so activation still completes.
+    home.activation.installMlxVenv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      stamp="${venv}/.nix-mlx-versions"
+      want=${lib.escapeShellArg specs}
+      if [ ! -x "${venv}/bin/mlx_lm.server" ] || [ "$(cat "$stamp" 2>/dev/null)" != "$want" ]; then
+        echo "mlx-lm: installing Metal wheels into ${venv} ($want)"
+        if ${pkgs.uv}/bin/uv venv -q --python ${cfg.python}/bin/python3 "${venv}" \
+           && ${pkgs.uv}/bin/uv pip install -q --python "${venv}/bin/python" ${specs}; then
+          printf '%s' "$want" > "$stamp"
+        else
+          echo "mlx-lm: venv install failed (offline?) - rerun the switch when online" >&2
+        fi
+      fi
+      mkdir -p "${logDir}"
+    '';
 
     launchd.agents.mlx-lm = {
       enable = true;
@@ -128,10 +156,6 @@ in
         StandardErrorPath = "${logDir}/mlx-lm.err.log";
       };
     };
-
-    home.activation.ensureMlxLmLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      mkdir -p "${logDir}"
-    '';
 
     programs.bash.shellAliases = {
       mlx-start = "launchctl kickstart gui/$(id -u)/${agentLabel}";
