@@ -37,6 +37,34 @@ let
     exec ${lib.escapeShellArgs serverArgs}
   '';
 
+  # llama-pull [preset]: fetch a preset's GGUF with the standalone HF CLI
+  # (resumable, token-aware) instead of llama-server's in-process download,
+  # which hangs when the CDN drops a connection.
+  hfCli = lib.getExe' pkgs.python3Packages.huggingface-hub "hf";
+  presetCases = lib.concatStringsSep "\n" (
+    lib.mapAttrsToList (
+      name: preset:
+      "${lib.escapeShellArg name}) repo=${lib.escapeShellArg preset.hf-repo}; file=${lib.escapeShellArg preset.hf-file} ;;"
+    ) (lib.filterAttrs (_: p: p ? hf-repo && p ? hf-file) cfg.modelsPreset)
+  );
+  pullScript = pkgs.writeShellScriptBin "llama-pull" ''
+    set -euo pipefail
+    preset="''${1:-${cfg.defaultModel}}"
+    case "$preset" in
+      ${presetCases}
+      *) echo "unknown preset '$preset'; known: ${lib.concatStringsSep " " (lib.attrNames cfg.modelsPreset)}" >&2; exit 1 ;;
+    esac
+    ${lib.optionalString (cfg.hfTokenFile != null) ''
+      if [ -r "${cfg.hfTokenFile}" ]; then
+        HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
+        export HF_TOKEN
+      fi
+    ''}
+    export HF_HUB_DOWNLOAD_TIMEOUT=30
+    echo "pulling $repo/$file into ~/.cache/huggingface (resumable; re-run if it stalls)" >&2
+    exec ${hfCli} download "$repo" "$file"
+  '';
+
   # Same presets as modules/features/llama-cpp-openwebui/nixos.nix; models
   # download from Hugging Face into ~/Library/Caches/llama.cpp on first use.
   defaultModelsPreset = {
@@ -139,7 +167,10 @@ in
       }
     ];
 
-    home.packages = [ cfg.package ];
+    home.packages = [
+      cfg.package
+      pullScript
+    ];
 
     launchd.agents.llama-cpp = {
       enable = true;
