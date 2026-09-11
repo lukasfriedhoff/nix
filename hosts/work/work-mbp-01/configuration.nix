@@ -1,11 +1,15 @@
-_:
+{
+  config,
+  secrets,
+  ...
+}:
 let
   llamaBaseUrl = "http://127.0.0.1:11434";
   # llama.cpp preset used by the neovim/Ollama-style env (port 11434).
   llamaModel = "qwen3.8:27b";
   # MLX build served by mlx-start; default for opencode and its agents
   # (also reachable from tux through mlx-share-tux).
-  mlxModel = "mlx-community/Qwen3.8-27B-4bit";
+  mlxModel = "mlx-community/Qwen3.8-27B-8bit";
   defaultOpencodeModel = "mlx/${mlxModel}";
   mkMlxModel = name: {
     inherit name;
@@ -21,6 +25,16 @@ in
   # Let root fetch the private nix-secrets flake input during
   # `sudo darwin-rebuild switch` (deploy key installed out of band).
   lukasf.nixSecretsAccess.enable = true;
+
+  # Hugging Face token for model downloads (anonymous pulls are throttled).
+  # Decrypted by sops-nix at activation; the user-level LLM servers read it.
+  sops.age.keyFile = "/Users/lukasfriedhoff/.config/sops/age/keys.txt";
+  sops.secrets.hf-token = {
+    sopsFile = "${secrets.primary}/hf-token.txt";
+    format = "binary";
+    owner = "lukasfriedhoff";
+    mode = "0400";
+  };
 
   # Local llama.cpp API for GUI apps (terminal apps get it via home-manager
   # session variables).
@@ -39,10 +53,12 @@ in
       enable = true;
       autoStart = false;
       defaultModel = llamaModel;
+      hfTokenFile = config.sops.secrets.hf-token.path;
     };
     lukasf.mlxLm = {
       enable = true;
       model = mlxModel;
+      hfTokenFile = config.sops.secrets.hf-token.path;
     };
 
     # Expose the local MLX server on tux via a reverse tunnel (mac initiates;

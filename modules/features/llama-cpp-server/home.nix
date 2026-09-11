@@ -15,6 +15,28 @@ let
 
   logDir = "${config.xdg.stateHome}/llama-cpp";
 
+  serverArgs = [
+    (lib.getExe' cfg.package "llama-server")
+    "--host"
+    cfg.host
+    "--port"
+    (toString cfg.port)
+    "--models-preset"
+    (toString modelsPresetFile)
+  ]
+  ++ cfg.extraFlags;
+
+  # launchd cannot read a token file into the environment itself.
+  serverWrapper = pkgs.writeShellScript "llama-server-wrapper" ''
+    ${lib.optionalString (cfg.hfTokenFile != null) ''
+      if [ -r "${cfg.hfTokenFile}" ]; then
+        HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
+        export HF_TOKEN
+      fi
+    ''}
+    exec ${lib.escapeShellArgs serverArgs}
+  '';
+
   # Same presets as modules/features/llama-cpp-openwebui/nixos.nix; models
   # download from Hugging Face into ~/Library/Caches/llama.cpp on first use.
   defaultModelsPreset = {
@@ -81,6 +103,12 @@ in
       description = "llama-server router preset entries, rendered to INI.";
     };
 
+    hfTokenFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "File with a Hugging Face token exported as HF_TOKEN for preset downloads.";
+    };
+
     autoStart = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -116,16 +144,7 @@ in
     launchd.agents.llama-cpp = {
       enable = true;
       config = {
-        ProgramArguments = [
-          (lib.getExe' cfg.package "llama-server")
-          "--host"
-          cfg.host
-          "--port"
-          (toString cfg.port)
-          "--models-preset"
-          (toString modelsPresetFile)
-        ]
-        ++ cfg.extraFlags;
+        ProgramArguments = [ "${serverWrapper}" ];
         KeepAlive = cfg.autoStart;
         RunAtLoad = cfg.autoStart;
         StandardOutPath = "${logDir}/llama-server.log";

@@ -15,6 +15,28 @@ let
 
   logDir = "${config.xdg.stateHome}/mlx-lm";
   agentLabel = "org.nix-community.home.mlx-lm";
+
+  serverArgs = [
+    "${cfg.package}/bin/mlx_lm.server"
+    "--host"
+    cfg.host
+    "--port"
+    (toString cfg.port)
+    "--model"
+    cfg.model
+  ]
+  ++ cfg.extraFlags;
+
+  # launchd cannot read a token file into the environment itself.
+  serverWrapper = pkgs.writeShellScript "mlx-lm-server" ''
+    ${lib.optionalString (cfg.hfTokenFile != null) ''
+      if [ -r "${cfg.hfTokenFile}" ]; then
+        HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
+        export HF_TOKEN
+      fi
+    ''}
+    exec ${lib.escapeShellArgs serverArgs}
+  '';
 in
 {
   options.lukasf.mlxLm = {
@@ -50,6 +72,16 @@ in
       default = [ ];
       description = "Extra flags passed to mlx_lm.server.";
     };
+
+    hfTokenFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        File containing a Hugging Face access token, exported as HF_TOKEN
+        for model downloads. Anonymous downloads are rate-limited per IP
+        and stall on multi-GB models.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -69,16 +101,7 @@ in
     launchd.agents.mlx-lm = {
       enable = true;
       config = {
-        ProgramArguments = [
-          "${cfg.package}/bin/mlx_lm.server"
-          "--host"
-          cfg.host
-          "--port"
-          (toString cfg.port)
-          "--model"
-          cfg.model
-        ]
-        ++ cfg.extraFlags;
+        ProgramArguments = [ "${serverWrapper}" ];
         RunAtLoad = false;
         KeepAlive = false;
         ProcessType = "Interactive";
