@@ -12,7 +12,9 @@ let
   # 6-bit (~22 GB) is the largest Qwen3.8-27B build that fits beside a 64k
   # KV cache within the default ~27 GB GPU-wired limit of a 36 GB Mac.
   mlxModel = "lmstudio-community/Qwen3.8-27B-MLX-6bit";
-  defaultOpencodeModel = "mlx/${mlxModel}";
+  # nixpkgs builds MLX without Metal (closed-source shader compiler), so the
+  # MLX server runs on the CPU: unusable for 27B. llama.cpp has Metal.
+  defaultOpencodeModel = "llama-cpp/${llamaModel}";
   mkMlxModel = name: {
     inherit name;
     limit = {
@@ -58,7 +60,7 @@ in
       hfTokenFile = config.sops.secrets.hf-token.path;
     };
     lukasf.mlxLm = {
-      enable = true;
+      enable = false; # CPU-only build, see defaultOpencodeModel comment
       model = mlxModel;
       hfTokenFile = config.sops.secrets.hf-token.path;
     };
