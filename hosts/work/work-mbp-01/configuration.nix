@@ -9,7 +9,9 @@ let
   llamaModel = "qwen3.8:27b";
   # MLX build served by mlx-start; default for opencode and its agents
   # (also reachable from tux through mlx-share-tux).
-  mlxModel = "mlx-community/Qwen3.8-27B-8bit";
+  # 6-bit (~22 GB) is the largest Qwen3.8-27B build that fits beside a 64k
+  # KV cache within the default ~27 GB GPU-wired limit of a 36 GB Mac.
+  mlxModel = "lmstudio-community/Qwen3.8-27B-MLX-6bit";
   defaultOpencodeModel = "mlx/${mlxModel}";
   mkMlxModel = name: {
     inherit name;
