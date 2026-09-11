@@ -81,6 +81,12 @@ in
       description = "llama-server router preset entries, rendered to INI.";
     };
 
+    autoStart = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Start llama-server at login and keep it alive; false leaves it to llama-start.";
+    };
+
     extraFlags = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       # No --parallel: llama-server splits the context between slots, and a
@@ -120,8 +126,8 @@ in
           (toString modelsPresetFile)
         ]
         ++ cfg.extraFlags;
-        KeepAlive = true;
-        RunAtLoad = true;
+        KeepAlive = cfg.autoStart;
+        RunAtLoad = cfg.autoStart;
         StandardOutPath = "${logDir}/llama-server.log";
         StandardErrorPath = "${logDir}/llama-server.err.log";
       };
@@ -130,5 +136,11 @@ in
     home.activation.ensureLlamaCppLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       mkdir -p "${logDir}"
     '';
+
+    programs.bash.shellAliases = {
+      llama-start = "launchctl kickstart gui/$(id -u)/org.nix-community.home.llama-cpp";
+      llama-stop = "launchctl kill SIGTERM gui/$(id -u)/org.nix-community.home.llama-cpp";
+      llama-logs = "tail -f ${logDir}/llama-server.err.log";
+    };
   };
 }

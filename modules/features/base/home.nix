@@ -53,11 +53,15 @@ in
         iotop
         (linuxPackages_latest.turbostat or linuxPackages.turbostat)
       ];
+      # Linux-only desktop extras. python3 stays off the macOS path: the Mac
+      # gets a single python env from platform/macos/home.nix, because a bare
+      # python3 plus a withPackages env both provide bin/pydoc3.13 and
+      # buildEnv refuses to merge two such store paths.
       desktopPackages = with pkgs; [
         python3
       ];
     in
-    basePackages ++ lib.optionals (!pkgs.stdenv.isDarwin) linuxPackages ++ desktopPackages;
+    basePackages ++ lib.optionals (!pkgs.stdenv.isDarwin) (linuxPackages ++ desktopPackages);
 
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
