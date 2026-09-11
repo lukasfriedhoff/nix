@@ -7,7 +7,7 @@
 
 # Caffeine: macOS menu bar app that keeps the Mac awake (nixpkgs build of
 # IntelliScape/caffeine). Started at login via LaunchServices - GUI agents
-# launched with open behave like regular apps (see easy-move-resize).
+# launched with open behave like regular apps.
 let
   cfg = config.programs.caffeine;
 in
