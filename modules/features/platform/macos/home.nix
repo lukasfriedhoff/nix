@@ -24,14 +24,11 @@
       go
       rustc
       cargo
-      # Single python provider for the Mac: one withPackages env (pip, plus
-      # the mlx-lm runtime when that feature is enabled) instead of a bare
-      # python3 + pip. A bare python3 and a python withPackages env both
+      # Single python provider for the Mac: one withPackages env instead of
+      # a bare python3 + pip. A bare python3 and a python withPackages env both
       # provide bin/pydoc3.13, and home-manager's buildEnv refuses to merge
       # two such store paths (broke `darwin-rebuild switch`).
-      (pkgs.python3.withPackages (
-        ps: [ ps.pip ] ++ lib.optionals config.lukasf.mlxLm.enable [ ps.mlx-lm ]
-      ))
+      (pkgs.python3.withPackages (ps: [ ps.pip ]))
       uv
 
       # System utilities

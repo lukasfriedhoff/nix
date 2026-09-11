@@ -197,14 +197,15 @@ in
               }) favoriteLlmModels
             );
           };
-          # MLX server on the work MacBook, reachable through the reverse
-          # SSH tunnel it opens to this desktop (mlx-share-tux on the Mac,
+          # llama.cpp server on the work MacBook, reachable through the reverse
+          # SSH tunnel it opens to this desktop (llama-share-tux on the Mac,
           # docs/services/local-llm.md). Only meaningful while the tunnel
-          # and the Mac's MLX server are up.
-          provider.mlx-tunnel = lib.mkIf (profile == "tux") {
+          # and the Mac's server are up; presets/windows mirror
+          # modules/features/llama-cpp-server/home.nix.
+          provider.llama-tunnel = lib.mkIf (profile == "tux") {
             npm = "@ai-sdk/openai-compatible";
-            name = "MLX via work-mbp-01";
-            options.baseURL = "http://127.0.0.1:11435/v1";
+            name = "llama.cpp via work-mbp-01";
+            options.baseURL = "http://127.0.0.1:11434/v1";
             models =
               let
                 mkModel = name: {
@@ -216,8 +217,9 @@ in
                 };
               in
               {
-                "lmstudio-community/Qwen3.8-27B-MLX-6bit" = mkModel "qwen3.8:27b (mlx tunnel)";
-                "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit" = mkModel "qwen3-coder:30b (mlx tunnel)";
+                "qwen3.8:27b" = mkModel "qwen3.8:27b (mac tunnel)";
+                "qwen3-coder:30b" = mkModel "qwen3-coder:30b (mac tunnel)";
+                "qwen3:8b" = mkModel "qwen3:8b (mac tunnel)";
               };
           };
           provider."kimi-api" = {
