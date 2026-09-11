@@ -194,6 +194,9 @@ in
       llama-start = "launchctl kickstart gui/$(id -u)/org.nix-community.home.llama-cpp";
       llama-stop = "launchctl kill SIGTERM gui/$(id -u)/org.nix-community.home.llama-cpp";
       llama-logs = "tail -f ${logDir}/llama-server.err.log";
+      # Throughput lives in the stdout log: prefill tok/s per chunk, then
+      # 'tg = N t/s' for generation.
+      llama-stats = "tail -f ${logDir}/llama-server.log | grep --line-buffered -E 'tokens per second|tg = |send_error'";
     };
   };
 }
