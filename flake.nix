@@ -110,7 +110,7 @@
             inherit (pkgs) velero_1_9_4 bpytop;
           }
           // lib.optionalAttrs pkgs.stdenv.isDarwin {
-            inherit (pkgs) macmon easy-move-resize;
+            inherit (pkgs) macmon;
           }
           // lib.optionalAttrs pkgs.stdenv.isLinux {
             shadow-client-appimage = pkgs.callPackage ./pkgs/shadow-client-appimage { };
