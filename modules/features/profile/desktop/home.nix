@@ -216,7 +216,7 @@ in
                 };
               in
               {
-                "mlx-community/Qwen3.8-27B-8bit" = mkModel "qwen3.8:27b (mlx tunnel)";
+                "lmstudio-community/Qwen3.8-27B-MLX-6bit" = mkModel "qwen3.8:27b (mlx tunnel)";
                 "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit" = mkModel "qwen3-coder:30b (mlx tunnel)";
               };
           };
