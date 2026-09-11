@@ -145,15 +145,18 @@ in
 
     extraFlags = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      # No --parallel: llama-server splits the context between slots, and a
-      # single local opencode user is better served by one slot with the
-      # full window (requests over the per-slot limit trigger opencode's
-      # compaction loop).
+      # --parallel 1: without it llama-server auto-creates 4 slots sharing
+      # one unified KV cache of the preset window, so a few concurrent agent
+      # requests (oh-my-opencode fans out, tux adds more over the tunnel)
+      # exhaust it and every one of them fails with "Context size has been
+      # exceeded". One slot keeps the full window; extra requests queue.
       default = [
         "--models-max"
         "1"
         "--cache-ram"
         "8192"
+        "--parallel"
+        "1"
       ];
       description = "Extra flags passed to llama-server.";
     };
