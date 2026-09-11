@@ -7,21 +7,10 @@ let
   llamaBaseUrl = "http://127.0.0.1:11434";
   # llama.cpp preset used by the neovim/Ollama-style env (port 11434).
   llamaModel = "qwen3.8:27b";
-  # MLX build served by mlx-start; default for opencode and its agents
-  # (also reachable from tux through mlx-share-tux).
-  # 6-bit (~22 GB) is the largest Qwen3.8-27B build that fits beside a 64k
-  # KV cache within the default ~27 GB GPU-wired limit of a 36 GB Mac.
-  mlxModel = "lmstudio-community/Qwen3.8-27B-MLX-6bit";
-  # nixpkgs builds MLX without Metal (closed-source shader compiler), so the
-  # MLX server runs on the CPU: unusable for 27B. llama.cpp has Metal.
+  # Default for opencode and its agents. llama.cpp is the only runtime here:
+  # MLX was dropped (nixpkgs build is CPU-only; the Metal PyPI build has no
+  # memory guard and panicked the machine with a 27B under a real prompt).
   defaultOpencodeModel = "llama-cpp/${llamaModel}";
-  mkMlxModel = name: {
-    inherit name;
-    limit = {
-      context = 65536;
-      output = 8192;
-    };
-  };
 in
 {
   networking.hostName = "work-mbp-01";
@@ -51,31 +40,26 @@ in
   };
 
   home-manager.users.lukasfriedhoff = {
-    # Local LLM servers, both started on demand (llama-start / mlx-start,
-    # see docs/services/local-llm.md).
+    # Local llama.cpp server, started on demand (llama-start, see
+    # docs/services/local-llm.md).
     lukasf.llamaCppServer = {
       enable = true;
       autoStart = false;
       defaultModel = llamaModel;
       hfTokenFile = config.sops.secrets.hf-token.path;
     };
-    lukasf.mlxLm = {
-      enable = false; # CPU-only build, see defaultOpencodeModel comment
-      model = mlxModel;
-      hfTokenFile = config.sops.secrets.hf-token.path;
-    };
 
-    # Expose the local MLX server on tux via a reverse tunnel (mac initiates;
-    # tux then reaches it as localhost:11435). Requires mlx-start first.
+    # Expose the local llama.cpp server on tux via a reverse tunnel (mac
+    # initiates; tux then reaches it as localhost:11434). Requires llama-start.
     # tux has no stable address, so the target is an argument (default: mDNS);
     # -o Hostname overrides only the address while the `tux` ssh alias keeps
     # supplying user and tunnel key.
     programs.bash.initExtra = ''
-      mlx-share-tux() {
+      llama-share-tux() {
         local host="''${1:-tux-h4xx-01.local}"
-        echo "reverse tunnel: ''${host} -> localhost:11435 (ctrl+c stops it)" >&2
+        echo "reverse tunnel: ''${host} -> localhost:11434 (ctrl+c stops it)" >&2
         ssh -N -o ExitOnForwardFailure=yes -o "Hostname=''${host}" \
-          -R 127.0.0.1:11435:127.0.0.1:11435 tux
+          -R 127.0.0.1:11434:127.0.0.1:11434 tux
       }
     '';
 
@@ -104,15 +88,6 @@ in
           "google"
           "opencode"
         ];
-        provider.mlx = {
-          npm = "@ai-sdk/openai-compatible";
-          name = "MLX (local)";
-          options.baseURL = "http://127.0.0.1:11435/v1";
-          models = {
-            "${mlxModel}" = mkMlxModel "qwen3.8:27b (mlx)";
-            "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit" = mkMlxModel "qwen3-coder:30b (mlx)";
-          };
-        };
         provider.llama-cpp = {
           npm = "@ai-sdk/openai-compatible";
           name = "llama.cpp (local)";
