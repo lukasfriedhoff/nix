@@ -50,10 +50,14 @@ through a reverse SSH tunnel the Mac initiates:
 
 ```bash
 mlx-start        # load the MLX model locally
-mlx-share-tux    # ssh -N -R 11435:localhost:11435 tux (foreground; ctrl+c ends it)
+mlx-share-tux                 # tunnel to tux-h4xx-01.local (mDNS default)
+mlx-share-tux 192.168.1.23    # or pass tux's current address explicitly
 ```
 
+The function runs in the foreground; ctrl+c drops the tunnel. tux has no
+stable address, so the argument overrides the SSH `Hostname` while the
+`tux` work alias keeps supplying user and the dedicated tunnel key
+(`~/.ssh/work/tunnel-tux`, authorized on tux via sshd AuthorizedKeysFile).
+
 On tux, opencode then offers `mlx-tunnel/...` ("MLX via work-mbp-01") at
-`localhost:11435`. Requirements: the `tux` SSH alias resolves via the
-work `hostnames-private.conf` secret, and the dedicated tunnel key
-(`~/.ssh/work/tunnel-tux`, authorized on tux) is installed.
+`localhost:11435`.
