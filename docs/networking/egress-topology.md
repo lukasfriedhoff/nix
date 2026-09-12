@@ -55,9 +55,8 @@ Telekom FIBER via pppoe-telekom (NOT DSL)
 
 ## Levers (ranked)
 
-1. **Split-horizon DNS**: resolve `*.h4xx.io` to Traefik's LAN VIP for
-   internal clients → LAN-speed origin access at home, tunnel only when
-   remote. (MikroTik `/ip dns static` or AdGuard rewrite.)
+1. ~~Split-horizon DNS~~ — proposed, **declined by operator 2026-09-12**
+   (do not re-propose).
 2. Wire the desktop / improve its wifi (45 Mbit is the session ceiling).
 3. Avoid unnecessary asset-version bumps (batch nextcloud config rollouts).
 4. Nothing to fix on fiber/Proton/tunnel — measured healthy.
