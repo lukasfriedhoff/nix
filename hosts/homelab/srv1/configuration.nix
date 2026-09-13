@@ -9,6 +9,9 @@
 
 let
   hostName = "srv1";
+  prodApiHost = "srv2.lab.h4xx.io";
+  k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
+  hasK3sToken = builtins.pathExists k3sTokenSecret;
   wolfMoonlightApps = [
     "ui"
     "testBall"
@@ -107,7 +110,6 @@ in
     inputs.disko.nixosModules.disko
     ../../common/default.nix
     ../common.nix
-    ./hardware-configuration.nix
     ./disko.nix
   ];
 
@@ -270,24 +272,50 @@ in
     mode = "0400";
   };
 
-  # Enable k3s with Flux GitOps
-  homelab.kubernetes = {
+  # Shared cluster k3s token: joins srv1 to the existing homelab cluster as an
+  # AGENT (worker + Longhorn SSD storage; control-plane/etcd stays srv2/8/9).
+  # Gated on token presence so a tokenless build can't accidentally clusterInit
+  # a rogue single-node cluster.
+  sops.secrets."k3s-server-token" = lib.mkIf hasK3sToken {
+    sopsFile = k3sTokenSecret;
+    owner = "root";
+    format = "binary";
+    mode = "0400";
+  };
+
+  # 5x T-FORCE 1TB SATA SSDs as LUKS-encrypted Longhorn data disks (registered
+  # purpose=longhorn in resources/homelab/disks.nix). Unlocked + mounted in
+  # stage 2 by srv1-longhorn-disks.service.
+  homelab.longhornDisks = {
     enable = true;
+    sopsFile = "${secrets.profileShared}/luks/srv1-longhorn.txt";
+  };
+
+  # Only cryptroot is unlocked in initrd; the 5 longhorn LUKS devices are
+  # unlocked in stage 2 (disko would otherwise prompt for all of them before
+  # the root passphrase).
+  boot.initrd.luks.devices = lib.mkForce {
+    cryptroot = {
+      device = "/dev/disk/by-partlabel/disk-main-root";
+      allowDiscards = true;
+    };
+  };
+
+  # Join the homelab k3s cluster as an AGENT. No gitops block: Flux is
+  # bootstrapped by the control-plane servers, and the module asserts
+  # gitops.enable requires role=server.
+  homelab.kubernetes = lib.mkIf hasK3sToken {
+    enable = true;
+    longhorn.enable = true;
+    role = "agent";
+    serverAddr = "https://${prodApiHost}:6443";
+    tokenFile = config.sops.secrets."k3s-server-token".path;
+    nodeIP = "10.1.30.12";
     tlsSans = [
       "srv1.lab.h4xx.io"
       "srv1"
       "10.1.30.12"
     ];
-    gitops = {
-      enable = true;
-      repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
-      branch = "main";
-      path = "./overlays/homelab";
-      tokenFile = config.sops.secrets."flux-cluster-token".path;
-      username = "lukasfriedhoff";
-      sourceName = "flux-cluster";
-      kustomizationName = "homelab";
-    };
   };
 
   boot.loader.systemd-boot.enable = true;
