@@ -9,6 +9,25 @@ End-to-end procedure to (re)provision a homelab server as a k3s node with
 LUKS-encrypted Longhorn data disks. Validated on srv1 (2026-09-13). Layers:
 nix (`nix/`) provisions the host; it auto-joins k3s + Flux on boot.
 
+## 0a. A k3s node must be LEAN — shed desktop/gaming/AI roles first
+
+If you are re-provisioning a box that used to be a workstation/gaming host
+(e.g. srv1 was a Wolf/Moonlight streamer), **strip every desktop/personal
+role before deploying**. Those profiles (`lukasf.wolf`, `lukasf.ollama`,
+`lukasf.openWebui`, `lukasf.nixCache`, a desktop home-manager set, a CUDA
+unfree allowlist, …) pull **internet-download FODs** — `claude`
+(downloads.claude.ai), `discord` (discordapp.net), a wolf desktop-container
+tarball, etc. The homelab **server VLAN (10.1.30.x) cannot reach those
+hosts**, and they are **not in Attic** (Hydra/srv3 can't reach them either),
+so the closure becomes **unbuildable on-node**: `--build-on remote` dies on
+`cannot download … from any mirror`, and the remote builders (srv3/srv8)
+fail identically because they share the same egress. Only a workstation VLAN
+(tux) can build them — and copying that multi-GB closure over wifi is slow
+and fragile. **Fix = delete the roles, not work around the network.** Verify
+with `nix build …toplevel --dry-run 2>&1 | grep -iE 'claude|discord|wolf|cuda'`
+→ must be empty. A lean node (k3s agent + Longhorn + facter + initrd SSH +
+personalServer SSH) builds cleanly anywhere.
+
 ## 0. Decide role FIRST (it changes the config + etcd health)
 
 - **agent** — worker + Longhorn storage. **Default.** etcd quorum is
