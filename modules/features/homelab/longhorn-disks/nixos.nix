@@ -64,6 +64,19 @@ in
       description = "Permissions applied to each mountpoint after mounting.";
     };
 
+    tuneUsbStorage = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Reliability tuning for slow USB-attached Longhorn disks (BOT
+        bridges, queue_depth=1): raise the SCSI command timeout so a
+        loaded single-queue disk is not aborted mid-IO (which drops the
+        replica), and cap dirty-page writeback so a burst does not stall
+        the disk for minutes (which makes replicas miss heartbeats).
+        Applies on rebuild without a reboot. No effect on non-USB disks.
+      '';
+    };
+
     orderBeforeK3s = mkOption {
       type = types.bool;
       default = true;
@@ -183,5 +196,20 @@ in
       after = [ "${serviceName}.service" ];
       requires = [ "${serviceName}.service" ];
     };
+
+    # Slow USB-attached Longhorn disks flap under load: dirty-page bursts
+    # force multi-minute synchronous flushes and the 30s SCSI timeout aborts
+    # IO mid-flight, both of which drop replicas and trigger rebuild storms.
+    boot.kernel.sysctl = mkIf cfg.tuneUsbStorage {
+      "vm.dirty_background_bytes" = 268435456; # 256 MiB: start writeback early
+      "vm.dirty_bytes" = 1073741824; # 1 GiB: cap so flush never stalls for minutes
+    };
+
+    # SCSI command timeout 30s -> 180s. usb-storage presents as scsi; the NVMe
+    # root is not a scsi device so it is unaffected. Lets a loaded BOT disk ride
+    # out a backlog instead of having the command aborted (-> replica failure).
+    services.udev.extraRules = mkIf cfg.tuneUsbStorage ''
+      ACTION=="add|change", SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*:[0-9]*:[0-9]*", ATTR{timeout}="180"
+    '';
   };
 }
