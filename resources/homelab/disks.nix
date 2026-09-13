@@ -1,32 +1,37 @@
 {
   "ata-T-FORCE_1TB_TPBF2208240050700434" = {
     host = "srv1";
-    purpose = "ceph";
-    lockboxKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/osd-lockbox/ata-T-FORCE_1TB_TPBF2208240050700434.key";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv1-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "ssd";
   };
   "ata-T-FORCE_1TB_TPBF2208240050700816" = {
     host = "srv1";
-    purpose = "ceph";
-    lockboxKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/osd-lockbox/ata-T-FORCE_1TB_TPBF2208240050700816.key";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv1-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "ssd";
   };
   "ata-T-FORCE_1TB_TPBF2209020040601421" = {
     host = "srv1";
-    purpose = "ceph";
-    lockboxKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/osd-lockbox/ata-T-FORCE_1TB_TPBF2209020040601421.key";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv1-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "ssd";
   };
   "ata-T-FORCE_1TB_TPBF2209020040602776" = {
     host = "srv1";
-    purpose = "ceph";
-    lockboxKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/osd-lockbox/ata-T-FORCE_1TB_TPBF2209020040602776.key";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv1-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "ssd";
   };
   "ata-T-FORCE_1TB_TPBF2209130010100025" = {
     host = "srv1";
-    purpose = "ceph";
-    lockboxKeyFile = "83897024-e964-11f0-9d5c-0cc47a6c3802/osd-lockbox/ata-T-FORCE_1TB_TPBF2209130010100025.key";
+    purpose = "longhorn";
+    luksKeyFile = "luks/srv1-longhorn.txt";
+    luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "ssd";
   };
   "ata-T-FORCE_1TB_TPBF2209020040602781" = {
