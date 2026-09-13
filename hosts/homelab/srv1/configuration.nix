@@ -36,12 +36,14 @@ in
     enable = true;
     uplink = "eno1";
     mgmtMac = "0c:c4:7a:6c:38:02";
-    # Silent drift (kept on purpose for now): srv1 never received the netdev
-    # MAC pin nor the RouteMetric/static-route networkd blocks that
-    # srv2/srv8/srv9 carry. Flip these to true once srv1's routing has been
-    # verified against the other hosts.
-    pinBridgeMac = false;
-    routeMetrics = false;
+    # Pin the mgmt bridge MAC to the reserved mgmt MAC so brvlan30 gets the
+    # DHCP reservation 10.1.30.12 (matches homelab.kubernetes.nodeIP) instead
+    # of a random-MAC lease, and carry the same RouteMetric/static-route setup
+    # as srv2/srv8/srv9. (Verified 2026-09-13: without pinBridgeMac the fresh
+    # install came up on 10.1.30.32/10.1.20.105/10.1.40.234 and k3s wedged on
+    # the dead nodeIP.)
+    pinBridgeMac = true;
+    routeMetrics = true;
   };
 
   networking.extraHosts = ''
