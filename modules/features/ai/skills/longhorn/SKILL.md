@@ -49,6 +49,39 @@ Operational guidance for Longhorn (v1.12.x), from the official best practices pl
 - **Decommissioning a cluster leaves its backup bucket forever** — Longhorn has no S3-side retention; add "delete `<cluster>-longhorn-backups`" to the teardown checklist.
 - Robustness counters fluctuate during maintenance (restarts re-trigger the 600s replenishment wait). Judge convergence by **zero `failedAt` replicas + rebuilds progressing**, not by the instantaneous degraded count.
 
+## Node disk registration & tiering (GitOps)
+
+- **A freshly-joined node registers ONLY its root `default-disk-<hash>`** (on
+  `/var/lib/longhorn/`). Dedicated data disks mounted by nix at
+  `/var/lib/longhorn-diskN` are NOT auto-adopted — declare them in
+  `flux-cluster/overlays/<cluster>/longhorn-node-config/node-<host>.yaml`
+  (`kind: Node`, `spec.disks`) and add the file to that dir's
+  `kustomization.yaml`. Verify: `kubectl -n longhorn-system get
+  nodes.longhorn.io <host> -o jsonpath='{.spec.disks}'` shows all disks.
+- **Use the node's REAL `default-disk-<hash>` name** (read it off the live
+  node) when you include the root disk in the manifest — each node's hash
+  differs; a wrong name creates a second phantom disk. Keep root
+  `allowScheduling: false` + `evictionRequested: true` (LUKS root, not for
+  data replicas).
+- **Tiering = disk tags + SC `diskSelector`.** `nvme` = genuine flash,
+  `ssd`, `disk` = HDD. SCs `longhorn-nvme-*`/`longhorn-ssd-*` set
+  `parameters.diskSelector=nvme`/`ssd` (a HARD filter — replica MUST land on a
+  matching disk); the plain `longhorn-*` classes have no selector and use any
+  disk. **There is no soft "prefer node X"** — you steer placement by which
+  disks carry which tag.
+- **"Prefer fast nodes" = tag their disks `nvme`/`ssd`, and clear those tags
+  from slow/USB disks elsewhere.** Clearing a tag (`tags: []`) is
+  **non-disruptive**: it only changes FUTURE replica scheduling, existing
+  replicas stay put (they just won't be re-picked for tagged volumes). To
+  actively drain a disk, set `evictionRequested: true` (triggers rebuilds —
+  gate on rebuild capacity). Homelab fast tier = srv1 (5x T-FORCE SATA SSD) +
+  srv9 (SAS SSD); srv2 USB SSD demoted to untagged fallback (2026-09-13).
+- **Replica COUNT is reconciled by the `longhorn-replica-policy` CronJob**
+  (every 5 min): it sets each volume's `numberOfReplicas` from its SC's
+  `numberOfReplicas`, overridable per-PVC via annotation
+  `longhorn.h4xx.io/replica-count`; `longhorn.h4xx.io/replica-policy=disabled`
+  opts a PVC out. It's frozen while `concurrent-replica-rebuild-per-node-limit=0`.
+
 ## Quick diagnostics
 
 ```bash
