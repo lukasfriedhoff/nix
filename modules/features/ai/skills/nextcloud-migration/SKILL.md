@@ -89,3 +89,29 @@ serves throughout (zero downtime). sha256 guards integrity, so
    → `chown 33:33` → `files:scan --path` → copy password hash → rebuild shares.
 7. Cleanup: delete migration pod + key secret; shred local key; **remove the
    migration pubkey from the source's authorized_keys**.
+
+## Complete-DB move (convert-type) — when you must preserve EVERYTHING
+
+A files+hashes merge loses DB-resident data (Passwords-app vault, calendars,
+contacts, shares, deck, versions) and secret-bound data. To keep it all, do a
+**complete DB move**: `occ db:convert-type` MySQL→Postgres + `occ upgrade`
+across every major, then REPLACE the target DB (you cannot UNION two Nextcloud
+DBs — every table has its own PK space). Rehearse in a throwaway stack first.
+
+Two non-obvious gotchas that silently destroy data — both cost a rehearsal:
+- **`db:convert-type` needs each app's CODE present to convert its tables.** It
+  builds tables from the app's schema definition. Run it with the source's
+  `custom_apps/` mounted, or third-party tables (incl. the passwords vault) are
+  **silently dropped** — the target just has fewer tables, no error. (Calendars/
+  contacts survive regardless — bundled `dav`.)
+- **FK-using apps break the alphabetical copy order.** `news`
+  (`oc_news_feeds.folder_id → oc_news_folders`) aborts the whole convert with a
+  Postgres FK violation (feeds copied before folders). Empty/reorder those
+  tables first. Verify the final table count matches the source dump.
+
+Other: password hashes verify fine with a placeholder instance secret (argon2id
+is self-contained) — but the **Passwords-app vault is encrypted with the
+instance `secret`**, so the target must adopt the SOURCE's `secret` for it to
+decrypt. `--routines`/`--triggers` on mysqldump silently yield 0 bytes if the
+DB user lacks the privilege (Nextcloud uses neither). Streaming a big gzip
+through `kubectl exec -i` corrupts it — dump to a file, rsync it in.
