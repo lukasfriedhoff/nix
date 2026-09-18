@@ -7,6 +7,24 @@
 let
   inherit (pkgs) vimPlugins;
   cfg = config.programs.neovim;
+  # nixpkgs vimPlugins.opencode-nvim is stuck at v0.10.0, whose server API
+  # predates opencode CLI 1.x — the keymaps silently no-op. Pin the v1.x plugin
+  # that matches the installed opencode 1.15 server API.
+  opencode-nvim = pkgs.vimUtils.buildVimPlugin {
+    pname = "opencode.nvim";
+    version = "1.0.2";
+    src = pkgs.fetchFromGitHub {
+      owner = "NickvanDyke";
+      repo = "opencode.nvim";
+      rev = "v1.0.2";
+      hash = "sha256-AoQXcrIymg2DDHKYQFkV039bFo/AN1QJVevhsIcc/+I=";
+    };
+    dependencies = with vimPlugins; [
+      snacks-nvim
+      plenary-nvim
+    ];
+    doCheck = false;
+  };
 in
 {
   config = lib.mkMerge [
@@ -64,7 +82,7 @@ in
 
           # AI integration (local Ollama/llama.cpp + opencode)
           vimPlugins.ollama-nvim
-          vimPlugins.opencode-nvim
+          opencode-nvim
 
           # Kubernetes
           (vimPlugins.vim-kubernetes or null)

@@ -553,38 +553,35 @@ vim.keymap.set({ "n", "x" }, "<leader>lr", function()
 end, { desc = "LLM raw prompt" })
 vim.keymap.set("n", "<leader>lm", llm_show_models, { desc = "LLM list models" })
 
--- OpenCode IDE integration via opencode.nvim.
--- Keep this on the opencode.nvim API; CodeCompanion ACP renders a separate
--- markdown chat buffer and has been fragile in the current split-heavy layout.
-local opencode_config = safe_require("opencode.config")
-local opencode = safe_require("opencode")
-if opencode and opencode_config then
-  local opencode_cmd = "opencode --port"
-  local function opencode_width()
-    return math.min(96, math.max(48, math.floor(vim.o.columns * 0.38)))
-  end
-  local function opencode_terminal_opts()
-    return {
-      split = "right",
+-- OpenCode IDE integration via opencode.nvim (v1.x API).
+-- v1 reads options from vim.g.opencode_opts (set BEFORE the module loads); it
+-- auto-discovers a running `opencode --port`, else starts one via server.start.
+-- The old opencode.config.opts mutation + opencode.toggle() were removed in v1.
+local opencode_cmd = "opencode --port"
+local function opencode_width()
+  return math.min(96, math.max(48, math.floor(vim.o.columns * 0.38)))
+end
+local function opencode_term_opts()
+  return {
+    win = {
+      position = "right",
       width = opencode_width(),
-    }
-  end
-  local function focus_opencode_terminal()
-    vim.schedule(function()
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        local buf = vim.api.nvim_win_get_buf(win)
-        local name = vim.api.nvim_buf_get_name(buf)
-        if name:match("term://.*opencode") then
-          vim.api.nvim_set_current_win(win)
-          vim.cmd.startinsert()
-          return
-        end
-      end
-    end)
-  end
+    },
+  }
+end
+vim.g.opencode_opts = vim.tbl_deep_extend("force", vim.g.opencode_opts or {}, {
+  server = {
+    start = function()
+      require("snacks.terminal").open(opencode_cmd, opencode_term_opts())
+    end,
+  },
+})
+
+local opencode = safe_require("opencode")
+if opencode then
+  -- v1 has no opencode.toggle(); toggle the same snacks terminal server.start uses.
   local function toggle_opencode()
-    opencode.toggle()
-    focus_opencode_terminal()
+    require("snacks.terminal").toggle(opencode_cmd, opencode_term_opts())
   end
 
   local opencode_group = vim.api.nvim_create_augroup("OpenCodeTerminalFixes", { clear = true })
@@ -600,31 +597,17 @@ if opencode and opencode_config then
     end,
   })
 
-  opencode_config.opts.server.start = function()
-    require("opencode.terminal").open(opencode_cmd, opencode_terminal_opts())
-  end
-  opencode_config.opts.server.stop = function()
-    require("opencode.terminal").close()
-  end
-  opencode_config.opts.server.toggle = function()
-    require("opencode.terminal").toggle(opencode_cmd, opencode_terminal_opts())
-  end
-
   vim.keymap.set({ "n", "x" }, "<leader>oa", function()
-    opencode.ask("@this: ", { submit = true })
+    opencode.ask("@this: ")
   end, { desc = "OpenCode ask about this" })
   vim.keymap.set({ "n", "x" }, "<leader>op", function()
-    opencode.ask("@this: ", { submit = false })
-  end, { desc = "OpenCode prompt (draft)" })
+    opencode.ask()
+  end, { desc = "OpenCode ask (blank prompt)" })
   vim.keymap.set({ "n", "x" }, "<leader>os", function()
     opencode.select()
   end, { desc = "OpenCode select action" })
-  vim.keymap.set({ "n", "t" }, "<leader>oc", function()
-    toggle_opencode()
-  end, { desc = "OpenCode toggle" })
-  vim.keymap.set({ "n", "t" }, "<leader>ot", function()
-    toggle_opencode()
-  end, { desc = "OpenCode toggle" })
+  vim.keymap.set({ "n", "t" }, "<leader>oc", toggle_opencode, { desc = "OpenCode toggle" })
+  vim.keymap.set({ "n", "t" }, "<leader>ot", toggle_opencode, { desc = "OpenCode toggle" })
   vim.keymap.set("n", "<leader>on", function()
     opencode.command("session.new")
   end, { desc = "OpenCode new session" })

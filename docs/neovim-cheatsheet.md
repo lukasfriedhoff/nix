@@ -23,6 +23,8 @@ This Neovim setup is managed via Home Manager.
 | --- | --- | --- |
 | `<leader>ff` | Normal | Find files (Telescope) |
 | `<leader>fg` | Normal | Live grep (Telescope + ripgrep) |
+| `<leader>fb` | Normal | Find open buffers (Telescope) |
+| `<leader>fh` | Normal | Search help tags (Telescope) |
 | `<leader>t` | Normal | Toggle file tree |
 | `:NvimTreeToggle` | Command | Toggle file tree manually |
 
@@ -102,34 +104,81 @@ This Neovim setup is managed via Home Manager.
 | `:bd` | Normal | Delete (close) current buffer |
 | `:e <path>` | Normal | Edit/open file path |
 
-## 6. Diagnostics / LSP
+## 6. LSP, Completion & Formatting
+
+### LSP navigation & actions (active in buffers with an attached LSP)
 
 | Mapping | Mode | What it does |
 | --- | --- | --- |
-| `<leader>e` | Normal | Show diagnostics under cursor |
-| `:Mason` | Command | Manage LSP/tooling installations |
-| `:Lazy` | Command | Plugin manager UI |
+| `gd` | Normal | Go to definition |
+| `gD` | Normal | Go to declaration |
+| `gr` | Normal | References |
+| `gi` | Normal | Implementation |
+| `K` | Normal | Hover documentation |
+| `<leader>rn` | Normal | Rename symbol |
+| `<leader>ca` | Normal | Code action |
+| `<leader>e` | Normal | Show line diagnostics (float) |
+| `[d` | Normal | Previous diagnostic |
+| `]d` | Normal | Next diagnostic |
+| `<leader>fd` | Normal | Diagnostics list (Telescope) |
+| `<leader>fs` | Normal | Document symbols (Telescope) |
 
-LSP servers are auto-installed for Lua, Bash, YAML, JSON, Go, TypeScript, and Python in this setup.
+### Formatting (conform.nvim)
 
-## 7. AI Tooling (Configured Here)
+| Mapping | Mode | What it does |
+| --- | --- | --- |
+| `<leader>cf` | Normal/Visual | Format buffer |
 
-### Codex
+Format-on-save is enabled for all filetypes except `helm`.
+
+### Completion menu (nvim-cmp, insert mode)
+
+| Key | Mode | What it does |
+| --- | --- | --- |
+| `<C-Space>` | Insert | Trigger completion |
+| `<CR>` | Insert | Confirm selected item |
+| `<Tab>` | Insert | Next item / expand or jump snippet |
+| `<S-Tab>` | Insert | Previous item / jump snippet back |
+| `<C-b>` | Insert | Scroll docs up |
+| `<C-f>` | Insert | Scroll docs down |
+| `<C-e>` | Insert | Abort completion |
+
+### Treesitter text objects (select)
+
+| Key | Mode | What it does |
+| --- | --- | --- |
+| `af` / `if` | Visual/Operator | Around / inside function |
+| `ac` / `ic` | Visual/Operator | Around / inside class |
+
+### Commands
+
+| Command | What it does |
+| --- | --- |
+| `:Mason` | Manage LSP/tooling installations |
+
+LSP servers are provided via Home Manager (Nix `extraPackages`), not Mason
+auto-install, for: Lua, Bash, YAML, JSON, Go, TypeScript/JavaScript, Python,
+C/C++, Terraform (+ tflint), and Helm.
+
+## 7. Git & Kubernetes
+
+### Git
+
+| Mapping | Mode | What it does |
+| --- | --- | --- |
+| `<leader>gg` | Normal | Open LazyGit |
+
+Gitsigns shows added/changed/removed markers in the sign column (no custom
+keymaps; defaults only).
+
+### Kubernetes
 
 | Mapping / Command | Mode | What it does |
 | --- | --- | --- |
-| `<leader>ca` | Normal | Ask Codex free-form question |
-| `<leader>ca` | Visual | Ask Codex about selected code |
-| `<leader>cT` | Normal | Open Codex terminal tab |
-| `:Codex {prompt}` | Command | Ask Codex in floating window |
-| `:CodexTerminal` | Command | Start Codex CLI in tab |
+| `<leader>k9` | Normal | Launch k9s in a new tab |
+| `:K9s` | Command | Launch k9s in a terminal tab |
 
-### Copilot / Chat
-
-| Mapping / Command | Mode | What it does |
-| --- | --- | --- |
-| `<leader>cc` | Normal | Toggle Copilot Chat |
-| `:Copilot` | Command | Copilot command panel |
+## 8. AI Tooling (Configured Here)
 
 ### llama.cpp (local/remote LLM)
 
@@ -177,7 +226,7 @@ Home Manager now enforces OpenCode backend/model for personal desktops by patchi
 - `model = llama-cpp/qwen3:8b`
 - `provider.llama-cpp.options.baseURL = http://srv4.lab.h4xx.io:11434/v1` (or localhost on `srv4`)
 
-## 8. Qwen via llama.cpp (Exact Workflow)
+## 9. Qwen via llama.cpp (Exact Workflow)
 
 1. Start the llama.cpp runtime on `srv4`:
 
@@ -199,7 +248,7 @@ nvim
 - Use `\lo` or `\lg`.
 - `\lo` asks about the current buffer context, or the visual selection when active.
 
-## 9. llama.cpp Failure Notes
+## 10. llama.cpp Failure Notes
 
 If a prompt fails:
 
@@ -207,7 +256,7 @@ If a prompt fails:
 - Verify `env | grep -E 'NVIM_LLM_BASE_URL|NVIM_LLM_MODEL|LLAMA_CPP_BASE_URL'`.
 - First use of a model alias may take a while because llama.cpp downloads the GGUF.
 
-## 10. Session/Env Troubleshooting
+## 11. Session/Env Troubleshooting
 
 If `env | grep NVIM_LLM_BASE_URL` is empty:
 
