@@ -117,6 +117,18 @@ in
       '';
     };
 
+    noGatewayDhcpBridges = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      example = [ "brvlan12" ];
+      description = ''
+        Additional bridges that request a DHCP lease but never install a
+        default route from it (DHCPv4 UseGateway=false, IPv6 RA default
+        routes ignored). For device networks like the IoT VLAN where the
+        host only needs an on-link presence.
+      '';
+    };
+
     mgmtRoutedNetworks = mkOption {
       type = types.listOf types.str;
       default = [ "10.1.90.0/24" ];
@@ -179,6 +191,9 @@ in
           // lib.genAttrs cfg.dhcpBridges (_: {
             useDHCP = true;
           })
+          // lib.genAttrs cfg.noGatewayDhcpBridges (_: {
+            useDHCP = true;
+          })
           // {
             ${mgmtBridge} = {
               useDHCP = true;
@@ -210,6 +225,22 @@ in
           Gateway = mgmtGateway;
         }) cfg.mgmtRoutedNetworks;
       };
+    }
+
+    {
+      # On-link presence without route competition: lease an address on the
+      # bridge, but never a default route (neither DHCPv4 nor IPv6 RA).
+      systemd.network.networks = lib.listToAttrs (
+        map (
+          bridge:
+          lib.nameValuePair "25-${bridge}" {
+            matchConfig.Name = bridge;
+            networkConfig.DHCP = "yes";
+            dhcpV4Config.UseGateway = false;
+            ipv6AcceptRAConfig.UseGateway = false;
+          }
+        ) cfg.noGatewayDhcpBridges
+      );
     }
 
     (mkIf bondEnabled {

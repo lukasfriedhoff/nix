@@ -33,6 +33,15 @@ in
     enable = true;
     uplink = managementInterface;
     mgmtMac = managementMac;
+    # IoT VLAN presence for the hostNetwork Home Assistant pod (mDNS/Matter
+    # backbone; see the HA migration plan in the second-brain vault).
+    noGatewayDhcpBridges = [ "brvlan12" ];
+  };
+
+  # HA on the IoT VLAN: mDNS discovery now, MQTT for vlan12 devices at cutover.
+  networking.firewall.interfaces.brvlan12 = {
+    allowedUDPPorts = [ 5353 ];
+    allowedTCPPorts = [ 1883 ];
   };
 
   homelab.personalServer = {
