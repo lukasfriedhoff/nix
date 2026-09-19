@@ -5,7 +5,6 @@
 # cloud-desktop-image package; container.nix carries the pod overrides.
 {
   linuxUser,
-  pkgs,
   ...
 }:
 
@@ -50,9 +49,12 @@
     };
     serviceConfig = {
       ExecStart = "/etc/profiles/per-user/${linuxUser}/bin/sway";
-      # Streaming must not hinge on the HM config's own session-target
-      # exec line: bind the target to the unit that owns the session.
-      ExecStartPost = "${pkgs.systemd}/bin/systemctl --user start graphical-session.target";
+      # No ExecStartPost starting graphical-session.target: it is a *passive*
+      # target, so `systemctl start` on it exits 4 — and a failing
+      # ExecStartPost kills the main process, taking Sway down with it. The
+      # HM config's own exec line starts sway-session.target, which BindsTo
+      # graphical-session.target and pulls selkies in; ConditionPathExists
+      # above is what guarantees that config is present.
       Restart = "always";
       RestartSec = 5;
     };

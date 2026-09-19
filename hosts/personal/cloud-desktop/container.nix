@@ -121,6 +121,12 @@
   lukasf.nixosUpgradeDiff.enable = lib.mkForce false;
 
   home-manager.users.${linuxUser} = {
+    # No age key reaches the cluster, and several of this module's
+    # activation blocks run `sops -d` under the script-wide `set -e` — so
+    # the whole Home Manager activation aborts before it ever links the
+    # dotfiles. (Its ssh/gpg/Nextcloud/Cloudflare payloads are all things
+    # this pod deliberately does without.)
+    programs."sops-age".enable = lib.mkForce false;
     # swayidle's AC probe finds no /sys/class/power_supply entry, takes the
     # battery branch, and would swaylock an account with no password after
     # 5 minutes — then ask logind to suspend srv8 after 10.

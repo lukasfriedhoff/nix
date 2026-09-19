@@ -14,6 +14,7 @@
   libxcb,
   mesa,
   libgbm,
+  libglvnd,
   libdrm,
   libinput,
   libxkbcommon,
@@ -80,6 +81,24 @@ python3Packages.buildPythonPackage rec {
     udev
     wayland
   ];
+
+  # Two libraries are opened with dlopen rather than linked — the
+  # wayland-server crate is built with its `dlopen` feature, and smithay's
+  # EGL backend loads libEGL.so.1 by name — so nix records no RUNPATH entry
+  # for either. The import check still passes; what fails is the Wayland
+  # capture thread, at runtime, with a panic inside a worker thread:
+  #   Failed to load LibEGL: DlOpen { desc: "libEGL.so.1: cannot open ..." }
+  # after which the compositor channel closes and every list_outputs call
+  # fails. Put both on the extension's RUNPATH so dlopen resolves them.
+  postFixup = ''
+    patchelf --add-rpath "${
+      lib.makeLibraryPath [
+        wayland
+        libglvnd
+      ]
+    }" \
+      "$out/${python3Packages.python.sitePackages}/pixelflux.cpython-"*.so
+  '';
 
   pythonImportsCheck = [ "pixelflux" ];
 
