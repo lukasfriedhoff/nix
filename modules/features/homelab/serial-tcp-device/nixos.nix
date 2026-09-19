@@ -39,7 +39,10 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       serviceConfig = {
-        ExecStart = "${lib.getExe pkgs.socat} PTY,link=${cfg.devicePath},raw,echo=0,mode=0666 TCP:${cfg.remote}";
+        # wait-slave: create the pty immediately but connect TCP only once a
+        # consumer opens the device - otherwise the idle pty master reports
+        # HUP and socat exits before OTBR ever attaches.
+        ExecStart = "${lib.getExe pkgs.socat} PTY,link=${cfg.devicePath},raw,echo=0,mode=0666,wait-slave TCP:${cfg.remote}";
         Restart = "always";
         RestartSec = 5;
       };
