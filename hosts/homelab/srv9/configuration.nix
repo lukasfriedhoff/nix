@@ -38,10 +38,15 @@ in
     noGatewayDhcpBridges = [ "brvlan12" ];
   };
 
-  # HA on the IoT VLAN: mDNS discovery now, MQTT for vlan12 devices at cutover.
+  # HA on the IoT VLAN: mDNS discovery now, MQTT + HA API for IoT devices at
+  # cutover. Covers local vlan12 and the rue110 site (10.2.12.0/24 routes in
+  # over wg-s2s-rue and arrives on this interface).
   networking.firewall.interfaces.brvlan12 = {
     allowedUDPPorts = [ 5353 ];
-    allowedTCPPorts = [ 1883 ];
+    allowedTCPPorts = [
+      1883
+      8123
+    ];
   };
 
   homelab.personalServer = {
