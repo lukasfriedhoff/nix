@@ -116,6 +116,7 @@
             shadow-client-appimage = pkgs.callPackage ./pkgs/shadow-client-appimage { };
             tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
             virtual-05-stream-image = pkgs.callPackage ./pkgs/virtual-05-stream-image { };
+            inherit (pkgs) selkies selkies-desktop-image;
           };
 
           devShells.default = pkgs.mkShell {

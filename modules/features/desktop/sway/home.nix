@@ -23,7 +23,7 @@ let
     };
   };
   # def key -> sway command, dropping entries without a Sway equivalent
-  screenshotDir = "$HOME/Pictures/screenshots";
+  screenshotDir = "$HOME/Nextcloud/Media/Screenshots";
   screenshotFull = pkgs.writeShellScript "screenshot-full" ''
     set -eu
     mkdir -p "${screenshotDir}"
@@ -185,6 +185,9 @@ in
             # Cycle keyboard layouts (us -> de -> us); waybar shows the
             # active one.
             "${mod}+i" = "input type:keyboard xkb_switch_layout next";
+            # Lock the screen on demand. Super+L is "focus right" in the shared
+            # tiling bindings, so the lock lives on Super+Escape instead.
+            "${mod}+Escape" = "exec ${lock}";
             # Media and brightness keys (no modifier, work when locked too
             # via the locked variants sway provides by default for XF86).
             # swayosd-client changes the value AND draws the on-screen bar;
@@ -352,6 +355,14 @@ in
     systemd.user.services.gammastep = swaySessionService "gammastep" "${lib.getExe pkgs.gammastep} -l 50.1:8.7 -t 6500:4200";
 
     systemd.user.services.workspace-autoname = swaySessionService "workspace autoname" "${autonamePython}/bin/python ${autonameScript}";
+
+    # Swappy's Save button writes to its own save_dir (default ~/Desktop);
+    # point it at the same synced folder as the raw captures.
+    xdg.configFile."swappy/config".text = ''
+      [Default]
+      save_dir=${screenshotDir}
+      save_filename_format=swappy-%Y%m%d-%H%M%S.png
+    '';
 
     home.packages = [
       pkgs.playerctl

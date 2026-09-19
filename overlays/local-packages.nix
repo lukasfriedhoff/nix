@@ -2,6 +2,11 @@ _final: prev:
 
 {
   velero_1_9_4 = prev.callPackage ../pkgs/velero_1_9_4 { };
+
+  # Selkies browser-based remote desktop stack (server + engines + web client)
+  # and the container image that streams an XFCE desktop from Kubernetes.
+  selkies = prev.callPackage ../pkgs/selkies { };
+  selkies-desktop-image = prev.callPackage ../pkgs/selkies-desktop-image { };
   macmon = prev.callPackage ../pkgs/macmon { };
   bpytop = prev.callPackage ../pkgs/bpytop { };
 

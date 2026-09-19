@@ -127,12 +127,25 @@ in
           "x-scheme-handler/unknown" = [ "firefox.desktop" ];
           "x-scheme-handler/mailto" = [ "org.gnome.Evolution.desktop" ];
           "message/rfc822" = [ "org.gnome.Evolution.desktop" ];
+          # file-roller for archives; without an explicit default, zathura's
+          # comic-book plugin (CBZ = zip) wins application/zip via mimeinfo.cache.
+          "application/zip" = [ "org.gnome.FileRoller.desktop" ];
+          "application/x-tar" = [ "org.gnome.FileRoller.desktop" ];
+          "application/x-compressed-tar" = [ "org.gnome.FileRoller.desktop" ];
+          "application/x-bzip-compressed-tar" = [ "org.gnome.FileRoller.desktop" ];
+          "application/x-xz-compressed-tar" = [ "org.gnome.FileRoller.desktop" ];
+          "application/x-zstd-compressed-tar" = [ "org.gnome.FileRoller.desktop" ];
+          "application/x-7z-compressed" = [ "org.gnome.FileRoller.desktop" ];
+          "application/vnd.rar" = [ "org.gnome.FileRoller.desktop" ];
+          "application/gzip" = [ "org.gnome.FileRoller.desktop" ];
+          "application/zstd" = [ "org.gnome.FileRoller.desktop" ];
         };
       };
 
       programs.moonlight.enable = lib.mkDefault true;
 
       home.packages = [
+        pkgs.file-roller
         pkgs.gpodder
         pkgs.obsidian
         pkgs.prusa-slicer
