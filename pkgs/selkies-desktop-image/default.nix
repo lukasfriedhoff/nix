@@ -1,23 +1,32 @@
 {
   lib,
+  adwaita-icon-theme,
   bash,
   coreutils,
   dbus,
+  dejavu_fonts,
   dockerTools,
+  gsettings-desktop-schemas,
+  hicolor-icon-theme,
   intel-media-driver,
   libglvnd,
+  makeFontsConf,
   mesa,
   procps,
   pulseaudio,
   selkies,
   writeShellApplication,
   writeTextFile,
+  xfconf,
   xfce4-session,
+  xfce4-settings,
   xfce4-panel,
   xfce4-terminal,
+  xfdesktop,
   xfwm4,
   xorg-server,
   xdpyinfo,
+  xprop,
   xf86-video-dummy,
 
   # Kept as arguments so the image can be retargeted without editing it.
@@ -27,6 +36,33 @@
 }:
 
 let
+  xfcePackages = [
+    xfconf
+    xfce4-session
+    xfce4-settings
+    xfce4-panel
+    xfce4-terminal
+    xfdesktop
+    xfwm4
+  ];
+
+  # In a container nothing populates /etc/xdg or /usr/share, so XFCE must be
+  # told where its nix-store config and data live: without these,
+  # xfce4-session cannot even find its failsafe session and D-Bus cannot
+  # activate xfconfd (its .service file is discovered via XDG_DATA_DIRS).
+  xdgConfigDirs = lib.concatMapStringsSep ":" (p: "${p}/etc/xdg") xfcePackages;
+  xdgDataDirs = lib.concatMapStringsSep ":" (p: "${p}/share") (
+    xfcePackages
+    ++ [
+      hicolor-icon-theme
+      adwaita-icon-theme
+      dbus
+    ]
+  );
+  gsettingsSchemas = "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}";
+
+  fontsConf = makeFontsConf { fontDirectories = [ dejavu_fonts ]; };
+
   # Same virtual-framebuffer trick as virtual-05-stream-image: a pod has no
   # seat and no CRTC, so Xorg's dummy driver provides the screen pixelflux
   # captures via XShm.
@@ -83,6 +119,7 @@ let
       xfce4-session
       xorg-server
       xdpyinfo
+      xprop
       xf86-video-dummy
     ];
     text = ''
@@ -96,6 +133,10 @@ let
       # XFCE and selkies both want a writable HOME; a pod provides none.
       export HOME="''${HOME:-/tmp/home}"
       mkdir -p "$HOME"
+
+      export XDG_CONFIG_DIRS="''${XDG_CONFIG_DIRS:-${xdgConfigDirs}}"
+      export XDG_DATA_DIRS="''${XDG_DATA_DIRS:-${xdgDataDirs}:${gsettingsSchemas}}"
+      export FONTCONFIG_FILE="''${FONTCONFIG_FILE:-${fontsConf}}"
 
       # VA-API/GBM plumbing as in virtual-05-stream-image: the k3s hosts are
       # server configs without a graphics stack, so the userspace drivers only
@@ -176,6 +217,10 @@ let
       pactl set-default-sink output || true
       pactl set-default-source output.monitor || true
 
+      # dbus needs a machine identity; a fresh container has none and every
+      # libdbus client whines about it (and some refuse).
+      [ -s /etc/machine-id ] || dbus-uuidgen > /etc/machine-id 2>/dev/null || true
+
       # dbus config path pinned for the same dangling-symlink reason as in
       # virtual-05-stream-image.
       dbus-run-session --config-file=${dbus}/share/dbus-1/session.conf -- xfce4-session &
@@ -200,12 +245,18 @@ dockerTools.buildLayeredImage {
     mesa
     pulseaudio
     selkies
+    xfconf
     xfce4-session
+    xfce4-settings
     xfce4-panel
     xfce4-terminal
+    xfdesktop
     xfwm4
+    hicolor-icon-theme
+    adwaita-icon-theme
     xorg-server
     xdpyinfo
+    xprop
     xf86-video-dummy
     dockerTools.caCertificates
     # Without /etc/passwd dbus cannot resolve its own UID and dies with a
@@ -222,6 +273,9 @@ dockerTools.buildLayeredImage {
       "LIBVA_DRIVERS_PATH=${mesa}/lib/dri:${intel-media-driver}/lib/dri"
       "GBM_BACKENDS_PATH=${mesa}/lib/gbm"
       "__EGL_VENDOR_LIBRARY_DIRS=${mesa}/share/glvnd/egl_vendor.d"
+      "XDG_CONFIG_DIRS=${xdgConfigDirs}"
+      "XDG_DATA_DIRS=${xdgDataDirs}:${gsettingsSchemas}"
+      "FONTCONFIG_FILE=${fontsConf}"
       # dlopen("libEGL.so.1") has no RPATH to walk, and a dockerTools image
       # has no ldconfig cache; the env var is the only search path there is.
       "LD_LIBRARY_PATH=${libglvnd}/lib"

@@ -359,10 +359,65 @@
         '';
       };
 
+      # The container image behind the cloud-desktop flux app. The nix build
+      # only proves evaluation; what broke in production was runtime session
+      # wiring (XDG dirs, xfconfd D-Bus activation, fonts), so the test boots
+      # the real image and asserts the desktop actually comes up.
+      selkiesDesktopImageTest = pkgs.testers.nixosTest {
+        name = "selkies-desktop-image";
+        nodes.machine = _: {
+          virtualisation.docker.enable = true;
+          virtualisation.memorySize = 4096;
+          virtualisation.diskSize = 8192;
+          environment.systemPackages = [ pkgs.curl ];
+          system.stateVersion = "26.05";
+        };
+        testScript = ''
+          machine.wait_for_unit("docker.service")
+          machine.succeed("docker load < ${pkgs.selkies-desktop-image}")
+          machine.succeed(
+              "docker run -d --name sd -e PASSWORD=test -p 127.0.0.1:8080:8080 selkies-desktop:latest"
+          )
+
+          # Server up, basic auth enforced: 401 anonymous, 200 with the password.
+          machine.wait_until_succeeds(
+              "curl -sf -u ubuntu:test -o /dev/null http://127.0.0.1:8080/", timeout=300
+          )
+          machine.succeed(
+              "test \"$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)\" = 401"
+          )
+
+          # The XFCE session is genuinely running: xfwm4 owns the EWMH check
+          # window, and xfconfd was D-Bus-activated (both were broken when the
+          # image shipped without XDG_CONFIG_DIRS/XDG_DATA_DIRS).
+          machine.wait_until_succeeds(
+              "docker exec sd xprop -root -display :0 _NET_SUPPORTING_WM_CHECK | grep -q 'window id'",
+              timeout=120,
+          )
+          machine.succeed(
+              "wid=$(docker exec sd xprop -root -display :0 _NET_SUPPORTING_WM_CHECK | grep -o '0x[0-9a-f]*'); "
+              + "docker exec sd xprop -id $wid -display :0 _NET_WM_NAME | grep -q Xfwm4"
+          )
+          machine.succeed("docker exec sd sh -c 'cat /proc/[0-9]*/comm' | grep -qx xfconfd")
+          machine.succeed("docker exec sd sh -c 'cat /proc/[0-9]*/comm' | grep -q pulseaudio")
+
+          # Regression guards for the exact failures seen in production.
+          # Grep a dump, not the live pipe: grep -q closing the pipe early
+          # kills `docker logs` with SIGPIPE (exit 141) under pipefail.
+          machine.succeed("docker logs sd > /tmp/sd.log 2>&1")
+          machine.fail("grep -qi 'failsafe session' /tmp/sd.log")
+          machine.fail("grep -q 'Fontconfig error' /tmp/sd.log")
+
+          # The VA-API vendor detection ran and fell back cleanly (no GPU here).
+          machine.succeed("grep -q 'VA-API driver: none' /tmp/sd.log")
+        '';
+      };
+
       x86_64LinuxOnlyChecks = lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
         homelab-rke2-module = rke2ModuleTest;
         shadow-client-appimage = shadowClientTest;
         icarus-mod-manager = icarusModManagerTest;
+        selkies-desktop-image = selkiesDesktopImageTest;
       };
       linuxChecks = lib.optionalAttrs pkgs.stdenv.isLinux (
         {
