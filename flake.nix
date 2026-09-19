@@ -121,18 +121,28 @@
             # Entrypoint/StopSignal (docker import of the system tarball
             # would lose both). Output is a stream script; push with
             # `nix run .#cloud-desktop-image | skopeo copy docker-archive:/dev/stdin ...`
-            cloud-desktop-image = pkgs.dockerTools.streamLayeredImage {
-              name = "cloud-desktop";
-              tag = "latest";
-              config = {
-                Entrypoint = [
-                  "${inputs.self.nixosConfigurations.cloud-desktop.config.system.build.toplevel}/init"
-                ];
-                Env = [ "container=docker" ];
-                StopSignal = "SIGRTMIN+3";
-                ExposedPorts."8080/tcp" = { };
+            cloud-desktop-image =
+              let
+                toplevel = inputs.self.nixosConfigurations.cloud-desktop.config.system.build.toplevel;
+              in
+              pkgs.dockerTools.streamLayeredImage {
+                name = "cloud-desktop";
+                tag = "latest";
+                # Both are load-bearing. `contents` puts the system at the
+                # image root the way the docker-image tarball profile does,
+                # and it is also what includeNixDB registers: without the
+                # database every nix operation inside the container fails
+                # ("no substituter can build it") — which takes Home Manager
+                # activation, and with it the whole user environment, down.
+                contents = [ toplevel ];
+                includeNixDB = true;
+                config = {
+                  Entrypoint = [ "${toplevel}/init" ];
+                  Env = [ "container=docker" ];
+                  StopSignal = "SIGRTMIN+3";
+                  ExposedPorts."8080/tcp" = { };
+                };
               };
-            };
           };
 
           devShells.default = pkgs.mkShell {

@@ -149,3 +149,72 @@ Imperative `kubectl` is only appropriate for a short, controller-suspended maint
 **Rule of thumb:** before any `kubectl scale`/`edit`/`patch` on a cluster app, ask
 "what Flux resource owns this?" and suspend *that* first — or your change is a no-op
 on a timer.
+
+## This homelab's layering (flux-cluster) — read before adding or pausing an app
+
+The Kustomization objects are themselves Flux-managed, one level above the apps.
+On prod the chain is:
+
+```
+Kustomization/homelab        path ./overlays/homelab/        ← applies base-config ConfigMap + secrets
+  └─ Kustomization/kustomizations   path ./overlays/homelab/kustomizations/
+        (which `resources:` ../../../base/kustomizations/ + overlay-only entries)
+        └─ Kustomization/<app>-app  path ./apps/<app> in flux-apps   ← applies the workload
+```
+
+Find the owner of *any* object (this is the fastest way to answer "who reverts my edit?"):
+
+```bash
+kubectl -n <ns> get <kind>/<name> \
+  -o jsonpath='{.metadata.labels.kustomize\.toolkit\.fluxcd\.io/name}{"\n"}'
+# base-config  -> homelab
+# <app>-app    -> kustomizations
+```
+
+### Trap: a new app file in `base/kustomizations/infra/` does nothing
+`base/kustomizations/kustomization.yaml` is an **explicit `resources:` list**, not a
+directory glob. Drop in `infra/<app>.yaml`, commit, reconcile — and
+`flux get kustomization <app>-app` still says *not found*, with no error anywhere.
+Register the file in that list too. (`infra/moonlight-web.yaml` sits commented out
+there — which is why that app has never deployed, not a bug in the app.)
+
+### Trap: `flux suspend kustomization <app>-app` does not hold
+The `<app>-app` **object** is owned by `kustomizations`, whose git copy carries
+`spec.suspend: ${<app>_suspend:=true}` → substituted to `false`. Your suspend is
+drift: the parent re-applies `suspend: false` on its next reconcile (minutes), and
+the app comes back mid-debug. To actually pause an app:
+
+- **Short maintenance window:** `flux suspend kustomization kustomizations` (the
+  *parent*) — note this freezes every app's Kustomization, so keep it brief.
+- **Lasting:** set `<app>_suspend: "true"` in the overlay's `cluster-patch.yaml`
+  and push. GitOps-native, survives everything.
+
+Same idea as the HelmRelease trap above, one layer up: suspend the thing that
+*writes* the object, not the object itself.
+
+### Trap: changing a `${var}` needs the ConfigMap's owner reconciled
+`postBuild.substituteFrom` reads the **live** `base-config` ConfigMap. Push a new
+value (image tag, storage class) and reconcile only the app, and Flux substitutes
+the **old** value — the new manifest gets the stale var. The classic symptom is an
+`ImagePullBackOff` for a reference you never wrote (new repo name + old tag).
+
+```bash
+flux reconcile kustomization homelab --with-source   # refreshes base-config FIRST
+kubectl -n flux-system get cm base-config -o jsonpath='{.data.<var>}{"\n"}'  # verify
+flux reconcile kustomization <app>-app               # then the app
+```
+
+### Reconcile order for a change that spans repos
+
+```bash
+flux reconcile source git flux-cluster               # 1. cluster wiring
+flux reconcile source git flux-apps                  # 2. app manifests
+flux reconcile kustomization homelab --with-source   # 3. vars/secrets (base-config)
+flux reconcile kustomization kustomizations          # 4. app Kustomization objects
+flux reconcile kustomization <app>-app --with-source # 5. the app itself
+```
+
+`flux reconcile kustomization <parent>` blocks on **health checks of every child**
+(`wait: true`), so it routinely times out with "dependency … is not ready" while an
+unrelated app is mid-rollout. That is not a failure of your change — check the named
+child, or check your app directly instead of trusting the parent's exit code.

@@ -10,6 +10,24 @@
   services.resolved.enable = lib.mkForce false;
   documentation.doc.enable = lib.mkForce false;
 
+  # kubelet bind-mounts /etc/resolv.conf with the cluster DNS; resolvconf
+  # wrote through that bind mount and left the pod with an options-only
+  # file and no nameserver at all.
+  networking.resolvconf.enable = lib.mkForce false;
+
+  # There is no DHCP in a pod — the address comes from CNI.
+  networking.useDHCP = lib.mkForce false;
+
+  # Home Manager activation picks $XDG_STATE_HOME/nix/profiles when it
+  # exists, which keeps generations on the home PVC instead of the
+  # ephemeral container layer.
+  systemd.tmpfiles.rules = [
+    "d /home/lukasf/.local 0755 lukasf users -"
+    "d /home/lukasf/.local/state 0755 lukasf users -"
+    "d /home/lukasf/.local/state/nix 0755 lukasf users -"
+    "d /home/lukasf/.local/state/nix/profiles 0755 lukasf users -"
+  ];
+
   # personalWorkstation turns gaming on; multi-GB of closure (and srv1's
   # unbuildable-FOD lesson) with nothing to render it in a pod.
   desktop.gaming.enable = lib.mkForce false;
