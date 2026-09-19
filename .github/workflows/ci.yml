@@ -80,6 +80,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fast-forward deploy branch
+      # Forgejo (git.h4xx.io) is the primary; this GitHub repo is a push
+      # mirror that force-syncs ALL refs from Forgejo. Pushing deploy here
+      # would be clobbered on the next mirror sync, so promote on Forgejo —
+      # the mirror then propagates deploy back to GitHub, where comin reads
+      # it. FORGEJO_TOKEN is a repo Actions secret (Forgejo PAT,
+      # write:repository).
+      - name: Fast-forward deploy branch (on Forgejo, the primary)
         run: |
-          git push origin HEAD:refs/heads/deploy
+          git push "https://ci:${{ secrets.FORGEJO_TOKEN }}@git.h4xx.io/lukasf/nix.git" HEAD:refs/heads/deploy

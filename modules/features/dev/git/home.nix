@@ -44,6 +44,11 @@ in
           gpg.format = "openpgp";
           gpg.program = "gpg";
 
+          # Forgejo (git.h4xx.io) is the primary git host; only HTTPS is
+          # exposed (SSH 2222 is ClusterIP-only). The helper decrypts the
+          # token from nix-secrets via sops at use time - nothing on disk.
+          "credential \"https://git.h4xx.io\"".helper = "${homeDir}/.config/git/forgejo-credential-helper.sh";
+
           # Rewrite ANY https://github.com/... to SSH git@github.com:...
           # (works for fetch and push)
           "url \"git@github.com:\"".insteadOf = "https://github.com/";
@@ -64,6 +69,21 @@ in
             path = "~/.gitconfig-chaospott";
           };
         };
+      };
+
+      # sops-backed credential helper for the Forgejo primary (declarative
+      # copy of the script; no secret material inside).
+      home.file.".config/git/forgejo-credential-helper.sh" = {
+        executable = true;
+        text = ''
+          #!/bin/sh
+          # git credential helper for git.h4xx.io (Forgejo primary).
+          # Decrypts the token from nix-secrets via sops at use time.
+          [ "$1" = "get" ] || exit 0
+          tok=$(nix run nixpkgs#sops -- -d "$HOME/git/lukasfriedhoff/nix-secrets/secrets/profiles/personal/shared/forgejo/ci-token.yaml" 2>/dev/null \
+            | nix run nixpkgs#yq-go -- eval '.forgejo.ci_token' -)
+          printf 'username=lukasf\npassword=%s\n' "$tok"
+        '';
       };
 
       # personal per-path config
