@@ -117,6 +117,22 @@
             tuxedo-control-center = pkgs.callPackage ./pkgs/tuxedo-control-center { };
             virtual-05-stream-image = pkgs.callPackage ./pkgs/virtual-05-stream-image { };
             inherit (pkgs) selkies selkies-desktop-image;
+            # The personal desktop as an OCI image: proper layers + baked
+            # Entrypoint/StopSignal (docker import of the system tarball
+            # would lose both). Output is a stream script; push with
+            # `nix run .#cloud-desktop-image | skopeo copy docker-archive:/dev/stdin ...`
+            cloud-desktop-image = pkgs.dockerTools.streamLayeredImage {
+              name = "cloud-desktop";
+              tag = "latest";
+              config = {
+                Entrypoint = [
+                  "${inputs.self.nixosConfigurations.cloud-desktop.config.system.build.toplevel}/init"
+                ];
+                Env = [ "container=docker" ];
+                StopSignal = "SIGRTMIN+3";
+                ExposedPorts."8080/tcp" = { };
+              };
+            };
           };
 
           devShells.default = pkgs.mkShell {
@@ -403,6 +419,15 @@
               }
             )
           ];
+
+          cloudDesktopModules = baseDesktopModules ++ [
+            ./hosts/personal/cloud-desktop/configuration.nix
+            "${nixpkgs}/nixos/modules/virtualisation/docker-image.nix"
+            ./hosts/personal/cloud-desktop/container.nix
+            (mkDesktopHome "tux" [
+              stylix.homeModules.stylix
+            ])
+          ];
         in
         {
           nixosConfigurations = nixpkgs.lib.genAttrs homelabHosts mkHomelabHost // {
@@ -419,6 +444,8 @@
             virtual-05 = mkNixosHost "tux" virtual05Modules;
 
             virtual-05-container = mkNixosHost "tux" virtual05ContainerModules;
+
+            cloud-desktop = mkNixosHost "tux" cloudDesktopModules;
 
             tux-h4xx-01 = mkNixosHost "tux" (
               gnomeDesktopModules
