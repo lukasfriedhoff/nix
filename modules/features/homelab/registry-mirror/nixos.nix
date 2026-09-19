@@ -34,6 +34,30 @@ in
       default = "lukasf";
       description = "Forgejo user owning the read-only package token.";
     };
+
+    pullThrough = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = k8s.enable && k8s.distribution == "k3s";
+        defaultText = "true on k3s nodes";
+        description = "Route public-registry pulls through Harbor's proxy-cache projects. containerd tries mirror endpoints in order and always falls back to the original registry, so an unreachable Harbor only costs latency, never availability.";
+      };
+      harborHost = lib.mkOption {
+        type = lib.types.str;
+        default = "harbor.h4xx.io";
+        description = "Harbor host (LAN split-horizon resolves it past the Cloudflare tunnel).";
+      };
+      mirrors = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {
+          "docker.io" = "proxy-docker";
+          "ghcr.io" = "proxy-ghcr";
+          "quay.io" = "proxy-quay";
+          "registry.k8s.io" = "proxy-k8s";
+        };
+        description = "Upstream registry to Harbor proxy-cache project. Projects are public, so pulls need no credentials.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -44,22 +68,36 @@ in
 
     sops.templates."k3s-registries.yaml" = {
       path = "/etc/rancher/k3s/registries.yaml";
-      content = ''
-        mirrors:
-          "${cfg.registryHost}":
-            endpoint:
-              - "${cfg.endpoint}"
-          ${lib.optionalString config.homelab.kubernetes.embeddedRegistry ''
-            # Empty mirror entry: serve every registry through the embedded
-            # Spegel P2P cache (peers first, upstream as fallback).
-            "*":
-          ''}
-        configs:
-          "${cfg.registryHost}":
-            auth:
-              username: ${cfg.username}
-              password: ${config.sops.placeholder."forgejo-registry-pull-token"}
-      '';
+      # Emitted as JSON (a YAML subset): hand-indented YAML with multi-line
+      # nix interpolations rendered the mirror keys at column 0 — outside the
+      # mirrors map — which is also how the Spegel "*" entry had been silently
+      # landing as a dead top-level key.
+      #
+      # Endpoint semantics: containerd tries mirrors in listed order and
+      # always falls back to the upstream registry itself (rewrites do not
+      # apply to that default), so an unreachable Harbor costs latency, not
+      # availability. With --embedded-registry, k3s additionally prepends the
+      # Spegel P2P endpoint: cluster peer -> Harbor cache -> upstream.
+      content = builtins.toJSON {
+        mirrors = {
+          "${cfg.registryHost}".endpoint = [ cfg.endpoint ];
+        }
+        // lib.optionalAttrs cfg.pullThrough.enable (
+          lib.mapAttrs (_upstream: project: {
+            endpoint = [ "https://${cfg.pullThrough.harborHost}" ];
+            rewrite."^(.*)$" = "${project}/$1";
+          }) cfg.pullThrough.mirrors
+        )
+        // lib.optionalAttrs config.homelab.kubernetes.embeddedRegistry {
+          # Serve every other registry through the embedded Spegel P2P
+          # cache (peers first, upstream as fallback).
+          "*" = { };
+        };
+        configs."${cfg.registryHost}".auth = {
+          inherit (cfg) username;
+          password = config.sops.placeholder."forgejo-registry-pull-token";
+        };
+      };
     };
 
     # containerd only reads registries.yaml at startup.

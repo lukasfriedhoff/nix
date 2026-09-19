@@ -84,6 +84,19 @@ curl -su "admin:$PW" $H/robots | jq '.[].name'
 #   POST $H/projects   {project_name, registry_id, metadata: {public: "true"}}
 ```
 
+## Pull-through cache (since 2026-09-19)
+
+Public projects `proxy-docker`, `proxy-ghcr`, `proxy-quay`, `proxy-k8s`
+proxy docker.io / ghcr.io / quay.io / registry.k8s.io. k3s nodes route pulls
+through them via `/etc/rancher/k3s/registries.yaml`
+(`homelab.forgejoRegistryMirror.pullThrough` in the nix repo — on by default
+for k3s). Effective endpoint order per pull: Spegel P2P peer → Harbor proxy →
+the upstream registry itself, so a down Harbor degrades to public pulls, never
+blocks them. Manual pull format: `harbor.h4xx.io/proxy-docker/library/nginx`.
+Gotcha fixed along the way: the hand-indented registries.yaml had rendered the
+Spegel `"*"` mirror (and would have rendered these) at column 0 — dead
+top-level YAML keys; the file is generated as JSON now.
+
 ## Health
 
 - All pods in ns `harbor`; CNPG: `kubectl get cluster harbor-postgres -n harbor`.
