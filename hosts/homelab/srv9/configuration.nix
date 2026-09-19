@@ -128,6 +128,8 @@ in
     enable = true;
     longhorn.enable = true;
     embeddedRegistry = true;
+    # Dual Xeon Gold R740xd: the node heavy batch work should land on.
+    powerClass = "performance";
     # Control-plane peer: joins srv2's embedded etcd. srv2 must be migrated
     # off sqlite (clusterInit) before this role change is deployed
     # (docs/deployment/k3s-ha-migration.md).

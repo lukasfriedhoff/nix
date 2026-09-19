@@ -55,6 +55,16 @@ only, namespace `harbor`. Deployed 2026-09-19.
   cloudflared; CF caps request bodies (~100MB) → **large layer pushes fail**.
   Pulls and UI are fine. For real push traffic add a LAN path (traefik is
   ClusterIP-only today — needs NodePort/LB + MikroTik split-horizon DNS static).
+  **Working recipe (proven 2026-09-19, 518MB image)**: port-forward core and
+  fetch the bearer token manually — the port-forward serves plain HTTP but
+  core's 401 advertises an `https://127.0.0.1:...` realm skopeo can't follow:
+  ```bash
+  kubectl --context homelab-prod -n harbor port-forward svc/harbor-core 18443:80 &
+  TOKEN=$(curl -su 'robot$ci:<secret>' 'https://harbor.h4xx.io/service/token?account=robot%24ci&scope=repository%3Alibrary%2F<repo>%3Apull%2Cpush&service=harbor-registry' | jq -r .token)
+  skopeo copy --dest-tls-verify=false --dest-registry-token "$TOKEN" \
+    docker-archive:result docker://127.0.0.1:18443/library/<repo>:<tag>
+  ```
+  Token TTL ~30min — plenty; blobs go over the LAN, only the token via CF.
 - **External CNPG DB**: chart reads the CNPG-generated `harbor-postgres-app`
   secret directly (it has the required `password` key). The database `registry`
   is created by CNPG initdb — Harbor only migrates schema. Don't rename the DB:

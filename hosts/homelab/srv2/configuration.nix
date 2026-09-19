@@ -88,11 +88,8 @@ in
       "10.1.30.26"
     ];
     nodeIP = "10.1.30.26";
-    nodeLabels = [
-      "h4xx.io/gpu.present=true"
-      "h4xx.io/gpu.vendor=intel"
-      "h4xx.io/gpu.vaapi=true"
-    ];
+    # gpu.* labels now derive from ./facter.json; see the kubernetes module.
+    powerClass = "efficient";
     extraFlags = [ "--kubelet-arg=max-pods=250" ];
     gitops = {
       enable = true;

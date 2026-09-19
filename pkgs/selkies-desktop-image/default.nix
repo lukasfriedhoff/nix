@@ -4,6 +4,8 @@
   coreutils,
   dbus,
   dockerTools,
+  intel-media-driver,
+  libglvnd,
   mesa,
   procps,
   pulseaudio,
@@ -99,9 +101,29 @@ let
       # server configs without a graphics stack, so the userspace drivers only
       # exist inside this image. Without a GPU pixelflux falls back to CPU
       # striped encoding on its own.
-      export LIBVA_DRIVERS_PATH="''${LIBVA_DRIVERS_PATH:-${mesa}/lib/dri}"
-      export LIBVA_DRIVER_NAME="''${LIBVA_DRIVER_NAME:-radeonsi}"
+      export LIBVA_DRIVERS_PATH="''${LIBVA_DRIVERS_PATH:-${mesa}/lib/dri:${intel-media-driver}/lib/dri}"
       export GBM_BACKENDS_PATH="''${GBM_BACKENDS_PATH:-${mesa}/lib/gbm}"
+      # libglvnd needs pointing at mesa's EGL ICD; without libEGL pixelflux's
+      # zero-copy DRI3/EGL capture probes panic instead of falling back.
+      export __EGL_VENDOR_LIBRARY_DIRS="''${__EGL_VENDOR_LIBRARY_DIRS:-${mesa}/share/glvnd/egl_vendor.d}"
+      export LD_LIBRARY_PATH="${libglvnd}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+      # Vendor-agnostic: pick the VA-API driver from the render node the pod
+      # was actually granted (/dev/dri), not from an image-baked default.
+      # The node label h4xx.io/gpu.vaapi is what schedules us near a GPU;
+      # this resolves which userspace stack that GPU needs.
+      if [ -z "''${LIBVA_DRIVER_NAME:-}" ]; then
+        for node in /dev/dri/renderD*; do
+          [ -e "$node" ] || continue
+          vendor="$(cat "/sys/class/drm/$(basename "$node")/device/vendor" 2>/dev/null || true)"
+          case "$vendor" in
+            0x1002) export LIBVA_DRIVER_NAME=radeonsi ;;
+            0x8086) export LIBVA_DRIVER_NAME=iHD ;;
+          esac
+          [ -n "''${LIBVA_DRIVER_NAME:-}" ] && break
+        done
+      fi
+      echo "VA-API driver: ''${LIBVA_DRIVER_NAME:-none (CPU encoding)}" >&2
       if [ ! -e /run/opengl-driver ]; then
         mkdir -p /run
         ln -sfn ${mesa} /run/opengl-driver 2>/dev/null || true
@@ -174,6 +196,7 @@ dockerTools.buildLayeredImage {
     coreutils
     dbus
     entrypoint
+    libglvnd
     mesa
     pulseaudio
     selkies
@@ -194,9 +217,14 @@ dockerTools.buildLayeredImage {
     Entrypoint = [ (lib.getExe entrypoint) ];
     Env = [
       "DISPLAY=:0"
-      "LIBVA_DRIVERS_PATH=${mesa}/lib/dri"
-      "LIBVA_DRIVER_NAME=radeonsi"
+      # No LIBVA_DRIVER_NAME here: the entrypoint derives it from the render
+      # node's PCI vendor (radeonsi for AMD, iHD for Intel).
+      "LIBVA_DRIVERS_PATH=${mesa}/lib/dri:${intel-media-driver}/lib/dri"
       "GBM_BACKENDS_PATH=${mesa}/lib/gbm"
+      "__EGL_VENDOR_LIBRARY_DIRS=${mesa}/share/glvnd/egl_vendor.d"
+      # dlopen("libEGL.so.1") has no RPATH to walk, and a dockerTools image
+      # has no ldconfig cache; the env var is the only search path there is.
+      "LD_LIBRARY_PATH=${libglvnd}/lib"
       # Bind all interfaces: the pod is reached through a Service, and auth
       # is selkies' own basic auth (password injected by the Deployment).
       "SELKIES_PUBLIC=true"

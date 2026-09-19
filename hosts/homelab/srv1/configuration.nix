@@ -102,6 +102,9 @@ in
     enable = true;
     longhorn.enable = true;
     role = "agent";
+    # Broadwell Xeon tower with the SSD fast tier — batch-capable, unlike
+    # the USB-disk minis (srv2/srv8).
+    powerClass = "performance";
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
     nodeIP = "10.1.30.12";

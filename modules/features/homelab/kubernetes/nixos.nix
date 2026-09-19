@@ -17,6 +17,39 @@ let
     types
     ;
 
+  # h4xx.io/gpu.* node labels derived from the host's nixos-facter report.
+  # Only render-capable vendors count; BMC framebuffers (ASPEED 1a03,
+  # Matrox 102b on the Dell) are display-only and deliberately excluded, so
+  # absence of a label means absence of the capability and workloads select
+  # on presence (e.g. nodeSelector h4xx.io/gpu.vaapi: "true").
+  gpuVendors = {
+    "8086" = "intel";
+    "1002" = "amd";
+    "10de" = "nvidia";
+  };
+  facterGraphics = lib.attrByPath [ "hardware" "graphics_card" ] [ ] (
+    config.hardware.facter.report or { }
+  );
+  realGpus = lib.filter (g: gpuVendors ? "${g.vendor.hex or ""}") facterGraphics;
+  gpuVendor = if realGpus == [ ] then null else gpuVendors.${(lib.head realGpus).vendor.hex};
+  derivedGpuLabels = lib.optionals (gpuVendor != null) (
+    [
+      "h4xx.io/gpu.present=true"
+      "h4xx.io/gpu.vendor=${gpuVendor}"
+    ]
+    # NVIDIA encodes via NVENC, not VA-API; grow a gpu.nvenc label when a
+    # consumer exists.
+    ++ lib.optional (gpuVendor == "intel" || gpuVendor == "amd") "h4xx.io/gpu.vaapi=true"
+  );
+
+  # kubelet re-asserts labels on restart but never removes dropped ones;
+  # deleting a label here needs a one-time `kubectl label node <n> <key>-`.
+  effectiveNodeLabels = lib.unique (
+    cfg.nodeLabels
+    ++ derivedGpuLabels
+    ++ lib.optional (cfg.powerClass != null) "h4xx.io/power.class=${cfg.powerClass}"
+  );
+
   # open-iscsi drops node parameters between releases: 2.1.12 removed
   # node.session.conn_reopen_log_freq, which 2.1.11 had written into every
   # record under /etc/iscsi/nodes. iscsiadm then rejects the *whole* tree as
@@ -130,7 +163,18 @@ in
       type = types.listOf types.str;
       default = [ ];
       example = [ "h4xx.io/gpu.vendor=virtual" ];
-      description = "Labels registered on the Kubernetes node.";
+      description = "Extra labels registered on the Kubernetes node, on top of the h4xx.io/* labels derived from the facter report and powerClass.";
+    };
+
+    powerClass = mkOption {
+      type = types.nullOr (
+        types.enum [
+          "performance"
+          "efficient"
+        ]
+      );
+      default = null;
+      description = "h4xx.io/power.class node label: heavy batch work (builds, transcode) is steered to `performance` nodes, always-on light services fit `efficient` ones.";
     };
 
     tlsSans = mkOption {
@@ -410,7 +454,7 @@ in
       services.k3s = {
         enable = true;
         inherit (cfg) role clusterInit;
-        nodeLabel = cfg.nodeLabels;
+        nodeLabel = effectiveNodeLabels;
         # --disable, --write-kubeconfig-mode and --tls-san are server-only
         # k3s flags; agents reject them.
         extraFlags = lib.concatStringsSep " " (
@@ -442,7 +486,7 @@ in
       services.rke2 = {
         enable = true;
         inherit (cfg) role;
-        nodeLabel = cfg.nodeLabels;
+        nodeLabel = effectiveNodeLabels;
         inherit (cfg.rke2) cisHardening;
         extraFlags = [
           "--write-kubeconfig-mode=0640"
