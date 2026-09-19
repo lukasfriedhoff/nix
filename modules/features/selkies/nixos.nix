@@ -176,7 +176,11 @@ in
                   for _ in $(seq 1 50); do
                     for s in wayland-1 wayland-0; do
                       if [ -S "$XDG_RUNTIME_DIR/$s" ]; then
+                        # Both: HOST_DISPLAY is the capture target, and
+                        # WAYLAND_DISPLAY is what the input/clipboard client
+                        # connects to.
                         export SELKIES_WAYLAND_HOST_DISPLAY="$s"
+                        export WAYLAND_DISPLAY="''${WAYLAND_DISPLAY:-$s}"
                         exec ${lib.getExe cfg.package}
                       fi
                     done

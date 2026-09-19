@@ -5,6 +5,7 @@
 # cloud-desktop-image package; container.nix carries the pod overrides.
 {
   linuxUser,
+  pkgs,
   ...
 }:
 
@@ -49,12 +50,27 @@
     };
     serviceConfig = {
       ExecStart = "/etc/profiles/per-user/${linuxUser}/bin/sway";
-      # No ExecStartPost starting graphical-session.target: it is a *passive*
-      # target, so `systemctl start` on it exits 4 — and a failing
-      # ExecStartPost kills the main process, taking Sway down with it. The
-      # HM config's own exec line starts sway-session.target, which BindsTo
-      # graphical-session.target and pulls selkies in; ConditionPathExists
-      # above is what guarantees that config is present.
+      # Start the session target here rather than relying on the exec line
+      # inside the Home Manager sway config: in a pod that line does not
+      # reliably fire, and without it graphical-session.target — which
+      # selkies is wantedBy — never activates. sway-session.target is a
+      # regular unit that BindsTo graphical-session.target, so starting it
+      # is both allowed and sufficient (graphical-session.target itself is
+      # passive: starting it directly exits 4 and, from ExecStartPost, that
+      # failure takes Sway down with it).
+      ExecStartPost = pkgs.writeShellScript "sway-session-up" ''
+        for _ in $(seq 1 50); do
+          for s in wayland-1 wayland-0; do
+            if [ -S "$XDG_RUNTIME_DIR/$s" ]; then
+              systemctl --user set-environment WAYLAND_DISPLAY="$s"
+              exec systemctl --user start sway-session.target
+            fi
+          done
+          sleep 0.2
+        done
+        echo "no wayland socket appeared; not starting the session target" >&2
+        exit 1
+      '';
       Restart = "always";
       RestartSec = 5;
     };
