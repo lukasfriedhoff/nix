@@ -49,6 +49,12 @@ in
     ];
   };
 
+  # Cross-node traefik -> hostNetwork Home Assistant (8123): pod egress from
+  # other nodes SNATs to their mgmt IPs and lands on brvlan30; same-node
+  # traffic never leaves the host. Without this, ha.h4xx.io only works when
+  # cloudflared happens to hit the traefik replica running on srv9.
+  networking.firewall.interfaces.brvlan30.allowedTCPPorts = [ 8123 ];
+
   homelab.personalServer = {
     enable = true;
     managementPubKey = null;
