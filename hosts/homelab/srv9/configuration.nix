@@ -49,11 +49,12 @@ in
     ];
   };
 
-  # Thread RCP stick (ZBT-1) attached over the network from srv4 while it
-  # lives there; later the stick moves to the MikroTik (serial-over-TCP then).
-  homelab.usbipClient = {
+  # Thread RCP stick (ZBT-1) bridged over the network from srv4 while it
+  # lives there (RHEL9 ships no usbip). Later the stick moves to the
+  # MikroTik: same client, remote becomes the router's /port remote-access.
+  homelab.serialTcpDevice = {
     enable = true;
-    server = "srv4.lab.h4xx.io";
+    remote = "srv4.lab.h4xx.io:3333";
   };
 
   # Cross-node traefik -> hostNetwork Home Assistant (8123): pod egress from
