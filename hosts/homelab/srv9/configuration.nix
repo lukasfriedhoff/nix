@@ -49,6 +49,13 @@ in
     ];
   };
 
+  # Thread RCP stick (ZBT-1) attached over the network from srv4 while it
+  # lives there; later the stick moves to the MikroTik (serial-over-TCP then).
+  homelab.usbipClient = {
+    enable = true;
+    server = "srv4.lab.h4xx.io";
+  };
+
   # Cross-node traefik -> hostNetwork Home Assistant (8123): pod egress from
   # other nodes SNATs to their mgmt IPs and lands on brvlan30; same-node
   # traffic never leaves the host. Without this, ha.h4xx.io only works when
