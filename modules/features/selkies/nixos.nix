@@ -210,16 +210,31 @@ in
 
         # Desktop audio flows browser-ward through the monitor of this null
         # sink; pcmflux speaks the PulseAudio protocol pipewire-pulse serves.
+        # The name is not cosmetic: selkies captures "output.monitor" and
+        # creates its own sink named "output" when it finds none, which then
+        # competes with a differently-named one for the default.
         services.pipewire.extraConfig.pipewire."60-selkies-null-sink" = {
           "context.objects" = [
             {
               factory = "adapter";
               args = {
                 "factory.name" = "support.null-audio-sink";
-                "node.name" = "selkies-output";
+                "node.name" = "output";
                 "node.description" = "Selkies stream output";
                 "media.class" = "Audio/Sink";
                 "priority.session" = 2000;
+                "audio.position" = "FL,FR";
+              };
+            }
+            # The microphone half: what the browser sends arrives here, and
+            # applications record from it.
+            {
+              factory = "adapter";
+              args = {
+                "factory.name" = "support.null-audio-sink";
+                "node.name" = "input";
+                "node.description" = "Selkies stream input";
+                "media.class" = "Audio/Source/Virtual";
                 "audio.position" = "FL,FR";
               };
             }

@@ -1,10 +1,11 @@
-# The personal desktop as a Kubernetes-streamed container: full Home
-# Manager profile and stylix theming (the "tux" desktop identity), an i3
-# session rendered from the same tiling definition as Sway (Wayland cannot
-# be captured on the Xorg-dummy path), and Selkies streaming it to the
-# browser. Built as an OCI image via the cloud-desktop-image package.
+# The personal desktop as a Kubernetes-streamed container: the real Sway
+# session with the full Home Manager profile and stylix theming (the "tux"
+# desktop identity), running on the wlroots headless backend and captured
+# by Selkies over Wayland. Built as an OCI image via the
+# cloud-desktop-image package; container.nix carries the pod overrides.
 {
   linuxUser,
+  pkgs,
   ...
 }:
 
@@ -35,14 +36,25 @@
   systemd.user.services.sway-headless = {
     description = "Headless Sway session for Selkies streaming";
     wantedBy = [ "default.target" ];
+    # Without the Home Manager config Sway starts on the stock one, which
+    # never reaches sway-session.target; wait for the dotfile instead of
+    # racing it (linger-users is ordered after HM activation as well).
+    unitConfig.ConditionPathExists = "%h/.config/sway/config";
     environment = {
       WLR_BACKENDS = "headless";
       WLR_LIBINPUT_NO_DEVICES = "1";
+      WLR_HEADLESS_OUTPUTS = "1";
+      # Without a usable render node wlroots refuses llvmpipe and exits;
+      # a slow desktop beats a black one.
+      WLR_RENDERER_ALLOW_SOFTWARE = "1";
     };
     serviceConfig = {
       ExecStart = "/etc/profiles/per-user/${linuxUser}/bin/sway";
-      Restart = "on-failure";
-      RestartSec = 3;
+      # Streaming must not hinge on the HM config's own session-target
+      # exec line: bind the target to the unit that owns the session.
+      ExecStartPost = "${pkgs.systemd}/bin/systemctl --user start graphical-session.target";
+      Restart = "always";
+      RestartSec = 5;
     };
   };
 
