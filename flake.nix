@@ -128,14 +128,29 @@
               pkgs.dockerTools.streamLayeredImage {
                 name = "cloud-desktop";
                 tag = "latest";
-                # Both are load-bearing. `contents` puts the system at the
-                # image root the way the docker-image tarball profile does,
-                # and it is also what includeNixDB registers: without the
-                # database every nix operation inside the container fails
-                # ("no substituter can build it") — which takes Home Manager
-                # activation, and with it the whole user environment, down.
-                contents = [ toplevel ];
-                includeNixDB = true;
+                # Register the closure in the image's nix database. Without
+                # it every nix operation inside the container fails ("no
+                # substituter can build it"), which takes Home Manager
+                # activation — and with it the whole user environment — down.
+                #
+                # This is dockerTools' own includeNixDB body, inlined because
+                # that option derives its closure from `contents`, and putting
+                # the toplevel in `contents` copies NixOS' /etc symlink farm
+                # to the image root, which containerd rejects when unpacking
+                # ("openat etc/passwd: path escapes from parent"). The
+                # Entrypoint's absolute store path is what the system boots
+                # from, so nothing needs to live at the root.
+                extraCommands = ''
+                  export NIX_REMOTE=local?root=$PWD
+                  export USER=nobody
+                  ${lib.getExe' pkgs.buildPackages.nix "nix-store"} --load-db < ${
+                    pkgs.closureInfo { rootPaths = [ toplevel ]; }
+                  }/registration
+                  ${lib.getExe pkgs.buildPackages.sqlite} nix/var/nix/db/db.sqlite \
+                    "UPDATE ValidPaths SET registrationTime = ''${SOURCE_DATE_EPOCH}"
+                  mkdir -p nix/var/nix/gcroots/docker
+                  ln -s ${toplevel} nix/var/nix/gcroots/docker/system
+                '';
                 config = {
                   Entrypoint = [ "${toplevel}/init" ];
                   Env = [ "container=docker" ];
