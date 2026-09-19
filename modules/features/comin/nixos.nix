@@ -7,8 +7,12 @@
 
 let
   cfg = config.lukasf.serverDeployment;
-  # Public Git remote used by comin-managed machines.
-  repoUrl = "https://github.com/lukasfriedhoff/nix";
+  # Public Git remotes used by comin-managed machines. Forgejo
+  # (git.h4xx.io) is the primary git host, but hosts must never depend on
+  # in-homelab infrastructure to deploy — both remotes are external push
+  # mirrors that force-sync from Forgejo on every push.
+  repoUrl = "https://codeberg.org/lukasfriedhoff/nix";
+  fallbackRepoUrl = "https://github.com/lukasfriedhoff/nix";
   cominDebugScript = pkgs.writeShellScriptBin "comin-debug" ''
     set -euo pipefail
     export PATH="/run/current-system/sw/bin:/run/current-system/sw/sbin"
@@ -59,6 +63,14 @@ in
           url = repoUrl;
           # `deploy` is fast-forwarded by CI only after checks pass on
           # develop, so servers never pull a broken eval.
+          branches.main.name = "deploy";
+          branches.testing.name = "testing-${config.services.comin.hostname}";
+        }
+        # Identical mirror content; keeps deployments working when Codeberg
+        # is unavailable.
+        {
+          name = "github";
+          url = fallbackRepoUrl;
           branches.main.name = "deploy";
           branches.testing.name = "testing-${config.services.comin.hostname}";
         }
