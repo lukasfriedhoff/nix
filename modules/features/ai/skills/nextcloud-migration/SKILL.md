@@ -90,6 +90,20 @@ serves throughout (zero downtime). sha256 guards integrity, so
 7. Cleanup: delete migration pod + key secret; shred local key; **remove the
    migration pubkey from the source's authorized_keys**.
 
+## Long occ runs: never hang them off kubectl exec
+
+`db:convert-type` on a real dataset runs for hours; a kubectl exec from a
+workstation WILL die first (VPN/API-server stream timeout kills the exec
+after ~1h - seen 2026-09-20, "error reading from error stream: i/o timeout").
+The php process SURVIVES the dead stream and keeps converting - do NOT rerun
+or restart anything; re-attach passively (watch target row counts + the php
+process count). Success marker: convert-type rewrites config.php to the
+pgsql target at the end - config still on mysql + process gone = it died.
+Run long occ as a k8s Job or `nohup ... &` inside the pod instead.
+Also: convert-type prompts "Continue? [n]" when tables from disabled apps
+exist - pipe `echo y |`, and capture kubectl's exit code without in-pod
+pipes (a trailing `| tail` eats the rc).
+
 ## Complete-DB move (convert-type) — when you must preserve EVERYTHING
 
 A files+hashes merge loses DB-resident data (Passwords-app vault, calendars,
