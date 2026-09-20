@@ -53,6 +53,16 @@ in
 
     environment.systemPackages =
       let
+        # Referenced from Steam launch options (`nvidia-offload %command%`);
+        # must live on the system PATH - a ~/.local/bin copy breaks as soon
+        # as the session PATH changes.
+        nvidiaOffload = pkgs.writeShellScriptBin "nvidia-offload" ''
+          export __NV_PRIME_RENDER_OFFLOAD=1
+          export __NV_PRIME_RENDER_OFFLOAD_PROVIDER=NVIDIA-G0
+          export __GLX_VENDOR_LIBRARY_NAME=nvidia
+          export __VK_LAYER_NV_optimus=NVIDIA_only
+          exec "$@"
+        '';
         steamGameWrapper = pkgs.writeShellScriptBin "steam-game" ''
           set -euo pipefail
           if [ $# -lt 1 ]; then
@@ -94,6 +104,7 @@ in
         discord
         steam-tui
         steamGameWrapper
+        nvidiaOffload
         ludusavi # Game save backup tool
         config.hardware.nvidia.package.settings
       ];
