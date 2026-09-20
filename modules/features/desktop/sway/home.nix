@@ -188,6 +188,13 @@ in
             # Lock the screen on demand. Super+L is "focus right" in the shared
             # tiling bindings, so the lock lives on Super+Escape instead.
             "${mod}+Escape" = "exec ${lock}";
+            # Escape hatch from keyboard-shortcuts-inhibit. A client that
+            # inhibits shortcuts (a remote desktop taking the keyboard, e.g.
+            # Selkies' gaming mode in Chromium) takes EVERY binding below
+            # with it — including any way back. --inhibited bindings are the
+            # documented exception that still fires, so this one always
+            # returns the keyboard.
+            "--inhibited --to-code ${mod}+Shift+Escape" = "seat - shortcuts_inhibitor deactivate";
             # Media and brightness keys (no modifier, work when locked too
             # via the locked variants sway provides by default for XF86).
             # swayosd-client changes the value AND draws the on-screen bar;

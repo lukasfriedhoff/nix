@@ -37,6 +37,14 @@ in
       extraOptions = lib.optional cfg.nvidiaUnsupportedGpu "--unsupported-gpu";
     };
 
+    # Chromium/Electron only run as native Wayland clients when this is set —
+    # the nixpkgs wrapper gates --ozone-platform-hint on it. Under XWayland
+    # they cannot use keyboard-shortcuts-inhibit, so a remote desktop in the
+    # browser never receives Super+<key>: sway matches its own binding first
+    # and the page sees nothing (see the --inhibited escape binding in
+    # ./home.nix). Also fixes fractional scaling and IME in those apps.
+    environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
     # swaylock authenticates through PAM; without this entry unlocking fails.
     security.pam.services.swaylock = { };
 

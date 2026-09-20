@@ -33,42 +33,56 @@
   # (waybar, wofi, the shared tiling bindings), running on the wlroots
   # headless backend as a lingering user service — no seat, no DM.
   desktop.sway.enable = true;
+  # Nested inside the selkies capture compositor, so selkies owns the
+  # session lifecycle: it starts first (wantedBy default.target), Sway
+  # attaches to its socket, and the session target follows Sway.
+  systemd.user.services.selkies.wantedBy = [ "default.target" ];
+
   systemd.user.services.sway-headless = {
-    description = "Headless Sway session for Selkies streaming";
+    description = "Sway session nested in the Selkies capture compositor";
     wantedBy = [ "default.target" ];
+    after = [ "selkies.service" ];
+    requires = [ "selkies.service" ];
     # Without the Home Manager config Sway starts on the stock one, which
     # never reaches sway-session.target; wait for the dotfile instead of
     # racing it (linger-users is ordered after HM activation as well).
     unitConfig.ConditionPathExists = "%h/.config/sway/config";
     environment = {
-      WLR_BACKENDS = "headless";
-      WLR_LIBINPUT_NO_DEVICES = "1";
-      WLR_HEADLESS_OUTPUTS = "1";
-      # Without a usable render node wlroots refuses llvmpipe and exits;
-      # a slow desktop beats a black one.
+      # A client of selkies' compositor, not its own backend: this is what
+      # avoids the dmabuf import failure of direct capture.
+      WLR_BACKENDS = "wayland";
       WLR_RENDERER_ALLOW_SOFTWARE = "1";
     };
     serviceConfig = {
-      ExecStart = "/etc/profiles/per-user/${linuxUser}/bin/sway";
-      # Start the session target here rather than relying on the exec line
-      # inside the Home Manager sway config: in a pod that line does not
-      # reliably fire, and without it graphical-session.target — which
-      # selkies is wantedBy — never activates. sway-session.target is a
-      # regular unit that BindsTo graphical-session.target, so starting it
-      # is both allowed and sufficient (graphical-session.target itself is
-      # passive: starting it directly exits 4 and, from ExecStartPost, that
-      # failure takes Sway down with it).
-      ExecStartPost = pkgs.writeShellScript "sway-session-up" ''
-        for _ in $(seq 1 50); do
+      # WAYLAND_DISPLAY must name selkies' compositor socket, which only
+      # exists once selkies is up; probe rather than assume an index.
+      ExecStart = pkgs.writeShellScript "sway-nested" ''
+        for _ in $(seq 1 100); do
           for s in wayland-1 wayland-0; do
             if [ -S "$XDG_RUNTIME_DIR/$s" ]; then
-              systemctl --user set-environment WAYLAND_DISPLAY="$s"
-              exec systemctl --user start sway-session.target
+              export WAYLAND_DISPLAY="$s"
+              exec /etc/profiles/per-user/${linuxUser}/bin/sway
             fi
           done
           sleep 0.2
         done
-        echo "no wayland socket appeared; not starting the session target" >&2
+        echo "selkies compositor socket never appeared" >&2
+        exit 1
+      '';
+      # Start the session target once Sway's own socket exists: selkies
+      # auto-detects it as the app compositor for input and clipboard.
+      # (sway-session.target is a regular unit that BindsTo the passive
+      # graphical-session.target; starting the latter directly exits 4 and
+      # from ExecStartPost that failure would kill Sway.)
+      ExecStartPost = pkgs.writeShellScript "sway-session-up" ''
+        for _ in $(seq 1 50); do
+          if [ -S "$XDG_RUNTIME_DIR/wayland-2" ]; then
+            systemctl --user set-environment WAYLAND_DISPLAY=wayland-2
+            exec systemctl --user start sway-session.target
+          fi
+          sleep 0.2
+        done
+        echo "sway socket never appeared; not starting the session target" >&2
         exit 1
       '';
       Restart = "always";
@@ -87,8 +101,18 @@
     public = true;
     openFirewall = true;
     basicAuth.enable = false;
-    # Capture the Sway session (screencopy + virtual input), no Xorg dummy.
+    # Wayland, and selkies composites: it runs its own compositor (the
+    # capture target) and Sway nests inside it as a client, with input and
+    # clipboard auto-routed to Sway's own socket.
+    #
+    # Capturing Sway directly (wayland.hostDisplay) does NOT work here:
+    # wlroots cannot import the dmabufs pixelflux allocates and logs
+    # "eglCreateImageKHR ... EGL_BAD_MATCH / createImageFromDmaBufs failed"
+    # at frame rate, so the browser sits on "Waiting for stream" forever.
+    # Nested, both sides are smithay/wlroots talking their own buffers and
+    # the error is gone.
     wayland.enable = true;
+    wayland.nested = true;
     headless.enable = false;
   };
 }

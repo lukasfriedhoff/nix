@@ -72,7 +72,16 @@ in
     };
 
     wayland = {
-      enable = lib.mkEnableOption "capturing an external wlroots compositor (Sway) instead of X11";
+      enable = lib.mkEnableOption "Wayland capture instead of X11";
+
+      nested = lib.mkEnableOption ''
+        letting selkies run the capture compositor with the session
+        compositor nested inside it as a client, instead of capturing an
+        external compositor directly. Input and clipboard are auto-routed
+        to the nested compositor's own socket. Prefer this: importing
+        pixelflux's dmabufs into wlroots fails with EGL_BAD_MATCH, so
+        direct capture of a wlroots session produces no frames at all
+      '';
       hostDisplay = lib.mkOption {
         type = lib.types.str;
         default = "auto";
@@ -160,7 +169,9 @@ in
             {
               SELKIES_WAYLAND = "true";
             }
-            // lib.optionalAttrs (cfg.wayland.hostDisplay != "auto") {
+            # Nested: no host display at all — selkies composites, and
+            # app_wayland_display auto-detects the nested socket.
+            // lib.optionalAttrs (!cfg.wayland.nested && cfg.wayland.hostDisplay != "auto") {
               SELKIES_WAYLAND_HOST_DISPLAY = cfg.wayland.hostDisplay;
             }
           )
@@ -168,7 +179,7 @@ in
           // lib.mapAttrs' (n: v: lib.nameValuePair "SELKIES_${lib.toUpper n}" v) cfg.settings;
           serviceConfig = {
             ExecStart =
-              if cfg.wayland.enable && cfg.wayland.hostDisplay == "auto" then
+              if cfg.wayland.enable && !cfg.wayland.nested && cfg.wayland.hostDisplay == "auto" then
                 pkgs.writeShellScript "selkies-wayland-auto" ''
                   # The compositor's socket index is not deterministic
                   # (wayland-0 or wayland-1 depending on what raced first);
