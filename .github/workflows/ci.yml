@@ -86,6 +86,10 @@ jobs:
       # the mirror then propagates deploy back to GitHub, where comin reads
       # it. FORGEJO_TOKEN is a repo Actions secret (Forgejo PAT,
       # write:repository).
+      # The runner checks out the GitHub MIRROR, which can lag Forgejo by a
+      # few seconds (sync_on_commit) - pushing that stale HEAD used to lose a
+      # non-fast-forward race. Fetch Forgejo's develop and promote THAT.
       - name: Fast-forward deploy branch (on Forgejo, the primary)
         run: |
-          git push "https://ci:${{ secrets.FORGEJO_TOKEN }}@git.h4xx.io/lukasf/nix.git" HEAD:refs/heads/deploy
+          git fetch "https://ci:${{ secrets.FORGEJO_TOKEN }}@git.h4xx.io/lukasf/nix.git" develop
+          git push "https://ci:${{ secrets.FORGEJO_TOKEN }}@git.h4xx.io/lukasf/nix.git" FETCH_HEAD:refs/heads/deploy
