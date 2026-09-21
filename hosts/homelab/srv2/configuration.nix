@@ -73,15 +73,21 @@ in
     ];
   };
 
+  sops.secrets."k3s-server-token" = {
+    sopsFile = "${secrets.primary}/k3s-server-token.txt";
+    format = "binary";
+    mode = "0400";
+  };
+
   homelab.kubernetes = {
     enable = true;
     longhorn.enable = true;
     embeddedRegistry = true;
-    # Embedded etcd instead of the single-server sqlite default; k3s migrates
-    # the existing datastore in place on the first restart with this flag.
-    # Required before srv8/srv9 can join as control planes
-    # (docs/deployment/k3s-ha-migration.md).
-    clusterInit = true;
+    # Demoted from control-plane/etcd 2026-09-21: the DRAM-less BIWIN NVMe
+    # held etcd ~30% over the apply-latency budget. Worker + Longhorn only.
+    role = "agent";
+    serverAddr = "https://srv9.lab.h4xx.io:6443";
+    tokenFile = config.sops.secrets."k3s-server-token".path;
     tlsSans = [
       "srv2.lab.h4xx.io"
       "srv2"
@@ -91,17 +97,6 @@ in
     # gpu.* labels now derive from ./facter.json; see the kubernetes module.
     powerClass = "efficient";
     extraFlags = [ "--kubelet-arg=max-pods=250" ];
-    gitops = {
-      enable = true;
-      repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
-      branch = "main";
-      path = "./overlays/homelab";
-      tokenFile = config.sops.secrets."flux-cluster-token".path;
-      sopsAgeKeyFile = config.sops.secrets."flux-sops-age-key".path;
-      username = "lukasfriedhoff";
-      sourceName = "flux-cluster";
-      kustomizationName = "homelab";
-    };
   };
 
   # k8s node: no swap (etcd fsync latency + kubelet semantics); the disko

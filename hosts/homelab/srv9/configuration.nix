@@ -129,6 +129,14 @@ in
   };
 
   sops.secrets = {
+    "flux-cluster-token" = {
+      sopsFile = "${secrets.primary}/flux-cluster-bootstrap-token.txt";
+      format = "binary";
+    };
+    "flux-sops-age-key" = {
+      sopsFile = "${secrets.primary}/flux-sops-age.key";
+      format = "binary";
+    };
     "srv9-login-password-hash" = {
       sopsFile = loginPasswordHashSecret;
       format = "binary";
@@ -152,6 +160,19 @@ in
     enable = true;
     longhorn.enable = true;
     embeddedRegistry = true;
+    # Flux bootstrap ownership moved here from srv2 (2026-09-21, srv2 etcd
+    # demotion). Idempotent: only (re)creates the flux-system source if absent.
+    gitops = {
+      enable = true;
+      repoURL = "https://github.com/lukasfriedhoff/flux-cluster.git";
+      branch = "main";
+      path = "./overlays/homelab";
+      tokenFile = config.sops.secrets."flux-cluster-token".path;
+      sopsAgeKeyFile = config.sops.secrets."flux-sops-age-key".path;
+      username = "lukasfriedhoff";
+      sourceName = "flux-cluster";
+      kustomizationName = "homelab";
+    };
     # Dual Xeon Gold R740xd: the node heavy batch work should land on.
     powerClass = "performance";
     # Control-plane peer: joins srv2's embedded etcd. srv2 must be migrated
