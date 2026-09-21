@@ -129,3 +129,25 @@ instance `secret`**, so the target must adopt the SOURCE's `secret` for it to
 decrypt. `--routines`/`--triggers` on mysqldump silently yield 0 bytes if the
 DB user lacks the privilege (Nextcloud uses neither). Streaming a big gzip
 through `kubectl exec -i` corrupts it — dump to a file, rsync it in.
+
+## Post-flip landmines discovered in production (2026-09-21)
+
+- **uid mismatch after rsyncing data between image flavors.** Alpine images run
+  www-data as uid **82**, Debian as **33**. Rsynced data dirs keep uid 82 →
+  every WRITE fails ("kopiert: -1 byte" in the log, 53k times) while READS work
+  (dirs are world-readable) — so browsing looks fine and the breakage hides.
+  `chown -R www-data:www-data` the whole data dir right after the flip (in-pod
+  nohup — it's long on NFS). Check `ls -ln data/` uids as a flip checklist item.
+- **The merged filecache carries the old instance's preview rows.** 3.6M
+  `appdata_<id>/preview/%` rows pointed at files not on disk → every thumbnail
+  errored ("Unable to open preview stream") instead of regenerating.
+  `files:scan-app-data` does NOT prune them (it only walks what exists on
+  disk). Fix: `DELETE FROM oc_filecache WHERE storage=<local> AND path LIKE
+  'appdata_<id>/preview/%'` then rescan + `VACUUM ANALYZE oc_filecache`.
+- **Shared-proxy bruteforce throttle.** If the ingress chain hides real client
+  IPs, ONE client with dead creds 429-throttles every user (Passwords app
+  "Reached maximum delay"). Fix the header chain (traefik
+  `forwardedHeaders.trustedIPs` / PROXY protocol from L4 hops);
+  `occ security:bruteforce:attempts <ip>` / `:reset <ip>` for triage.
+- **Dead OIDC-era app passwords.** Clients keep syncing as `<sub-UUID>` logins
+  of deleted accounts. Map sub→user via authelia DB `user_opaque_identifier`.
