@@ -61,3 +61,28 @@ rate-limited, and errored updates (not everything becomes a PR immediately):
 ```sh
 nix run nixpkgs#gh -- issue list --repo lukasfriedhoff/flux-apps --search "Dependency Dashboard in:title"
 ```
+
+
+## Forgejo era (since 2026-09-21)
+
+Renovate targets **Forgejo**: PRs live at git.h4xx.io (lukasf/flux-apps,
+lukasf/flux-cluster), NOT GitHub — GitHub PRs are mirror artifacts and must
+be CLOSED, never merged. List/merge via the Forgejo API (mint a token:
+`kubectl -n forgejo exec deploy/forgejo -c forgejo -- forgejo admin user
+generate-access-token --username lukasf --token-name x --scopes
+read:repository,write:repository,write:issue --raw`).
+
+Traps that already burned a session:
+- The platform-switch commit was LOST ONCE to a mirror force-sync race —
+  if GitHub PRs reappear, check `.github/workflows/renovate.yml` FIRST
+  (RENOVATE_PLATFORM must be forgejo).
+- `GITHUB_COM_TOKEN` (the old PAT) is required for datasource lookups;
+  without it renovate finds ZERO updates while exiting 0.
+- Nextcloud app majors: verify NC-compat against
+  `apps.nextcloud.com/api/v1/platform/<ver>/apps.json` before merging —
+  external v10 / impersonate v6 / richdocuments v12 are NC35-only.
+- The fix-nextcloud-app-pins.mjs postUpgradeTask corrects helm-release.yaml
+  but MANGLES verify-custom-apps.yaml URLs (version-dir bumped, filename
+  kept) — inspect that file in every nextcloud pin PR diff.
+- Merge conflicts after sibling merges: 405 from the merge API; update
+  branch via API or apply directly on main.
