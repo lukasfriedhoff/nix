@@ -104,6 +104,10 @@ in
     };
   };
 
+  # k8s node: no swap (etcd fsync latency + kubelet semantics); the disko
+  # swap partition stays dormant.
+  swapDevices = lib.mkForce [ ];
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 

@@ -9,7 +9,7 @@
 let
   hostName = "srv9";
   clusterDomain = "lab.h4xx.io";
-  prodApiHost = "srv2.lab.h4xx.io";
+  prodApiHost = "srv8.lab.h4xx.io";
   managementInterface = "eno1np0";
   managementMac = "e4:43:4b:f2:1a:42";
   systemDiskId = "scsi-35002538b11337b60";
@@ -119,6 +119,10 @@ in
     };
   };
 
+  # k8s node: no swap (etcd fsync latency + kubelet semantics); the disko
+  # swap partition stays dormant.
+  swapDevices = lib.mkForce [ ];
+
   homelab.initrdSsh = {
     enable = true;
     authorizedKeyFile = ./initrd-authorized.pub;
@@ -159,6 +163,7 @@ in
     nodeName = hostName;
     nodeIP = "10.1.30.31";
     tlsSans = [
+      "prod.k8s.lab.h4xx.io"
       "srv9.lab.h4xx.io"
       "srv9"
       "10.1.30.31"

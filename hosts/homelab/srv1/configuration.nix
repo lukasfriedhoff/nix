@@ -9,7 +9,7 @@
 let
   hostName = "srv1";
   clusterDomain = "lab.h4xx.io";
-  prodApiHost = "srv2.lab.h4xx.io";
+  prodApiHost = "srv9.lab.h4xx.io";
   k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
   hasK3sToken = builtins.pathExists k3sTokenSecret;
 in
@@ -57,6 +57,10 @@ in
     usePasswordAuth = false;
   };
 
+  # k8s node: no swap (etcd fsync latency + kubelet semantics); the disko
+  # swap partition stays dormant.
+  swapDevices = lib.mkForce [ ];
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
@@ -95,13 +99,13 @@ in
     mode = "0400";
   };
 
-  # Join the homelab k3s cluster as an AGENT. No gitops block: Flux is
-  # bootstrapped by the control-plane servers, and the module asserts
-  # gitops.enable requires role=server.
+  # Control-plane member since 2026-09-21 (replaces srv2's etcd seat: srv2's
+  # DRAM-less NVMe made etcd chronically slow). gitops bootstrap stays on the
+  # existing servers.
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
     longhorn.enable = true;
-    role = "agent";
+    role = "server";
     # Broadwell Xeon tower with the SSD fast tier — batch-capable, unlike
     # the USB-disk minis (srv2/srv8).
     powerClass = "performance";
@@ -109,6 +113,7 @@ in
     tokenFile = config.sops.secrets."k3s-server-token".path;
     nodeIP = "10.1.30.12";
     tlsSans = [
+      "prod.k8s.lab.h4xx.io"
       "srv1.lab.h4xx.io"
       "srv1"
       "10.1.30.12"

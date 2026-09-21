@@ -9,7 +9,7 @@
 let
   hostName = "srv8";
   clusterDomain = "lab.h4xx.io";
-  prodApiHost = "srv2.lab.h4xx.io";
+  prodApiHost = "srv9.lab.h4xx.io";
   mgmtMac = "1c:83:41:33:1b:37";
   k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
   hasK3sToken = builtins.pathExists k3sTokenSecret;
@@ -52,6 +52,10 @@ in
 
   users.users.root.openssh.authorizedKeys.keyFiles = [ ./initrd-authorized.pub ];
   users.users.nixos.openssh.authorizedKeys.keyFiles = [ ./initrd-authorized.pub ];
+
+  # k8s node: no swap (etcd fsync latency + kubelet semantics); the disko
+  # swap partition stays dormant.
+  swapDevices = lib.mkForce [ ];
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -117,6 +121,7 @@ in
     tokenFile = config.sops.secrets."k3s-server-token".path;
     nodeIP = "10.1.30.27";
     tlsSans = [
+      "prod.k8s.lab.h4xx.io"
       "srv8.lab.h4xx.io"
       "srv8"
       "10.1.30.27"
