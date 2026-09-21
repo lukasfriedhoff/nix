@@ -106,6 +106,9 @@ in
     enable = true;
     longhorn.enable = true;
     role = "server";
+    # k3s refuses joins when critical flags differ between servers - the
+    # existing control planes all run the embedded registry (Spegel).
+    embeddedRegistry = true;
     # Broadwell Xeon tower with the SSD fast tier — batch-capable, unlike
     # the USB-disk minis (srv2/srv8).
     powerClass = "performance";
