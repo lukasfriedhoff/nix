@@ -427,6 +427,11 @@ in
             2379
             2380
             10250
+            # MetalLB speaker memberlist. Blocked, every speaker forms its own
+            # one-node cluster and ALL of them answer ARP for EVERY VIP
+            # (split-brain, found 2026-09-21: three MACs answering for the
+            # apiserver VIP).
+            7946
             # node_exporter. The monitoring DaemonSet runs with hostNetwork, so
             # its listener is on the host and the node firewall applies. Without
             # this the pod runs and reports healthy while every scrape fails —
@@ -443,6 +448,8 @@ in
           [
             8472
             51820
+            # MetalLB memberlist (see allowedTCPPorts)
+            7946
           ]
           ++ lib.optional isRke2 51821
         );
