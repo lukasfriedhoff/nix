@@ -78,8 +78,11 @@ in
           {
             name = "homelab-prod";
             mode = "ssh";
-            sshHost = "srv2";
-            apiServer = "https://srv2.lab.h4xx.io:6443";
+            # srv2 is an agent since the 2026-09-21 control-plane surgery -
+            # agents have no admin kubeconfig. Fetch from srv9 and target the
+            # MetalLB apiserver VIP (survives any single control-plane node).
+            sshHost = "srv9";
+            apiServer = "https://prod.k8s.lab.h4xx.io:6443";
             contextName = "homelab-prod";
           }
           {
