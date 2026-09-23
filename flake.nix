@@ -285,7 +285,8 @@
           # all share one name.
           homelabHosts = [
             "srv1"
-            "srv2"
+            # srv2 left the cluster 2026-09-24 and became nuc-h4xx-04, a
+            # personal workstation (see hosts/personal/nuc-h4xx-04).
             "srv3"
             "srv5-k3s-stg1"
             "srv6-k3s-stg2"
@@ -302,6 +303,7 @@
             tux = mkPersonalDesktopSecrets "tux-h4xx-01";
             tab = mkPersonalDesktopSecrets "tab-h4xx-02";
             lenovo = mkPersonalDesktopSecrets "lenovo-h4xx-03";
+            nuc = mkPersonalDesktopSecrets "nuc-h4xx-04";
             mac = mkWorkSecrets "${workProfileRoot}/desktops/work-mbp-01";
             docker-host-01 = mkWorkSecrets "${workProfileRoot}/servers/docker-host-01";
             timebutler-test-vm = mkWorkSecrets "${workProfileRoot}/servers/timebutler-test-vm";
@@ -498,6 +500,19 @@
               ++ [
                 ./hosts/personal/lenovo-h4xx-03/configuration.nix
                 (mkDesktopHome "lenovo" [
+                  stylix.homeModules.stylix
+                ])
+              ]
+            );
+
+            # Formerly srv2 (k3s agent + Longhorn). Decommissioned from the
+            # cluster 2026-09-24 after its replicas were evicted to srv1/srv9;
+            # the three USB disks are gone and only the internal NVMe remains.
+            nuc-h4xx-04 = mkNixosHost "nuc" (
+              gnomeDesktopModules
+              ++ [
+                ./hosts/personal/nuc-h4xx-04/configuration.nix
+                (mkDesktopHome "nuc" [
                   stylix.homeModules.stylix
                 ])
               ]

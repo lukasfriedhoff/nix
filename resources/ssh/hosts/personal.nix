@@ -91,20 +91,13 @@
     user = "root";
     keyName = "srv1-personal-mgmt";
   }
+  # srv2 became the nuc-h4xx-04 workstation on 2026-09-24. No initrd-SSH
+  # unlock entry: that is a server feature and the desktop profile drops it.
   {
-    match = "srv2";
-    alias = "srv2";
-    hostName = "srv2.lab.h4xx.io";
-    user = "root";
-    keyName = "srv2-personal-mgmt";
-  }
-  {
-    match = "unlock-srv2";
-    alias = "unlock-srv2";
-    hostName = "srv2.lab.h4xx.io";
-    port = 2222;
-    user = "root";
-    keyName = "srv2-personal-mgmt";
+    match = "nuc-h4xx-04";
+    alias = "nuc";
+    hostName = "nuc-h4xx-04.lab.h4xx.io";
+    user = "lukasf";
   }
   {
     match = "travelrouter";

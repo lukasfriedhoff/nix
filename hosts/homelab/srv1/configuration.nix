@@ -47,7 +47,6 @@ in
   };
 
   networking.extraHosts = ''
-    10.1.30.26 srv2 srv2.lab.h4xx.io
     10.1.30.12 srv1 srv1.lab.h4xx.io
   '';
 

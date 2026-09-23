@@ -41,13 +41,10 @@
     luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "ssd";
   };
-  "ata-CT1000BX500SSD1_2216E629C77B" = {
-    host = "srv2";
-    purpose = "longhorn";
-    luksKeyFile = "luks/srv2-mdraid.txt";
-    luksPasswordFile = "/tmp/luks-mdraid.key";
-    type = "ssd";
-  };
+  # srv2's USB disks (Crucial BX500, Seagate ST4000VX016 and an unlisted
+  # SanDisk) were removed 2026-09-24 when the node left the cluster and became
+  # the nuc-h4xx-04 workstation. Their Longhorn replicas were evicted to
+  # srv1/srv9 first.
   "virtio-srv3-root" = {
     host = "srv3";
     purpose = "root";
@@ -97,13 +94,6 @@
     host = "srv7-k3s-stg3";
     purpose = "longhorn";
     type = "virtual";
-  };
-  "ata-ST4000VX016-3CV104_WW60911A" = {
-    host = "srv2";
-    purpose = "storage";
-    luksKeyFile = "luks/srv2-mdraid.txt";
-    luksPasswordFile = "/tmp/luks-mdraid.key";
-    type = "hdd";
   };
   "ata-WDC_WD40EFRX-68N32N0_WD-WCC7K2FFFP9P" = {
     host = "srv8";
