@@ -30,6 +30,22 @@
 
   services.openssh.settings.PasswordAuthentication = false;
 
+  # sshd was enabled with PasswordAuthentication off and no authorized keys at
+  # all, which meant nothing could ever log in - the tablet had to be handled
+  # physically. Authorize tux so it can be rebuilt and deployed remotely like
+  # every other host.
+  #
+  # root as well as lukasf: `security.sudo.wheelNeedsPassword` is true here, so
+  # `nixos-rebuild --target-host lukasf@… --sudo` would sit waiting on a
+  # password prompt. Deploying as root avoids that, and root login is already
+  # key-only.
+  users.users.lukasf.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEUMr5wOTPNvoAQHFmUNAXc1N31RkweWxRotw471S23M lukasf"
+  ];
+  users.users.root.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEUMr5wOTPNvoAQHFmUNAXc1N31RkweWxRotw471S23M lukasf"
+  ];
+
   environment.sessionVariables.LIBVA_DRIVER_NAME = "iHD";
 
   environment.systemPackages = with pkgs; [
