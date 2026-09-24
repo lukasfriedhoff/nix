@@ -608,27 +608,47 @@ in
                 ''
               else
                 ''
-                  ${lib.optionalString (cfg.gitops.tokenFile != null) ''
-                    ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
-                      create secret generic ${gitAuthSecretName} \
-                      --from-literal=username=${lib.escapeShellArg cfg.gitops.username} \
-                      --from-file=password=${resolveSecret cfg.gitops.tokenFile} \
-                      --dry-run=client -o yaml \
-                      | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
-                  ''}
+                  # Create-only, exactly like the ssh branch above. This block
+                  # used to re-stamp both the auth secret and the GitRepository
+                  # on EVERY activation and reboot, which fought the
+                  # `repositories` Kustomization in flux-cluster: nix wrote the
+                  # GitHub URL plus a long-dead PAT, Flux wrote Codeberg back,
+                  # and the object sat at generation 50 flapping between them.
+                  # A snapshot taken mid-flap looks exactly like a broken
+                  # source - "authentication required: Invalid username or
+                  # token" - and sends you hunting a credential problem that
+                  # does not exist.
+                  #
+                  # Bootstrap should establish state, not keep re-asserting it;
+                  # once the cluster is up, git is the owner.
+                  if ! ${fluxBin} --namespace flux-system get sources git ${cfg.gitops.sourceName} >/dev/null 2>&1; then
+                    ${lib.optionalString (cfg.gitops.tokenFile != null) ''
+                      ${kubectlBin} --kubeconfig ${kubeconfig} --namespace flux-system \
+                        create secret generic ${gitAuthSecretName} \
+                        --from-literal=username=${lib.escapeShellArg cfg.gitops.username} \
+                        --from-file=password=${resolveSecret cfg.gitops.tokenFile} \
+                        --dry-run=client -o yaml \
+                        | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+                    ''}
 
-                  ${fluxBin} create source git ${cfg.gitops.sourceName} \
-                    --url=${cfg.gitops.repoURL} \
-                    --branch=${cfg.gitops.branch} \
-                    --interval=${cfg.gitops.interval} \
-                    ${lib.optionalString (cfg.gitops.tokenFile != null) "--secret-ref=${gitAuthSecretName}"} \
-                    --export \
-                    | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+                    ${fluxBin} create source git ${cfg.gitops.sourceName} \
+                      --url=${cfg.gitops.repoURL} \
+                      --branch=${cfg.gitops.branch} \
+                      --interval=${cfg.gitops.interval} \
+                      ${lib.optionalString (cfg.gitops.tokenFile != null) "--secret-ref=${gitAuthSecretName}"} \
+                      --export \
+                      | ${kubectlBin} --kubeconfig ${kubeconfig} apply -f -
+                  fi
 
                   ${fluxBin} reconcile source git ${cfg.gitops.sourceName}
                 ''
             }
 
+            # Deliberately NOT guarded like the source above. Nothing in
+            # flux-cluster declares this root Kustomization - it exists only
+            # because this unit creates it - so there is no second writer to
+            # fight, and keeping it unconditional is what lets `path` and
+            # `branch` changes made here actually reach the cluster.
             ${fluxBin} create kustomization ${cfg.gitops.kustomizationName} \
               --target-namespace flux-system \
               --source=GitRepository/${cfg.gitops.sourceName} \
