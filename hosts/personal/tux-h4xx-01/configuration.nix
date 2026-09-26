@@ -208,6 +208,10 @@
   # ultrawide entry must precede the generic HDMI fallback (LG 4K), which
   # would otherwise also match the ultrawide.
   home-manager.users.lukasf = {
+    # Kubernetes desktop UI. Electron, so it is opt-in per host rather than
+    # part of the CLI bundle in modules/features/devops/kubectl.
+    programs.headlamp.enable = true;
+
     # Super+Shift+g: gaming toggle. Fullscreen games size themselves from
     # the modes of the output they spawn on before any window rule runs,
     # so the only deterministic multi-monitor fix is having one output.
