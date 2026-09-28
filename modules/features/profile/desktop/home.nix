@@ -332,6 +332,13 @@ in
       home.packages = lib.mkAfter [
         pkgs.podman
         pkgs.btop
+        # Thunderstore mod manager: profiles, one-click installs, and it puts
+        # BepInEx in place for you. Note it does NOT support Icarus - the
+        # supported list is 308 games and Icarus is not on it. Icarus is
+        # covered by programs.icarusModManager below, which is a different
+        # tool (Jimk72's Windows app under Wine). This is for Valheim and
+        # friends, where the server now has BepInEx enabled.
+        pkgs.r2modman
       ];
 
       programs.icarusModManager = {
