@@ -339,6 +339,13 @@ in
         # tool (Jimk72's Windows app under Wine). This is for Valheim and
         # friends, where the server now has BepInEx enabled.
         pkgs.r2modman
+        # GUI display configurator for wlroots (Sway): arrange outputs, pick
+        # mode/scale/rotation. Worth knowing for the LG Ultra HD on HDMI-A-1:
+        # the link only offers 3840x2160 at max 30Hz (HDMI 1.4 bandwidth -
+        # cable, port or monitor input), while 2560x1440@60 is available and
+        # usually the better desktop pick. wdisplays makes that a click
+        # instead of a swaymsg incantation.
+        pkgs.wdisplays
       ];
 
       programs.icarusModManager = {
