@@ -351,6 +351,10 @@ in
       programs.icarusModManager = {
         enable = true;
       };
+
+      # Daily git backup of the second-brain Obsidian vault to Forgejo.
+      # Inert (ConditionPathExists) until the vault repo is cloned on the host.
+      lukasf.secondBrainBackup.enable = lib.mkDefault true;
     })
   ];
 }
