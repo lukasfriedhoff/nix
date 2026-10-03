@@ -292,4 +292,27 @@
     user = "root";
     keyName = "srv9-personal-mgmt";
   }
+  # Codeberg: force-synced mirror of the Forgejo primary — never push here
+  # (mirror sync prunes/overwrites); SSH is for clone/fetch. Uses the default
+  # personal identity, which is registered on codeberg.org.
+  {
+    match = "codeberg.org";
+    alias = "codeberg.org";
+    user = "git";
+  }
+  # Forgejo primary (git.h4xx.io). Its SSH listens on a ClusterIP-only
+  # Service (no route from workstations), so hop through srv9, which reaches
+  # the service network. Host/Port match the ssh://git@git.h4xx.io:2222/...
+  # clone URLs Forgejo advertises. 10.43.4.217 = forgejo Service ClusterIP —
+  # stable unless the Service is recreated; re-check with
+  # `kubectl -n forgejo get svc forgejo` if this stops connecting.
+  {
+    match = "git.h4xx.io";
+    alias = "git.h4xx.io";
+    port = 2222;
+    user = "git";
+    extraOptions = {
+      ProxyCommand = "ssh -W 10.43.4.217:2222 srv9";
+    };
+  }
 ]
