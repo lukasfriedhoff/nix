@@ -161,6 +161,11 @@
   powerManagement.powertop.enable = false;
   services.tlp.enable = false;
 
+  # JBL Xtreme 3: multipoint speaker without a voice profile. HFP/HSP probing
+  # kept its link out of sniff mode (starving the other paired host) and raced
+  # the A2DP transport setup on connect.
+  lukasf.pipewire.a2dpOnlyDevices = [ "20:18:5B:56:61:BA" ];
+
   services.pipewire.extraConfig = {
     pipewire."10-stable-clock" = {
       "context.properties" = {

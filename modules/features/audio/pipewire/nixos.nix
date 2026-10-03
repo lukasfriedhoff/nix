@@ -16,6 +16,19 @@ in
       default = true;
       description = "Enable 32-bit ALSA support (useful for games and legacy apps).";
     };
+
+    a2dpOnlyDevices = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "20:18:5B:56:61:BA" ];
+      description = ''
+        Bluetooth MAC addresses restricted to A2DP audio. Stops WirePlumber
+        from attempting HFP/HSP against speakers without a voice profile:
+        the failed SDP probes keep the ACL link out of sniff mode, which
+        starves other hosts on multipoint speakers and can wedge A2DP
+        transport setup during connect.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -46,6 +59,12 @@ in
           "bluez5.enable-sbc-xq" = true;
           "bluez5.hfphsp-backend" = "native";
         };
+        "monitor.bluez.rules" = map (address: {
+          matches = [ { "device.address" = address; } ];
+          actions.update-props = {
+            "bluez5.auto-connect" = [ "a2dp_sink" ];
+          };
+        }) cfg.a2dpOnlyDevices;
         "device.profile.priority.rules" = [
           {
             matches = [
