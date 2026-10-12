@@ -32,6 +32,9 @@ in
         tmux
         ripgrep
         dnsutils
+        # Plain-text HTTP requests with assertions, kept in git next to the
+        # manifests they exercise - also runnable unchanged in CI.
+        hurl
         file
         which
         tree
