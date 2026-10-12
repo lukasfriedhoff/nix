@@ -1,12 +1,21 @@
 {
   config,
   lib,
+  pkgs,
+  workSystem ? false,
   ...
 }:
 
 let
   cfg = config.programs.git;
   homeDir = config.home.homeDirectory;
+  # Work systems get their own path to the second-brain vault: a dedicated
+  # Forgejo machine account ("workmac") whose token is a WORK-scoped sops
+  # secret, so it decrypts with the key this machine actually has. The
+  # personal helper below cannot work here at all - its token lives under
+  # profiles/personal, whose age key sops-age deliberately filters out on a
+  # work system, and `nix run` in a credential helper hangs without network.
+  secondBrainTokenFile = "${homeDir}/git/lukasfriedhoff/nix-secrets/secrets/profiles/work/shared/forgejo/second-brain-token.yaml";
 in
 {
   imports = [
@@ -69,6 +78,31 @@ in
             path = "~/.gitconfig-chaospott";
           };
         };
+      };
+
+      # Work: credentials ONLY for the vault repo. Git matches credential
+      # sections by URL prefix, so this never applies to any other repo on
+      # git.h4xx.io - the machine account cannot reach them anyway.
+      programs.git.extraConfig = lib.mkIf workSystem {
+        "credential \"https://git.h4xx.io/lukasf/second-brain\"".helper =
+          "${homeDir}/.config/git/second-brain-credential-helper.sh";
+      };
+
+      home.file.".config/git/second-brain-credential-helper.sh" = lib.mkIf workSystem {
+        executable = true;
+        text = ''
+          #!/bin/sh
+          # git credential helper for the second-brain vault on a work system.
+          # Decrypts a work-scoped token at use time; nothing is written to
+          # disk in plaintext. Uses the sops/yq from this profile rather than
+          # `nix run`, which needs network and hangs inside a helper.
+          [ "$1" = "get" ] || exit 0
+          [ -r "${secondBrainTokenFile}" ] || exit 0
+          tok=$(${lib.getExe pkgs.sops} -d "${secondBrainTokenFile}" 2>/dev/null \
+            | ${lib.getExe pkgs.yq-go} eval '.forgejo.second_brain_token' - 2>/dev/null)
+          [ -n "$tok" ] && [ "$tok" != "null" ] || exit 0
+          printf 'username=workmac\npassword=%s\n' "$tok"
+        '';
       };
 
       # sops-backed credential helper for the Forgejo primary (declarative
