@@ -148,6 +148,11 @@ in
       programs.moonlight.enable = lib.mkDefault true;
 
       home.packages = [
+        # Read-only disk-diagnostics TUI: IO-latency histogram + SMART in one
+        # view. SMART reads need root (`sudo diskwatch`); smartmontools gives
+        # it the full attribute tables. From overlays/local-packages.nix.
+        pkgs.diskwatch
+        pkgs.smartmontools
         pkgs.file-roller
         pkgs.gpodder
         pkgs.obsidian

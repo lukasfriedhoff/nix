@@ -10,6 +10,10 @@ _final: prev:
   macmon = prev.callPackage ../pkgs/macmon { };
   bpytop = prev.callPackage ../pkgs/bpytop { };
 
+  # Read-only disk-diagnostics TUI (IO latency + SMART); not yet in pinned
+  # nixpkgs. Consumed by modules/features/profile/desktop/home.nix.
+  diskwatch = prev.callPackage ../pkgs/diskwatch { };
+
   # Master PDF Editor pinned to 5.9.60, the newest release the purchased
   # license activates. Consumed by modules/features/profile/desktop/home.nix.
   masterpdfeditorLicenseCompatible = prev.masterpdfeditor.overrideAttrs (_old: {
