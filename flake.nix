@@ -19,6 +19,11 @@
 
     # Spotlight/Dock-compatible trampolines for nix-installed .app bundles.
     mac-app-util.url = "github:hraban/mac-app-util";
+    # mac-app-util is an SBCL program; SBCL < 2.6.6 cannot map its heap on
+    # macOS 27 ("failed to allocate ... at 0x300100000", hraban/mac-app-util#45).
+    # Build it against unstable until the stable channel ships SBCL >= 2.6.6.
+    mac-app-util.inputs.nixpkgs.follows = "nixpkgs-unstable";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
