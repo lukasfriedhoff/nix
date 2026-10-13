@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  secrets,
   workSystem ? false,
   ...
 }:
@@ -15,7 +16,14 @@ let
   # personal helper below cannot work here at all - its token lives under
   # profiles/personal, whose age key sops-age deliberately filters out on a
   # work system, and `nix run` in a credential helper hangs without network.
-  secondBrainTokenFile = "${homeDir}/git/lukasfriedhoff/nix-secrets/secrets/profiles/work/shared/forgejo/second-brain-token.yaml";
+  #
+  # Resolved through `secrets`, i.e. the nix-secrets flake input, NOT a
+  # ~/git checkout: the work Mac consumes nix-secrets as an input and has no
+  # local clone (and workmac deliberately cannot read that repo anyway).
+  secondBrainTokenFile = "${secrets.profileShared}/forgejo/second-brain-token.yaml";
+  # Credential helpers are also invoked by GUI clients that never source the
+  # login shell, so the age key cannot be left to home.sessionVariables.
+  ageKeyFile = "${config.xdg.configHome}/sops/age/keys.txt";
 in
 {
   imports = [
@@ -56,7 +64,16 @@ in
           # Forgejo (git.h4xx.io) is the primary git host; only HTTPS is
           # exposed (SSH 2222 is ClusterIP-only). The helper decrypts the
           # token from nix-secrets via sops at use time - nothing on disk.
+          #
+          # Personal systems only. On a work system this host-wide section
+          # would ALSO match the second-brain URL below (git applies every
+          # matching credential section, broadest first), so the personal
+          # helper would answer first with a token it cannot decrypt there.
+        }
+        // lib.optionalAttrs (!workSystem) {
           "credential \"https://git.h4xx.io\"".helper = "${homeDir}/.config/git/forgejo-credential-helper.sh";
+        }
+        // {
 
           # Rewrite ANY https://github.com/... to SSH git@github.com:...
           # (works for fetch and push)
@@ -98,6 +115,7 @@ in
           # `nix run`, which needs network and hangs inside a helper.
           [ "$1" = "get" ] || exit 0
           [ -r "${secondBrainTokenFile}" ] || exit 0
+          export SOPS_AGE_KEY_FILE="''${SOPS_AGE_KEY_FILE:-${ageKeyFile}}"
           tok=$(${lib.getExe pkgs.sops} -d "${secondBrainTokenFile}" 2>/dev/null \
             | ${lib.getExe pkgs.yq-go} eval '.forgejo.second_brain_token' - 2>/dev/null)
           [ -n "$tok" ] && [ "$tok" != "null" ] || exit 0
@@ -106,8 +124,10 @@ in
       };
 
       # sops-backed credential helper for the Forgejo primary (declarative
-      # copy of the script; no secret material inside).
-      home.file.".config/git/forgejo-credential-helper.sh" = {
+      # copy of the script; no secret material inside). Personal systems
+      # only - the ci-token lives under profiles/personal, whose age key is
+      # deliberately absent on a work system.
+      home.file.".config/git/forgejo-credential-helper.sh" = lib.mkIf (!workSystem) {
         executable = true;
         text = ''
           #!/bin/sh
@@ -116,6 +136,10 @@ in
           [ "$1" = "get" ] || exit 0
           tok=$(nix run nixpkgs#sops -- -d "$HOME/git/lukasfriedhoff/nix-secrets/secrets/profiles/personal/shared/forgejo/ci-token.yaml" 2>/dev/null \
             | nix run nixpkgs#yq-go -- eval '.forgejo.ci_token' -)
+          # Stay silent rather than handing git an empty password: a blank
+          # credential is cached as a failed attempt and stops git from
+          # consulting any more specific helper.
+          [ -n "$tok" ] && [ "$tok" != "null" ] || exit 0
           printf 'username=lukasf\npassword=%s\n' "$tok"
         '';
       };
