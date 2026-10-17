@@ -37,17 +37,17 @@ in
     uplink = "eno1";
     mgmtMac = "0c:c4:7a:6c:38:02";
     # Pin the mgmt bridge MAC to the reserved mgmt MAC so brvlan30 gets the
-    # DHCP reservation 10.1.30.12 (matches homelab.kubernetes.nodeIP) instead
+    # DHCP reservation 10.3.30.12 (matches homelab.kubernetes.nodeIP) instead
     # of a random-MAC lease, and carry the same RouteMetric/static-route setup
     # as srv2/srv8/srv9. (Verified 2026-09-13: without pinBridgeMac the fresh
-    # install came up on 10.1.30.32/10.1.20.105/10.1.40.234 and k3s wedged on
+    # install came up on 10.3.30.32/10.3.20.105/10.3.40.234 and k3s wedged on
     # the dead nodeIP.)
     pinBridgeMac = true;
     routeMetrics = true;
   };
 
   networking.extraHosts = ''
-    10.1.30.12 srv1 srv1.lab.h4xx.io
+    10.3.30.12 srv1 srv1.lab.h4xx.io
   '';
 
   homelab.personalServer = {
@@ -113,12 +113,12 @@ in
     powerClass = "performance";
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
-    nodeIP = "10.1.30.12";
+    nodeIP = "10.3.30.12";
     tlsSans = [
       "prod.k8s.lab.h4xx.io"
       "srv1.lab.h4xx.io"
       "srv1"
-      "10.1.30.12"
+      "10.3.30.12"
     ];
   };
 

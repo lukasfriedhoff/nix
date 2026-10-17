@@ -182,12 +182,12 @@ in
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
     nodeName = hostName;
-    nodeIP = "10.1.30.31";
+    nodeIP = "10.3.30.31";
     tlsSans = [
       "prod.k8s.lab.h4xx.io"
       "srv9.lab.h4xx.io"
       "srv9"
-      "10.1.30.31"
+      "10.3.30.31"
     ];
     extraFlags = [ "--kubelet-arg=max-pods=250" ];
   };
