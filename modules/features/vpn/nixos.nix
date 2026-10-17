@@ -26,6 +26,8 @@
       type = lib.types.listOf lib.types.str;
       default = [
         "10.1.0.0/16"
+        # Hiesfelder (location 3) relocated homelab, via kiosk hub + s2s tunnel.
+        "10.3.0.0/16"
         "10.0.10.0/23"
         "192.168.88.0/24"
         "172.16.0.0/16"
