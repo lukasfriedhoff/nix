@@ -91,6 +91,15 @@
     path = ".ssh/personal/mikrotikrb5009";
     scope = "personal";
   }
+  # The Hiesfelder router's key existed in nix-secrets since 2026-08-18 but was
+  # never listed here, so it was never installed and `ssh mikrotikhiesfelder`
+  # failed with "no such identity" - which matters now that the site is behind
+  # CGNAT and the router is only reachable over wg-s2s-hiesfelder.
+  {
+    secret = "ssh/MikrotikHiesfelder.priv";
+    path = ".ssh/personal/MikrotikHiesfelder";
+    scope = "personal";
+  }
   {
     secret = "ssh/travelrouter.priv";
     path = ".ssh/personal/travelrouter";
