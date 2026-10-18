@@ -40,7 +40,7 @@ in
   };
 
   networking.extraHosts = ''
-    10.1.30.27 srv8 srv8.lab.h4xx.io
+    10.3.30.27 srv8 srv8.lab.h4xx.io
   '';
 
   homelab.personalServer = {
@@ -118,12 +118,12 @@ in
     role = "server";
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
-    nodeIP = "10.1.30.27";
+    nodeIP = "10.3.30.27";
     tlsSans = [
       "prod.k8s.lab.h4xx.io"
       "srv8.lab.h4xx.io"
       "srv8"
-      "10.1.30.27"
+      "10.3.30.27"
     ];
     # gpu.* labels now derive from ./facter.json; see the kubernetes module.
     powerClass = "efficient";
