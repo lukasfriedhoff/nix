@@ -10,7 +10,17 @@ let
   hostName = "srv9";
   clusterDomain = "lab.h4xx.io";
   prodApiHost = "srv8.lab.h4xx.io";
-  managementInterface = "eno1np0";
+  # Hiesfelder: the uplink moved from the 10G SFP NIC (eno1np0, i40e) to the
+  # onboard 1G RJ45 ports (i350, igb). Active-backup bond over both RJ45
+  # ports so either one may be cabled; the bridge/bond MAC stays pinned so
+  # the DHCP reservation keeps matching.
+  managementBondMembers = [
+    "eno3"
+    "eno4"
+  ];
+  # The initrd has no bond — remote LUKS unlock DHCPs on this NIC only, so
+  # cable the first RJ45 port (Gb1/eno3) if remote unlock matters.
+  initrdUnlockInterface = "eno3";
   managementMac = "e4:43:4b:f2:1a:42";
   systemDiskId = "scsi-35002538b11337b60";
   k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
@@ -31,7 +41,11 @@ in
 
   homelab.vlanBridges = {
     enable = true;
-    uplink = managementInterface;
+    uplink = "bond0";
+    bond = {
+      members = managementBondMembers;
+      primary = "eno3";
+    };
     mgmtMac = managementMac;
     # IoT VLAN presence for the hostNetwork Home Assistant pod (mDNS/Matter
     # backbone; see the HA migration plan in the second-brain vault).
@@ -99,7 +113,7 @@ in
         enable = true;
         extraArgs = [
           "-i"
-          managementInterface
+          initrdUnlockInterface
           "-t"
           "20"
           "-T"
