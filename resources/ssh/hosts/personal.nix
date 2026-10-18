@@ -233,6 +233,19 @@
     };
   }
   {
+    # rue110 site router (L009UiGS). Reachable at its WIFI-vlan gateway, routed
+    # across the s2s mesh (10.2.0.0/16). Key provisioned 2026-10-18.
+    match = "mikrotikrue";
+    alias = "mikrotikrue";
+    hostName = "10.2.11.1";
+    port = 22;
+    user = "admin";
+    keyName = "MikrotikRue";
+    extraOptions = {
+      StrictHostKeyChecking = "accept-new";
+    };
+  }
+  {
     match = "testingrke2-01";
     alias = "testingrke2-01";
     hostName = "testingrke2-01";

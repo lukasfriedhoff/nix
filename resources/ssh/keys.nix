@@ -101,6 +101,11 @@
     scope = "personal";
   }
   {
+    secret = "ssh/MikrotikRue.priv";
+    path = ".ssh/personal/MikrotikRue";
+    scope = "personal";
+  }
+  {
     secret = "ssh/travelrouter.priv";
     path = ".ssh/personal/travelrouter";
     scope = "personal";
