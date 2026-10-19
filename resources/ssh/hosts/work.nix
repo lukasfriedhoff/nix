@@ -11,4 +11,21 @@
     user = "lukasf";
     keyName = "tunnel-tux";
   }
+  {
+    match = "academy-gitlab";
+    alias = "acgl";
+    hostName = "172.16.18.200";
+    user = "gitlab";
+    keyName = "academy-gitlab";
+    port = 2222;
+  }
+  # Academy GitLab git remote (gitlab-shell on :22, same node). Pubkey is
+  # registered on the lukas.friedhoff GitLab account.
+  {
+    match = "gitlab.apps.new-academy.group24.de";
+    alias = "gitlab.apps.new-academy.group24.de";
+    user = "git";
+    keyName = "academy-gitlab-git";
+    port = 22;
+  }
 ]

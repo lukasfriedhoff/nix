@@ -1,5 +1,7 @@
 {
   config,
+  lib,
+  pkgs,
   secrets,
   ...
 }:
@@ -40,6 +42,38 @@ in
   };
 
   home-manager.users.lukasfriedhoff = {
+    # Push access to the Forgejo primary (git.h4xx.io) from this Mac. The
+    # lukasf token is host-scoped (work-mbp-01 desktop secret, format
+    # `user:token`) and decrypted at use time - nothing lands on disk. The
+    # host-wide section also answers for second-brain before the workmac
+    # helper, which is fine: lukasf can reach that repo too.
+    # The leading "" resets the helper list, dropping the CommandLineTools
+    # osxkeychain helper: it otherwise answers first with a cached workmac
+    # login (host-wide, so it 403s on every repo but second-brain).
+    programs.git.settings."credential \"https://git.h4xx.io\"".helper = [
+      ""
+      "${config.users.users.lukasfriedhoff.home}/.config/git/forgejo-lukasf-credential-helper.sh"
+    ];
+    home.file.".config/git/forgejo-lukasf-credential-helper.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/sh
+        [ "$1" = "get" ] || exit 0
+        export SOPS_AGE_KEY_FILE="''${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
+        # Pinned input first; the local checkout covers a token committed
+        # but not yet pinned (pushing it is what this helper is for).
+        for f in "${secrets.primary}/git.h4xx.io.token.txt" \
+          "$HOME/git/lukasfriedhoff/nix-secrets/secrets/profiles/work/desktops/work-mbp-01/git.h4xx.io.token.txt"; do
+          [ -r "$f" ] || continue
+          t=$(${lib.getExe pkgs.sops} -d --input-type binary --output-type binary "$f" 2>/dev/null | tr -d '\n')
+          [ -n "$t" ] && break
+        done
+        # Stay silent on failure: an empty credential is cached as a failed attempt.
+        case "$t" in *:?*) ;; *) exit 0 ;; esac
+        printf 'username=%s\npassword=%s\n' "''${t%%:*}" "''${t#*:}"
+      '';
+    };
+
     # Local llama.cpp server, started on demand (llama-start, see
     # docs/services/local-llm.md).
     lukasf.llamaCppServer = {

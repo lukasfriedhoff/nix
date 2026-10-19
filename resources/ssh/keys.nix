@@ -6,6 +6,17 @@
     path = ".ssh/work/tunnel-tux";
     scope = "work";
   }
+  {
+    secret = "ssh/academy-gitlab.priv";
+    path = ".ssh/work/academy-gitlab";
+    scope = "work";
+  }
+  # Git-over-SSH key for lukas.friedhoff on the academy GitLab (gitlab-shell).
+  {
+    secret = "ssh/academy-gitlab-git.priv";
+    path = ".ssh/work/academy-gitlab-git";
+    scope = "work";
+  }
 
   # Add new personal homelab management keys here, e.g.:
   # { secret = "ssh/<short>-personal-mgmt.priv"; path = ".ssh/personal/<short>-personal-mgmt"; }
