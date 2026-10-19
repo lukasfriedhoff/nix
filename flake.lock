@@ -406,10 +406,10 @@
     "nix-secrets": {
       "flake": false,
       "locked": {
-        "lastModified": 1792352210,
-        "narHash": "sha256-Ew1T/22sHjQ9unmAllDDD06pDNbPPBjDDjZmon90t+E=",
+        "lastModified": 1792394893,
+        "narHash": "sha256-lLMLnjAo1Wc45w/7wPR7cA49QURsLL4yrNTqOK5WIJU=",
         "ref": "main",
-        "rev": "325e1a29dbff1ea984736e22a0ff45a481fd24f9",
+        "rev": "2187f00e3a986d760972fb78e7cf7384ab89ad3e",
         "shallow": true,
         "type": "git",
         "url": "ssh://git@github.com/lukasfriedhoff/nix-secrets"
