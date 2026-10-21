@@ -31,10 +31,18 @@ let
   renderExtraOptions =
     extra: lib.concatStringsSep "" (lib.mapAttrsToList (k: v: "  ${k} ${toString v}\n") extra);
 
+  # `match` is the Host pattern; an `alias` that differs from it becomes a
+  # second pattern so the short name works too (`ssh nuc`, `ssh acgl`).
+  hostPatterns =
+    host:
+    lib.concatStringsSep " " (
+      lib.unique (lib.optional (host ? match) host.match ++ lib.optional (host ? alias) host.alias)
+    );
+
   renderHost =
     host:
     ''
-      Host ${host.match or host.alias}
+      Host ${hostPatterns host}
         HostName ${host.hostName or host.alias}
         User ${host.user or defaultsProfile.user}
         Port ${toString (host.port or defaultsCommon.port)}

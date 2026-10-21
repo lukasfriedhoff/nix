@@ -18,14 +18,15 @@ nix-secrets checkout (`NIX_SECRETS_DIR`, default `../nix-secrets`); see
 - **testingrke2-02**: local RKE2 lab server (age1xlw9…)
 - **testingrke2-03**: local RKE2 lab server (age1n4wg…)
 - **srv9**: homelab server (age1ewj9…)
-- **macbook-pro**: work desktop (age1dqt5…)
+- **macbook-pro**: previous work desktop (age1dqt5…); still a recipient of the work rules
+- **work-mbp-01**: group24 work MacBook (age1fmhh…)
 
 ## Markdown tree: paths, who can decrypt, and why
 
 ```
 secrets/profiles/
 ├── common/
-│   └── shared/                          [tux, tab, lenovo, srv4, macbook-pro]
+│   └── shared/                          [tux, tab, lenovo, srv4, macbook-pro, work-mbp-01]
 │       (reserved for cross-profile secrets)
 ├── personal/
 │   ├── shared/                          [tux, tab, lenovo, srv4, srv1, srv2, srv8, srv9]
@@ -82,10 +83,22 @@ secrets/profiles/
 │       └── srv4-vm-01/
 │           └── wireguard/
 └── work/
-    ├── shared/                          [macbook-pro]
+    ├── shared/                          [macbook-pro, work-mbp-01]
+    │   └── forgejo/
     ├── desktops/
-    │   └── macbook-pro/                 [macbook-pro]
-    └── servers/                         [macbook-pro]
+    │   ├── macbook-pro/                 [macbook-pro, work-mbp-01]
+    │   │   └── ssh/
+    │   └── work-mbp-01/                 [work-mbp-01] (secrets.primary of the work Mac)
+    │       ├── ssh/                     (academy GitLab node + git keys, tunnel-tux;
+    │       │                             hostnames-private.conf -> ~/.ssh/config.d/15-hostnames-private)
+    │       ├── git.h4xx.io.token.txt    (Forgejo push credential)
+    │       ├── gitlab-academy-*.txt     (academy GitLab: tofu-state PAT, api PAT, ci-deploy-push token)
+    │       ├── comin-academy-deploy-token.txt
+    │       ├── proxmox-academy-*.txt    (academy Proxmox API tokens)
+    │       ├── rke2-academy-<stage>-{server,agent}-token.txt
+    │       ├── sops-age-academy-<stage>.txt (in-cluster sops-secrets-operator keys)
+    │       └── hf-token.txt
+    └── servers/                         [macbook-pro, work-mbp-01]
         ├── docker-host-01/
         └── timebutler-test-vm/
 ```
@@ -95,7 +108,7 @@ secrets/profiles/
 - **personal/shared**: used across personal desktops and homelab infra; srv1, srv2, srv8, and srv9 are included for server-side automation.
 - **personal/desktops/**: per-desktop secrets restricted to the specific device; `ssh` subtrees are shared between personal desktops for admin convenience.
 - **personal/servers/**: decryptable by personal desktops plus homelab server keys so both admins and server automation can access.
-- **work/shared, work/desktops, work/servers**: work-only scope, decryptable solely by the work macbook.
+- **work/shared, work/desktops, work/servers**: work-only scope, decryptable only by the work Macs (macbook-pro, work-mbp-01); `work/desktops/work-mbp-01/` by work-mbp-01 alone. Private hostnames of work hosts live in its `ssh/hostnames-private.conf`, not in `resources/ssh/hosts/work.nix`.
 
 ## Host-specific notes
 - **Ceph on `tux-h4xx-01`**: historical — the Ceph modules have been removed from the nix repo. The client keyring under `secrets/profiles/personal/desktops/tux-h4xx-01/ceph/` (and the cluster material under `personal/servers/ceph/<fsid>/`) still exists in nix-secrets but is no longer consumed by any module.
