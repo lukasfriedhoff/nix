@@ -11,10 +11,11 @@
     user = "lukasf";
     keyName = "tunnel-tux";
   }
+  # Academy GitLab node shell (k3s host). No `hostName` here: the node's
+  # address comes from hostnames-private.conf in nix-secrets, like tux.
   {
     match = "academy-gitlab";
     alias = "acgl";
-    hostName = "172.16.18.200";
     user = "gitlab";
     keyName = "academy-gitlab";
     port = 2222;
