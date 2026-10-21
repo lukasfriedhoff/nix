@@ -14,6 +14,11 @@ _final: prev:
   # nixpkgs. Consumed by modules/features/profile/desktop/home.nix.
   diskwatch = prev.callPackage ../pkgs/diskwatch { };
 
+  # Closed-source macOS remote-access clients for the work Mac, pinned to the
+  # Homebrew cask versions. Consumed by modules/features/work/remote-access/home.nix.
+  royal-tsx = prev.callPackage ../pkgs/royal-tsx { };
+  windows-app = prev.callPackage ../pkgs/windows-app { };
+
   # Master PDF Editor pinned to 5.9.60, the newest release the purchased
   # license activates. Consumed by modules/features/profile/desktop/home.nix.
   masterpdfeditorLicenseCompatible = prev.masterpdfeditor.overrideAttrs (_old: {
