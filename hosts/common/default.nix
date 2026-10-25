@@ -167,6 +167,14 @@ in
         max-jobs = lib.mkDefault 2;
         cores = lib.mkDefault 4;
       };
+
+      # smartmontools was only ever installed on desktops, so the three nodes
+      # carrying every Longhorn replica had no way to read SMART at all - no
+      # reallocated-sector counts, no wear data, nothing. Collection now happens
+      # in-cluster via the smartctl-exporter DaemonSet, but the CLI still has to
+      # be here: every SMART alert's runbook step is "read smartctl -a on the
+      # node", which is useless if the binary is missing.
+      environment.systemPackages = [ pkgs.smartmontools ];
     })
     (lib.mkIf desktopDefaults {
       shared.network.resolved = {

@@ -123,17 +123,40 @@ classes select disks tagged `nvme`. In practice:
 The tag means "fast tier", not a bus. Do not infer latency from it, and be aware
 that re-enabling srv8 would put `nvme`-class workloads on USB.
 
-## Gap: no SMART monitoring
+## SMART monitoring (added 2026-10-25)
 
-`smartctl` is **not installed on any of the three nodes**, so there is no disk
-health telemetry at all — no reallocated-sector counts, no wear indicators, no
-pre-failure warning. srv9's build survey recorded SMART health once from the
-installer ISO; nothing has checked since.
+Until 2026-10-25 there was none at all — `smartctl` was not even installed on
+the nodes, so nothing tracked reallocated sectors, flash wear or pending
+failures on ~48 TB of HDD where several volumes are effectively single-replica.
 
-Given srv9 carries ~48 TB of HDD on which several volumes are effectively
-single-replica, this is the largest monitoring gap in the storage stack. Adding
-`pkgs.smartmontools` (and `services.smartd`) to the homelab server profile would
-close it.
+Two halves now cover it:
+
+- **Collection in-cluster**: a `smartctl-exporter` DaemonSet
+  (`flux-apps/apps/monitoring/smartctl-exporter`) scraped into Mimir through the
+  usual Alloy pod-annotation autodiscovery. It runs `privileged` because
+  `smartctl --scan` reads `/dev`, so the host `/dev` must be mounted *at* `/dev`,
+  and its SG_IO ioctls need the device opened writable — a read-only mount or a
+  `SYS_RAWIO`/`SYS_ADMIN` capability set is not sufficient.
+- **The CLI on the hosts**: `pkgs.smartmontools` is now in the `homelabDefaults`
+  block of `hosts/common/default.nix`. It had only ever been installed for
+  desktops. Every SMART alert's runbook step is "read `smartctl -a` on the node",
+  which needs the binary present.
+
+Dashboard: **SMART Disk Health** (`smart-disk-health`) in Grafana's *Storage*
+folder. Alerts: `apps/monitoring/rules-sync/smart-alerts.yaml` — kept separate
+from `alerts.yaml`/`rules.yaml`, which are generated from the kubernetes-mixin
+and would overwrite anything added to them.
+
+**Expect srv8's disks to report nothing at first.** They are all USB-attached,
+and USB bridges commonly need an explicit `-d sat` or `-d usbjmicron` before
+they answer SMART. That shows up as a non-zero
+`smartctl_device_smartctl_exit_status`, which the `SmartctlCannotReadDevice`
+alert catches deliberately — an unreadable drive is an unmonitored drive, and
+that must not be silent.
+
+**Caveat on the alerts**: Mimir's Alertmanager has no receiver configured, so
+these rules evaluate and show in Grafana but notify nobody. Wiring a receiver is
+tracked separately in the second brain backlog.
 
 ## Related
 
