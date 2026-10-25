@@ -10,10 +10,21 @@ This directory contains hardware-specific documentation for each managed device.
 | tab-h4xx-02 | ASUS Vivobook T3300 | [Documented](tab-h4xx-02.md) |
 | lenovo-h4xx-03 | Lenovo ThinkPad P15 Gen 2i | [Draft](lenovo-h4xx-03.md) |
 | lenovo-h4xx-04 | Lenovo ThinkPad P15 Gen 2i | [Retired](lenovo-h4xx-04.md) (host removed from the flake) |
-| srv1 | Supermicro server | See host config |
+| srv1 | Supermicro server | See host config; disks in [cluster-disk-inventory.md](cluster-disk-inventory.md) |
 | srv2 | Homelab server | See host config |
+| srv8 | Homelab server | [Documented](srv8.md) |
+| srv9 | Dell PowerEdge R740xd | [Documented](srv9.md) |
 | srv4-vm-01 | Virtual machine | N/A |
 | virtual-05 | Virtual desktop | N/A |
+
+## Cluster storage
+
+[`cluster-disk-inventory.md`](cluster-disk-inventory.md) records the physical
+disk -> LUKS mapper -> Longhorn disk -> tag chain for srv1/srv8/srv9, plus the
+constraints that follow from it: schedulable HDD exists on srv9 only (so the
+2-replica `*-disk-*-2r` storage classes cannot be satisfied), every Longhorn
+disk on srv8 is USB-attached and administratively disabled, the `nvme` tag means
+"fast tier" rather than a bus, and no node has `smartctl` installed.
 
 ## Hardware Quirks
 
