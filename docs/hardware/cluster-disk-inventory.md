@@ -147,12 +147,45 @@ folder. Alerts: `apps/monitoring/rules-sync/smart-alerts.yaml` — kept separate
 from `alerts.yaml`/`rules.yaml`, which are generated from the kubernetes-mixin
 and would overwrite anything added to them.
 
-**Expect srv8's disks to report nothing at first.** They are all USB-attached,
-and USB bridges commonly need an explicit `-d sat` or `-d usbjmicron` before
-they answer SMART. That shows up as a non-zero
-`smartctl_device_smartctl_exit_status`, which the `SmartctlCannotReadDevice`
-alert catches deliberately — an unreadable drive is an unmonitored drive, and
-that must not be silent.
+**srv8's USB disks answer SMART without any override.** smartctl auto-detects
+them as `usbprolific`, and both the T-FORCE SSD and the WD40EFRX report
+normally — no `-d sat` needed. The one exception is the 1.8 TB Seagate BUP Slim,
+which does not appear at all.
+
+**storage01 already had a smartctl exporter** (11 devices, `instance="storage01"`),
+predating this work. The gap was the three k3s nodes, not the whole estate.
+
+### Two traps that made whole nodes invisible
+
+**1. Pin the exporter to v0.14.0. v0.15.0 returns HTTP 500 and zero metrics on
+SAS.** It collects SCSI-only metrics
+(`smartctl_scsi_percentage_used_endurance_indicator`,
+`smartctl_verify_errors_corrected_by_*`,
+`smartctl_verify_total_uncorrected_errors`) using descriptors it never
+registers. The Prometheus client treats an unregistered descriptor as a
+collection error and fails the **entire response**, not just the offending
+series. srv9's four Samsung SAS SSDs trigger it, so srv9 — the node holding
+~48 TB — reported nothing while srv1 and srv8 looked healthy and the dashboard
+looked populated. **A single unsupported device blinds a whole node, and the
+only symptom is in the response body.** Renovate must not bump this without
+re-testing srv9.
+
+**2. Exclude Longhorn's iSCSI devices or srv9 cannot be scraped at all.** Every
+attached Longhorn volume appears as a `/dev/sdX` with model
+`IET VIRTUAL-DISK`, and the exporter runs one `smartctl` per device serially.
+srv9 discovered **94** devices and took **over 80 seconds** to answer
+`/metrics`, against the chart's 10 s `scrapeTimeout`. The exclusion regex
+(`^sd([g-z]|[a-z]{2,})$`) brings that to 14 devices and sub-second responses.
+Note srv9's real disks are not `sd*` at all — they enumerate through the H730P
+as `bus_0_megaraid_N` and `bus_0_sat+megaraid_N`.
+
+### Findings from the first full collection (2026-10-25)
+
+| Device | Finding |
+|---|---|
+| `storage01` `sdi` | **SMART assessment FAILED.** ST1000LM014-1EJ164-SSHD, serial W770473H, 901 power-on days. `End-to-End_Error` value 81 against threshold 97 (attribute 184 — corruption between drive cache and host). smartctl exit 88 = bits 3+4+6: disk failing, pre-fail attribute below threshold, errors in log. **Reallocated and pending sectors are both zero**, so looking only at sector counts would have missed it entirely. This is on the only backup target. |
+| `srv1` `sdf` | 3 reallocated sectors. SanDisk Ultra II 960GB — srv1's **root** disk. Small and currently stable; watch the slope, not the value. |
+| `storage01` | 6 devices return non-zero smartctl exit, i.e. no health data. Pre-existing. |
 
 **Caveat on the alerts**: Mimir's Alertmanager has no receiver configured, so
 these rules evaluate and show in Grafana but notify nobody. Wiring a receiver is
