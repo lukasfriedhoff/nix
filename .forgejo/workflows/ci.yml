@@ -1,0 +1,133 @@
+# Primary CI. Runs on the in-cluster Forgejo Actions runner against
+# git.h4xx.io, which is the primary remote - so unlike the GitHub mirror this
+# fires on push and needs no manual dispatch.
+#
+# Four properties of that runner shape the steps below:
+#
+#   * `sudo` is broken in the act images; the job already runs as root.
+#   * Marketplace actions resolve through data.forgejo.org. `actions/*` work,
+#     third-party ones frequently do not - hence the nixos/nix container
+#     instead of cachix/install-nix-action, and the SSH key written by hand
+#     instead of webfactory/ssh-agent.
+#   * The nixos/nix image ships no git, ssh or jq. Host lists therefore come
+#     from `nix eval --apply` rather than jq, and git/ssh are materialised
+#     from nixpkgs onto PATH.
+#   * nix-secrets is a PRIVATE git+ssh input that every host eval reads secret
+#     paths from, so without its deploy key CI cannot evaluate anything.
+#
+# .github/workflows/ci.yml is the break-glass twin of this file: dispatch-only,
+# on GitHub's hosted runners, for when the cluster hosting this runner is
+# itself the thing that is broken. Keep the two in sync.
+#
+# Required repository secrets on git.h4xx.io:
+#   NIX_SECRETS_DEPLOY_KEY - read-only deploy key for lukasfriedhoff/nix-secrets
+#   FORGEJO_TOKEN          - Forgejo PAT with write:repository, to move `deploy`
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+# Never let two promotes race for the deploy branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    container:
+      image: nixos/nix:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable flakes
+        run: |
+          mkdir -p /etc/nix
+          printf 'experimental-features = nix-command flakes\naccept-flake-config = true\n' >> /etc/nix/nix.conf
+
+      - name: Set up git, ssh and the nix-secrets deploy key
+        run: |
+          set -eu
+          openssh="$(nix build --no-link --print-out-paths nixpkgs#openssh)"
+          git="$(nix build --no-link --print-out-paths nixpkgs#git)"
+          printf '%s/bin\n%s/bin\n' "$openssh" "$git" >> "$GITHUB_PATH"
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "${{ secrets.NIX_SECRETS_DEPLOY_KEY }}" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          "$openssh/bin/ssh-keyscan" -t rsa,ed25519 github.com >> "$HOME/.ssh/known_hosts"
+
+      - name: Format check
+        run: nix fmt -- --ci .
+
+      # Evaluate every host in its own nix process: one shared process (as
+      # nix flake check does) accumulates the heap of all hosts and gets
+      # OOM-killed. Eval failures are what break comin deploys, so this is the
+      # check that actually guards the fleet.
+      #
+      # Deliberately eval-only. `nix flake check` would also build the
+      # integration tests, and shadow-client-appimage pins a vendor AppImage at
+      # a rolling URL that Shadow overwrites in place - its hash breaks on every
+      # vendor release and would wedge the deploy gate on something unrelated.
+      - name: Evaluate hosts
+        run: |
+          set -eu
+          names() { nix eval --raw ".#$1" --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)'; }
+          for h in $(names nixosConfigurations); do
+            echo "::group::nixosConfigurations.$h"
+            nix eval --raw ".#nixosConfigurations.\"$h\".config.system.build.toplevel.drvPath"
+            echo
+            echo "::endgroup::"
+          done
+          for h in $(names darwinConfigurations); do
+            echo "::group::darwinConfigurations.$h"
+            nix eval --raw ".#darwinConfigurations.\"$h\".system.drvPath"
+            echo
+            echo "::endgroup::"
+          done
+
+  # comin on the servers tracks `deploy`. Fast-forward it only after checks
+  # pass, so a broken eval can never reach a host.
+  #
+  # comin reads deploy from the Codeberg mirror first and falls back to GitHub
+  # (modules/features/comin/nixos.nix); both force-sync from here, so promoting
+  # on git.h4xx.io is what propagates to the fleet.
+  promote:
+    needs: checks
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    container:
+      image: nixos/nix:latest
+    steps:
+      - name: Enable flakes
+        run: |
+          mkdir -p /etc/nix
+          printf 'experimental-features = nix-command flakes\naccept-flake-config = true\n' >> /etc/nix/nix.conf
+
+      # A bare clone rather than actions/checkout: it needs no git in the
+      # image, and it carries the full history that a fast-forward push of an
+      # arbitrary sha requires.
+      #
+      # Promote THIS commit, not a freshly resolved develop - re-resolving
+      # would promote whatever landed during the run, including a commit that
+      # never passed checks. Unforced, so a diverged deploy fails loudly
+      # instead of rolling the fleet backwards.
+      - name: Fast-forward deploy to the commit that passed
+        run: |
+          set -eu
+          git="$(nix build --no-link --print-out-paths nixpkgs#git)/bin/git"
+          url="https://ci:${{ secrets.FORGEJO_TOKEN }}@git.h4xx.io/lukasf/nix.git"
+          "$git" clone --bare --quiet "$url" /tmp/nix.git
+          "$git" -C /tmp/nix.git push origin "${{ github.sha }}:refs/heads/deploy"
