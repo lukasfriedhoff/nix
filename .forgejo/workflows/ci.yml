@@ -124,10 +124,18 @@ jobs:
       # would promote whatever landed during the run, including a commit that
       # never passed checks. Unforced, so a diverged deploy fails loudly
       # instead of rolling the fleet backwards.
+      # secrets.FORGEJO_TOKEN is the token Forgejo mints automatically for the
+      # duration of the run (GITHUB_TOKEN is its alias), NOT something to
+      # create - a repo secret of that name cannot shadow it. If it turns out
+      # to lack push permission for `deploy`, add a PAT with write:repository
+      # as DEPLOY_PUSH_TOKEN and this prefers it; until then the built-in token
+      # means this job needs no setup at all.
       - name: Fast-forward deploy to the commit that passed
         run: |
           set -eu
+          token='${{ secrets.DEPLOY_PUSH_TOKEN }}'
+          [ -n "$token" ] || token='${{ secrets.FORGEJO_TOKEN }}'
           git="$(nix build --no-link --print-out-paths nixpkgs#git)/bin/git"
-          url="https://ci:${{ secrets.FORGEJO_TOKEN }}@git.h4xx.io/lukasf/nix.git"
-          "$git" clone --bare --quiet "$url" /tmp/nix.git
+          "$git" clone --bare --quiet \
+            "https://ci:$token@git.h4xx.io/lukasf/nix.git" /tmp/nix.git
           "$git" -C /tmp/nix.git push origin "${{ github.sha }}:refs/heads/deploy"
