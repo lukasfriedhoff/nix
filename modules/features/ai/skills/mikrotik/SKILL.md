@@ -21,7 +21,7 @@ secondary site: `mikrotikhiesfelder`). RouterOS 7.x.
   (`drop dst-address-list=!homelab-local-v4 in-interface-list=homelab-vpn-vlans
   out-interface-list=WAN`). Cluster egress IP = Proton exit (149.88.x).
   Measured: ~160 Mbit up through Proton — the VPN is not a bottleneck.
-- **Site-to-site WG**: `wg-s2s-rue`, `wg-s2s-travel`, `wg-s2s-hiesfelder`.
+- **Site-to-site WG**: `wg-s2s-rue`, `wg-s2s-hiesfelder`.
 - **Guest isolation**: `vlan120: no access to local networks` (drop
   dst=homelab-local-v4 in=vlan120) — guests can't initiate inward; replies to
   outbound connections ride established/related. Keep this rule.
