@@ -69,7 +69,9 @@ jobs:
       - name: Set up git, ssh and the nix-secrets deploy key
         run: |
           set -eu
-          openssh="$(nix build --no-link --print-out-paths nixpkgs#openssh)"
+          # ^out: openssh has a separate man output and --print-out-paths lists
+          # both, which turned "$openssh/bin/ssh-keyscan" into garbage.
+          openssh="$(nix build --no-link --print-out-paths 'nixpkgs#openssh^out')"
           git="$(nix build --no-link --print-out-paths nixpkgs#git)"
           printf '%s/bin\n%s/bin\n' "$openssh" "$git" >> "$GITHUB_PATH"
 
