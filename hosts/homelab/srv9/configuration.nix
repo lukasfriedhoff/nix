@@ -69,6 +69,18 @@ in
   # cloudflared happens to hit the traefik replica running on srv9.
   networking.firewall.interfaces.brvlan30.allowedTCPPorts = [ 8123 ];
 
+  # L2 leg into the KIOSK IoT VLAN (10.1.12.0/24, the other site) for the WiFi
+  # Matter bridges that stayed there (Aqara Hub M2, SwitchBot Hub 2): the
+  # hostNetwork matter-server / HA zeroconf need mDNS + IPv6 link-local
+  # adjacency. VXLAN to the kiosk RB5009, where `vxlan-iot-srv9` is a pvid-12
+  # port in its bridge. Deliberately NOT bridged into brvlan12: merging the two
+  # routers' VLAN12 with EoIP stormed the kiosk router on 2026-10-28.
+  homelab.vxlanLegs.vxlan-iot-kiosk = {
+    vni = 12;
+    localAddress = "10.3.30.31";
+    remoteAddress = "10.1.30.1";
+  };
+
   homelab.personalServer = {
     enable = true;
     managementPubKey = null;
