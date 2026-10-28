@@ -215,9 +215,15 @@
     };
   }
   {
+    # Hiesfelder site router (L009UiGS, labelled "MikroTikKeller"), reachable on
+    # its mgmt-vlan (VLAN30) gateway address. The site was relocated 2026-10-18
+    # and re-IP'd from 10.1.30.x to 10.3.30.x under 10.<site>.<vlan>.<host>
+    # (kiosk = 1, hiesfelder = 3); 192.168.2.1 was the pre-relocation address.
+    # Hiesfelder is behind CGNAT, so this only resolves over the
+    # wg-s2s-hiesfelder site-to-site tunnel via the kiosk RB5009 hub.
     match = "mikrotikhiesfelder";
     alias = "mikrotikhiesfelder";
-    hostName = "mikrotikhiesfelder";
+    hostName = "10.3.30.1";
     port = 22;
     user = "admin";
     keyName = "MikrotikHiesfelder";
