@@ -57,11 +57,17 @@
 
 stdenv.mkDerivation rec {
   pname = "shadow-client-appimage";
-  version = "9.9.10355.16013";
+  # The vendor overwrites the URL below in place on every release, so there is
+  # no per-version artifact to pin: the hash breaks the moment they ship, and
+  # `version` only records what the rolling URL served when it was last
+  # refreshed. Read from the bundled shadow-launcher.desktop
+  # (X-AppImage-Version); resources/app.asar's package.json carries the same
+  # value without the trailing build number.
+  version = "9.9.10481.17367";
 
   src = fetchurl {
     url = "https://update.shadow.tech/launcher/prod/linux/ubuntu_18.04/ShadowPC.AppImage";
-    hash = "sha256-6M58ATe5FsXd3IJ73HwRSeTnbTNA9zBxUO7sbFl/+fg=";
+    hash = "sha256-KKrs5KeU3X5ncWEQvGVifUoSRRqrnAh5I262+RatTaE=";
   };
 
   nativeBuildInputs = [
