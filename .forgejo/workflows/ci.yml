@@ -46,13 +46,25 @@ jobs:
     container:
       image: nixos/nix:latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Enable flakes
         run: |
           mkdir -p /etc/nix
           printf 'experimental-features = nix-command flakes\naccept-flake-config = true\n' >> /etc/nix/nix.conf
+      # actions/checkout is a JavaScript action and the nixos/nix image ships
+      # no node, so the runner's exec of it dies with "node: executable file
+      # not found in $PATH" before the first step even logs. Clone with git
+      # from nixpkgs instead; the built-in token authenticates exactly like
+      # actions/checkout would. Shallow is enough for eval.
+      - name: Checkout (git from nixpkgs, no node in nixos/nix)
+        run: |
+          set -eu
+          git="$(nix build --no-link --print-out-paths nixpkgs#git)"
+          g() { "$git/bin/git" -c safe.directory='*' "$@"; }
+          cd "$GITHUB_WORKSPACE"
+          g init --quiet
+          g remote add origin "https://x-access-token:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          g fetch --quiet --depth=1 origin "$GITHUB_SHA"
+          g checkout --quiet FETCH_HEAD
 
       - name: Set up git, ssh and the nix-secrets deploy key
         run: |
