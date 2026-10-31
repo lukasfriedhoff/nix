@@ -108,6 +108,13 @@ in
     sopsFile = "${secrets.profileShared}/luks/srv8-longhorn.txt";
   };
 
+  # Fed by the APC UPS on srv9: NUT secondary, powers off when srv9 declares
+  # the forced shutdown (modules/features/homelab/ups).
+  homelab.ups = {
+    enable = true;
+    role = "secondary";
+  };
+
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
     longhorn.enable = true;

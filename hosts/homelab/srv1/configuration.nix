@@ -87,6 +87,13 @@ in
     sopsFile = "${secrets.profileShared}/luks/srv1-longhorn.txt";
   };
 
+  # Fed by the APC UPS on srv9: NUT secondary, powers off when srv9 declares
+  # the forced shutdown (modules/features/homelab/ups).
+  homelab.ups = {
+    enable = true;
+    role = "secondary";
+  };
+
   # Shared cluster k3s token: joins srv1 to the existing homelab cluster as an
   # AGENT (worker + Longhorn SSD storage; control-plane/etcd stays srv2/8/9).
   # Gated on token presence so a tokenless build can't accidentally clusterInit

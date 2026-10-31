@@ -154,6 +154,14 @@ in
     authorizedKeyFile = ./initrd-authorized.pub;
   };
 
+  # APC UPS on USB: NUT primary. Decides the fleet shutdown at 10 min of
+  # runtime (or 20 % charge) left and serves upsd to srv1/srv8 on brvlan30
+  # (modules/features/homelab/ups).
+  homelab.ups = {
+    enable = true;
+    role = "primary";
+  };
+
   sops.secrets = {
     "flux-cluster-token" = {
       sopsFile = "${secrets.primary}/flux-cluster-bootstrap-token.txt";
