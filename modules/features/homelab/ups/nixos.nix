@@ -77,6 +77,16 @@ in
       description = "Driver port; `auto` lets usbhid-ups find the USB device (primary only).";
     };
 
+    extraDirectives = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "porttype = serial" ];
+      description = ''
+        Additional ups.conf directives for the driver section (primary only),
+        e.g. `porttype = serial` for apc_modbus on a serial port.
+      '';
+    };
+
     runtimeLowSeconds = lib.mkOption {
       type = lib.types.ints.positive;
       default = 600;
@@ -207,7 +217,8 @@ in
               "override.battery.runtime.low = ${toString cfg.runtimeLowSeconds}"
               "override.battery.charge.low = ${toString cfg.chargeLowPercent}"
               "pollinterval = 5"
-            ];
+            ]
+            ++ cfg.extraDirectives;
           };
 
           # Bind every address: the management IP is a DHCP lease that need not
