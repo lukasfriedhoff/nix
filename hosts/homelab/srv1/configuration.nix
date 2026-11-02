@@ -3,6 +3,7 @@
   inputs,
   lib,
   secrets,
+  pkgs,
   ...
 }:
 
@@ -101,6 +102,11 @@ in
   # Control-plane member since 2026-09-21 (replaces srv2's etcd seat: srv2's
   # DRAM-less NVMe made etcd chronically slow). gitops bootstrap stays on the
   # existing servers.
+  # Kubernetes 1.35 -> 1.36 (k3s 1.36.4+k3s1), rolled one control-plane node at a time;
+  # the module's default is nixpkgs' `k3s` (1.35.8). Move this to the module once all
+  # three servers run 1.36.
+  services.k3s.package = pkgs.k3s_1_36;
+
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
     longhorn.enable = true;
