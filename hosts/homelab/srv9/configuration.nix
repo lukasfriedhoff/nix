@@ -3,6 +3,7 @@
   secrets,
   inputs,
   lib,
+  pkgs,
   ...
 }:
 
@@ -181,6 +182,11 @@ in
     sopsFile = "${secrets.profileShared}/luks/srv9-longhorn.txt";
     mode = "0755";
   };
+
+  # Kubernetes 1.35 -> 1.36 (k3s 1.36.4+k3s1), rolled one control-plane node at a time;
+  # the module's default is nixpkgs' `k3s` (1.35.8). Move this to the module once all
+  # three servers run 1.36.
+  services.k3s.package = pkgs.k3s_1_36;
 
   homelab.kubernetes = lib.mkIf hasK3sToken {
     enable = true;
