@@ -88,6 +88,9 @@ in
         # Hiesfelder (location 3) relocated homelab, reached via the kiosk
         # RB5009 hub + the wg-s2s-hiesfelder site-to-site tunnel.
         "10.3.0.0/16"
+        # rue110 (location 2), via kiosk hub + wg-s2s-rue. Without it 10.2.x was
+        # only reachable while physically on rue's network.
+        "10.2.0.0/16"
         "10.0.10.0/23"
         "192.168.88.0/24"
         "172.16.0.0/16"
