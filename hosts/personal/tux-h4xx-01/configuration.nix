@@ -161,6 +161,14 @@
     config.sops.secrets."personal-desktop-key-pub".path
   ];
 
+  # Reap dead sessions quickly: the Mac's reverse tunnel (llama-share-tux)
+  # otherwise leaves its listener on 11434 behind for hours after a WiFi drop
+  # and every reconnect fails with "remote port forwarding failed".
+  services.openssh.settings = {
+    ClientAliveInterval = 15;
+    ClientAliveCountMax = 3;
+  };
+
   users.users.lukasf.openssh.authorizedKeys.keyFiles = [ ./tunnel-tux.pub ];
 
   # Power management

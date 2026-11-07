@@ -93,12 +93,22 @@ in
     # tux has no stable address, so the target is an argument (default: mDNS);
     # -o Hostname overrides only the address while the `tux` ssh alias keeps
     # supplying user and tunnel key.
+    # tux sits on WiFi and drops off the LAN for seconds at a time (dhcpcd
+    # rebinds, ARP timeouts surface as "No route to host"), so the function
+    # retries until ctrl+c and reconnects when an established tunnel dies.
+    # Keepalives make a dead link visible within a minute; tux's sshd reaps
+    # the stale session just as fast so the remote port is free again.
     programs.bash.initExtra = ''
       llama-share-tux() {
         local host="''${1:-tux-h4xx-01.local}"
-        echo "reverse tunnel: ''${host} -> localhost:11434 (ctrl+c stops it)" >&2
-        ssh -N -o ExitOnForwardFailure=yes -o "Hostname=''${host}" \
-          -R 127.0.0.1:11434:127.0.0.1:11434 tux
+        echo "reverse tunnel: ''${host} -> localhost:11434 (retries until ctrl+c)" >&2
+        while true; do
+          ssh -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            -o "Hostname=''${host}" -R 127.0.0.1:11434:127.0.0.1:11434 tux
+          echo "tunnel down (ssh exit $?), retrying in 5s..." >&2
+          sleep 5
+        done
       }
     '';
 

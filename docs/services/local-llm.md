@@ -111,7 +111,11 @@ llama-share-tux                 # tunnel to tux-h4xx-01.local (mDNS default)
 llama-share-tux 192.168.1.23    # or pass tux's current address explicitly
 ```
 
-The function runs in the foreground; ctrl+c drops the tunnel. tux has no
+The function runs in the foreground and retries until ctrl+c: tux is on
+WiFi and drops off the LAN for seconds at a time ("No route to host"), and
+an established tunnel reconnects when keepalives detect a dead link. tux's
+sshd reaps the stale session within a minute (`ClientAliveInterval`), so
+the remote port is free again for the reconnect. tux has no
 stable address, so the argument overrides the SSH `Hostname` while the
 `tux` work alias keeps supplying user and the dedicated tunnel key
 (`~/.ssh/work/tunnel-tux`, trusted on tux through
