@@ -43,8 +43,10 @@ let
     lib.mapAttrsToList (name: preset: ''
       ${lib.escapeShellArg name})
         ${lib.concatStringsSep "\n" (
-          f: "  pull ${lib.escapeShellArg f.repo} ${lib.escapeShellArg f.file} ${lib.escapeShellArg f.dir}"
-        ) preset.files}
+          lib.map (
+            f: "  pull ${lib.escapeShellArg f.repo} ${lib.escapeShellArg f.file} ${lib.escapeShellArg f.dir}"
+          ) preset.files
+        )}
         ;;
     '') cfg.modelsPreset
   );
