@@ -88,14 +88,27 @@ in
       package = inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-cpp;
     };
 
-    # Expose the local llama.cpp server on tux via a reverse tunnel (mac
-    # initiates; tux then reaches it as localhost:11434). Requires llama-start.
+    # Local ComfyUI for AI video generation, also on demand (video-start;
+    # llama-stop first, see docs/services/video-gen.md). RunAtLoad stays
+    # off: one AI runtime at a time, llama-server owns the session.
+    lukasf.videoGen = {
+      enable = true;
+      # ComfyUI is only packaged for aarch64-darwin in newer nixpkgs; pin
+      # the same input as the llama.cpp override (both need fresh PyTorch
+      # Metal for the M5).
+      package = inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.comfyui;
+      hfTokenFile = config.sops.secrets.hf-token.path;
+    };
+
+    # Expose the local AI servers on tux via reverse tunnels (mac
+    # initiates; tux then reaches llama-server as localhost:11434 and
+    # ComfyUI as localhost:8188). Requires llama-start / video-start.
     # tux has no stable address, so the target is an argument (default: mDNS);
-    # -o Hostname overrides only the address while the `tux` ssh alias keeps
+    # -o Hostname overrides only the address while the ssh aliases keep
     # supplying user and tunnel key.
     # tux sits on WiFi and drops off the LAN for seconds at a time (dhcpcd
-    # rebinds, ARP timeouts surface as "No route to host"), so the function
-    # retries until ctrl+c and reconnects when an established tunnel dies.
+    # rebinds, ARP timeouts surface as "No route to host"), so the functions
+    # retry until ctrl+c and reconnect when an established tunnel dies.
     # Keepalives make a dead link visible within a minute; tux's sshd reaps
     # the stale session just as fast so the remote port is free again.
     programs.bash.initExtra = ''
@@ -106,6 +119,17 @@ in
           ssh -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             -o "Hostname=''${host}" -R 127.0.0.1:11434:127.0.0.1:11434 tux
+          echo "tunnel down (ssh exit $?), retrying in 5s..." >&2
+          sleep 5
+        done
+      }
+      video-share-tux() {
+        local host="''${1:-tux-h4xx-01.local}"
+        echo "reverse tunnel: ''${host} -> localhost:8188 (retries until ctrl+c)" >&2
+        while true; do
+          ssh -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            -o "Hostname=''${host}" -R 127.0.0.1:8188:127.0.0.1:8188 tux
           echo "tunnel down (ssh exit $?), retrying in 5s..." >&2
           sleep 5
         done
