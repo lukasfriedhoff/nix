@@ -140,11 +140,16 @@
     KERNEL=="uinput", MODE="0660", GROUP="input"
   '';
 
-  # SSH access: the shared personal-desktop identity pub comes from sops
-  # (desktops share one keypair), the dedicated Mac -> tux tunnel pub is
-  # checked in next to this config. Both are wired via AuthorizedKeysFile
-  # (read by sshd at login, so the sops path works) instead of rewriting
-  # ~/.ssh/authorized_keys, which would drop imperatively added keys.
+  # SSH access. Neither mechanism below rewrites ~/.ssh/authorized_keys,
+  # which would drop imperatively added keys.
+  # - The shared personal-desktop identity pub comes from sops (desktops
+  #   share one keypair) and is wired via AuthorizedKeysFile, which sshd
+  #   reads at login, so the runtime sops path works.
+  # - The dedicated Mac -> tux tunnel pub is checked in next to this config
+  #   and goes through /etc/ssh/authorized_keys.d instead: sshd's
+  #   StrictModes refuses an AuthorizedKeysFile under /nix/store (the store
+  #   directory is group-writable, mode 1775), so a store path there is
+  #   silently ignored and the Mac falls back to password auth.
   sops.secrets."personal-desktop-key-pub" = {
     sopsFile = "${secrets.profileCommon}/ssh/id_ed25519.pub";
     format = "binary";
@@ -154,8 +159,9 @@
 
   services.openssh.authorizedKeysFiles = lib.mkAfter [
     config.sops.secrets."personal-desktop-key-pub".path
-    (toString ./tunnel-tux.pub)
   ];
+
+  users.users.lukasf.openssh.authorizedKeys.keyFiles = [ ./tunnel-tux.pub ];
 
   # Power management
   powerManagement.powertop.enable = false;
