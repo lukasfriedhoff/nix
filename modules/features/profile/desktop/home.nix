@@ -229,18 +229,20 @@ in
             options.baseURL = "http://127.0.0.1:11434/v1";
             models =
               let
-                mkModel = name: {
+                mkModel = name: output: {
                   inherit name;
                   limit = {
                     context = 65536;
-                    output = 8192;
+                    inherit output;
                   };
                 };
               in
               {
-                "qwen3.8:27b" = mkModel "qwen3.8:27b (mac tunnel)";
-                "qwen3-coder:30b" = mkModel "qwen3-coder:30b (mac tunnel)";
-                "qwen3:8b" = mkModel "qwen3:8b (mac tunnel)";
+                "qwen3.6:35b" = mkModel "qwen3.6:35b (mac tunnel, fast)" 8192;
+                "qwen3.6:35b-think" = mkModel "qwen3.6:35b (mac tunnel, thinking)" 32768;
+                "qwen3.8:27b" = mkModel "qwen3.8:27b (mac tunnel, thinking medium)" 32768;
+                "gpt-oss:20b" = mkModel "gpt-oss:20b (mac tunnel)" 16384;
+                "gemma4:26b" = mkModel "gemma4:26b (mac tunnel)" 16384;
               };
           };
           provider."kimi-api" = {

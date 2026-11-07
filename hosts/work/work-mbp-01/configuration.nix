@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   secrets,
@@ -8,7 +9,7 @@
 let
   llamaBaseUrl = "http://127.0.0.1:11434";
   # llama.cpp preset used by the neovim/Ollama-style env (port 11434).
-  llamaModel = "qwen3.8:27b";
+  llamaModel = "qwen3.6:35b";
   # Default for opencode and its agents. llama.cpp is the only runtime here:
   # MLX was dropped (nixpkgs build is CPU-only; the Metal PyPI build has no
   # memory guard and panicked the machine with a 27B under a real prompt).
@@ -81,6 +82,10 @@ in
       autoStart = false;
       defaultModel = llamaModel;
       hfTokenFile = config.sops.secrets.hf-token.path;
+      # Stable nixpkgs' llama.cpp (May 2026) predates Metal 4 tensor-API
+      # support and leaves the M5 Neural Accelerators idle; the build from
+      # the pinned nixpkgs-unstable enables them (prefill 2.3x on this Mac).
+      package = inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llama-cpp;
     };
 
     # Expose the local llama.cpp server on tux via a reverse tunnel (mac
@@ -130,20 +135,24 @@ in
           # modules/features/llama-cpp-server/home.nix): without it opencode
           # assumes a huge default, never compacts proactively, and requests
           # grow until the server rejects them - the compaction loop.
+          # limit.output caps max_tokens; thinking presets need room for the
+          # reasoning trace (an 8k cap truncated Qwen3.6 mid-thought).
           models =
             let
-              mkModel = name: {
+              mkModel = name: output: {
                 inherit name;
                 limit = {
                   context = 65536;
-                  output = 8192;
+                  inherit output;
                 };
               };
             in
             {
-              "qwen3-coder:30b" = mkModel "qwen3-coder:30b";
-              "qwen3.8:27b" = mkModel "qwen3.8:27b";
-              "qwen3:8b" = mkModel "qwen3:8b";
+              "qwen3.6:35b" = mkModel "qwen3.6:35b (fast, no thinking)" 8192;
+              "qwen3.6:35b-think" = mkModel "qwen3.6:35b (thinking)" 32768;
+              "qwen3.8:27b" = mkModel "qwen3.8:27b (thinking, medium effort)" 32768;
+              "gpt-oss:20b" = mkModel "gpt-oss:20b (reasoning medium)" 16384;
+              "gemma4:26b" = mkModel "gemma4:26b" 16384;
             };
         };
       };

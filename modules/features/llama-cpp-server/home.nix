@@ -65,41 +65,89 @@ let
     exec ${hfCli} download "$repo" "$file"
   '';
 
-  # Same presets as modules/features/llama-cpp-openwebui/nixos.nix; models
-  # download from Hugging Face into ~/Library/Caches/llama.cpp on first use.
-  defaultModelsPreset = {
-    "qwen3-coder:30b" = {
-      hf-repo = "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF";
-      hf-file = "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf";
-      alias = "qwen3-coder:30b,qwen3-coder";
-      # 64k so agentic opencode sessions don't hit the window; fit=on
-      # shrinks it if the KV cache would not fit in memory.
-      c = "65536";
-      fit = "on";
-      jinja = "on";
-      temp = "0.2";
-      top-p = "0.95";
-      min-p = "0.01";
-    };
+  # The four models kept after benchmarking eleven candidates on work-mbp-01
+  # (M5 Max, 36 GB, llama.cpp 0.6.0, Q4, 2026-10-30; numbers and the rest of
+  # the field in docs/services/local-llm.md). Weights are read from the
+  # Hugging Face hub cache (~/.cache/huggingface/hub, filled by llama-pull);
+  # llama-server downloads anything missing on first use.
+  defaultModelsPreset =
+    let
+      common = {
+        # 64k so agentic opencode sessions don't hit the window; fit=on
+        # shrinks it if the KV cache would not fit in memory.
+        c = "65536";
+        fit = "on";
+        jinja = "on";
+        # Text-only: the repos ship a vision projector next to the weights;
+        # skipping it saves its download and about 1 GB of unified memory.
+        mmproj-auto = "off";
+      };
+      qwen36 = {
+        hf-repo = "unsloth/Qwen3.6-35B-A3B-GGUF";
+        hf-file = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
+      };
+    in
+    {
+      # Daily driver for opencode: 3B-active MoE, 92 tok/s decode and still 81
+      # at 16k context. Thinking is off here because with it on a trivial task
+      # spent 7-12k tokens; the -think preset below keeps it for hard problems.
+      # Sampling per the Qwen model card for the respective mode.
+      "qwen3.6:35b" =
+        common
+        // qwen36
+        // {
+          alias = "qwen3.6:35b,qwen3.6";
+          reasoning = "off";
+          temp = "0.7";
+          top-p = "0.8";
+          top-k = "20";
+          min-p = "0.0";
+        };
 
-    "qwen3.8:27b" = {
-      hf-repo = "unsloth/Qwen3.8-27B-GGUF";
-      hf-file = "Qwen3.8-27B-UD-Q4_K_M.gguf";
-      alias = "qwen3.8:27b";
-      c = "65536";
-      fit = "on";
-      jinja = "on";
-    };
+      "qwen3.6:35b-think" =
+        common
+        // qwen36
+        // {
+          alias = "qwen3.6:35b-think,qwen3.6-think";
+          temp = "0.6";
+          top-p = "0.95";
+          top-k = "20";
+          min-p = "0.0";
+        };
 
-    "qwen3:8b" = {
-      hf-repo = "Qwen/Qwen3-8B-GGUF";
-      hf-file = "Qwen3-8B-Q4_K_M.gguf";
-      alias = "qwen3:8b,qwen3-fast";
-      c = "65536";
-      fit = "on";
-      jinja = "on";
+      # Quality pick: dense 27B at ~23 tok/s. Medium effort keeps a small task
+      # around 2k tokens; the template default thinks far longer.
+      "qwen3.8:27b" = common // {
+        hf-repo = "unsloth/Qwen3.8-27B-GGUF";
+        hf-file = "Qwen3.8-27B-UD-Q4_K_M.gguf";
+        alias = "qwen3.8:27b,qwen3.8";
+        reasoning-effort = "medium";
+        temp = "1.0";
+        top-p = "0.95";
+        top-k = "20";
+        min-p = "0.0";
+      };
+
+      # Quick answers: smallest file (11 GiB), 126 tok/s, clean tool calls.
+      "gpt-oss:20b" = common // {
+        hf-repo = "ggml-org/gpt-oss-20b-GGUF";
+        hf-file = "gpt-oss-20b-MXFP4.gguf";
+        alias = "gpt-oss:20b,gpt-oss";
+        reasoning-effort = "medium";
+        temp = "1.0";
+        top-p = "1.0";
+      };
+
+      # Second opinion from another model family: 4B-active MoE, 88 tok/s.
+      "gemma4:26b" = common // {
+        hf-repo = "unsloth/gemma-4-26B-A4B-it-GGUF";
+        hf-file = "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf";
+        alias = "gemma4:26b,gemma4";
+        temp = "1.0";
+        top-p = "0.95";
+        top-k = "64";
+      };
     };
-  };
 in
 {
   options.lukasf.llamaCppServer = {
@@ -121,7 +169,7 @@ in
 
     defaultModel = lib.mkOption {
       type = lib.types.str;
-      default = "qwen3-coder:30b";
+      default = "qwen3.6:35b";
       description = "Default model alias used by clients.";
     };
 
