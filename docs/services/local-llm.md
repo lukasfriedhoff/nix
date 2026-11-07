@@ -45,12 +45,22 @@ remove that key from `common` to get image input back at ~1 GB of memory).
 |---|---|---|---|---|
 | `qwen3.6:35b` | Qwen3.6-35B-A3B, thinking off | 20.6 GiB | 92 / 81 | opencode default: fast agent turns (a small coding task in 3-11 s) |
 | `qwen3.6:35b-think` | same file, thinking on | 20.6 GiB | 92 / 81 | hard problems; expect 7-12k reasoning tokens per answer |
-| `qwen3.8:27b` | Qwen3.8-27B, reasoning effort medium | 15.3 GiB | 23 / 20 | strongest raw quality, four times slower |
+| `qwen3.8:27b` | Qwen3.8-27B, reasoning effort medium, **vision on, 128k window, MTP speculative decoding** | 15.3 GiB + 1.3 GiB draft + 0.9 GiB projector | 30 with MTP (22 without) | strongest raw quality; image input; long documents |
 | `gpt-oss:20b` | gpt-oss-20b MXFP4, reasoning medium | 11.3 GiB | 126 / 98 | quick answers, smallest footprint |
 | `gemma4:26b` | Gemma 4 26B-A4B | 15.8 GiB | 88 / 68 | second opinion from another family |
 
 `--models-max 1` keeps one model resident; selecting another preset swaps it
 (a few seconds from the page cache).
+
+`qwen3.8:27b` is the exception to the text-only rule: it keeps the vision
+projector, runs a 128k window with a q8_0 KV cache (4 GiB instead of 8) and
+drafts with the model's MTP head (`spec-type = draft-mtp`). Measured
+2026-11-07 on this Mac at 128k: all 66 layers on the GPU, decode 22 -> 30
+tok/s, draft acceptance about 0.6. The MTP file sits in a subfolder of the
+Hugging Face repo, which llama-server cannot fetch by tag, so `llama-pull
+qwen3.8:27b` downloads it and links it as
+`~/.cache/llama.cpp/drafts/qwen3.8-27b-mtp.gguf`; without that link the
+preset fails to load.
 
 ## Pull first, then start
 
@@ -63,6 +73,7 @@ throttled per IP):
 ```bash
 llama-pull                 # default preset (qwen3.6:35b)
 llama-pull gpt-oss:20b     # any preset name from the module
+llama-pull qwen3.8:27b     # also fetches and links its MTP draft file
 ```
 
 Progress: `du -sh ~/.cache/huggingface/hub/models--<org>--<repo>`; a pull

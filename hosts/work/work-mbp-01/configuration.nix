@@ -139,20 +139,19 @@ in
           # reasoning trace (an 8k cap truncated Qwen3.6 mid-thought).
           models =
             let
-              mkModel = name: output: {
+              mkModel = name: context: output: {
                 inherit name;
                 limit = {
-                  context = 65536;
-                  inherit output;
+                  inherit context output;
                 };
               };
             in
             {
-              "qwen3.6:35b" = mkModel "qwen3.6:35b (fast, no thinking)" 8192;
-              "qwen3.6:35b-think" = mkModel "qwen3.6:35b (thinking)" 32768;
-              "qwen3.8:27b" = mkModel "qwen3.8:27b (thinking, medium effort)" 32768;
-              "gpt-oss:20b" = mkModel "gpt-oss:20b (reasoning medium)" 16384;
-              "gemma4:26b" = mkModel "gemma4:26b" 16384;
+              "qwen3.6:35b" = mkModel "qwen3.6:35b (fast, no thinking)" 65536 8192;
+              "qwen3.6:35b-think" = mkModel "qwen3.6:35b (thinking)" 65536 32768;
+              "qwen3.8:27b" = mkModel "qwen3.8:27b (thinking medium, vision, 128k)" 131072 32768;
+              "gpt-oss:20b" = mkModel "gpt-oss:20b (reasoning medium)" 65536 16384;
+              "gemma4:26b" = mkModel "gemma4:26b" 65536 16384;
             };
         };
       };

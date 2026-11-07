@@ -14,6 +14,23 @@ let
   modelsPresetFile = pkgs.writeText "llama-models.ini" (lib.generators.toINI { } cfg.modelsPreset);
 
   logDir = "${config.xdg.stateHome}/llama-cpp";
+  # llama-server and the hf CLI both derive the Hugging Face cache from
+  # XDG_CACHE_HOME when it is set (Home Manager's xdg.cacheHome is
+  # ~/Library/Caches on macOS, launchd has no such variable), so pin the hub
+  # cache for the server and llama-pull to one place.
+  hubCache = "${config.home.homeDirectory}/.cache/huggingface/hub";
+  # Speculative-decoding draft files (MTP heads etc.) live in the hub cache
+  # under a snapshot hash; llama-pull links them here under a stable name so
+  # presets can reference them (llama-server cannot fetch a draft that sits
+  # in a repo subfolder by tag).
+  draftDir = "${config.home.homeDirectory}/.cache/llama.cpp/drafts";
+  drafts = {
+    "qwen3.8:27b" = {
+      hf-repo = "unsloth/Qwen3.8-27B-GGUF";
+      hf-file = "MTP/mtp-Qwen3.8-27B-Q4_0.gguf";
+      link = "qwen3.8-27b-mtp.gguf";
+    };
+  };
 
   serverArgs = [
     (lib.getExe' cfg.package "llama-server")
@@ -28,6 +45,7 @@ let
 
   # launchd cannot read a token file into the environment itself.
   serverWrapper = pkgs.writeShellScript "llama-server-wrapper" ''
+    export HF_HUB_CACHE=${lib.escapeShellArg hubCache}
     ${lib.optionalString (cfg.hfTokenFile != null) ''
       if [ -r "${cfg.hfTokenFile}" ]; then
         HF_TOKEN="$(cat "${cfg.hfTokenFile}")"
@@ -44,12 +62,21 @@ let
   presetCases = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (
       name: preset:
-      "${lib.escapeShellArg name}) repo=${lib.escapeShellArg preset.hf-repo}; file=${lib.escapeShellArg preset.hf-file} ;;"
+      let
+        d = drafts.${name} or null;
+        draftVars =
+          if d == null then
+            ""
+          else
+            " draft_repo=${lib.escapeShellArg d.hf-repo}; draft_file=${lib.escapeShellArg d.hf-file}; draft_link=${lib.escapeShellArg d.link};";
+      in
+      "${lib.escapeShellArg name}) repo=${lib.escapeShellArg preset.hf-repo}; file=${lib.escapeShellArg preset.hf-file};${draftVars} ;;"
     ) (lib.filterAttrs (_: p: p ? hf-repo && p ? hf-file) cfg.modelsPreset)
   );
   pullScript = pkgs.writeShellScriptBin "llama-pull" ''
     set -euo pipefail
     preset="''${1:-${cfg.defaultModel}}"
+    draft_repo=""; draft_file=""; draft_link=""
     case "$preset" in
       ${presetCases}
       *) echo "unknown preset '$preset'; known: ${lib.concatStringsSep " " (lib.attrNames cfg.modelsPreset)}" >&2; exit 1 ;;
@@ -61,8 +88,18 @@ let
       fi
     ''}
     export HF_HUB_DOWNLOAD_TIMEOUT=30
-    echo "pulling $repo/$file into ~/.cache/huggingface (resumable; re-run if it stalls)" >&2
-    exec ${hfCli} download "$repo" "$file"
+    export HF_HUB_CACHE=${lib.escapeShellArg hubCache}
+    echo "pulling $repo/$file into ${hubCache} (resumable; re-run if it stalls)" >&2
+    ${hfCli} download "$repo" "$file"
+    if [ -n "$draft_file" ]; then
+      echo "pulling draft $draft_repo/$draft_file" >&2
+      # hf prints the local path, in recent versions prefixed with "path=".
+      path="$(${hfCli} download "$draft_repo" "$draft_file" | tail -n 1)"
+      path="''${path#path=}"
+      mkdir -p ${lib.escapeShellArg draftDir}
+      ln -sfn "$path" ${lib.escapeShellArg draftDir}/"$draft_link"
+      echo "draft linked: ${draftDir}/$draft_link" >&2
+    fi
   '';
 
   # The four models kept after benchmarking eleven candidates on work-mbp-01
@@ -115,12 +152,23 @@ let
           min-p = "0.0";
         };
 
-      # Quality pick: dense 27B at ~23 tok/s. Medium effort keeps a small task
-      # around 2k tokens; the template default thinks far longer.
+      # Quality pick: dense 27B. Medium effort keeps a small task around 2k
+      # tokens; the template default thinks far longer. This one keeps its
+      # vision projector (image input), runs a 128k window and drafts with the
+      # model's MTP head (llama-pull links the draft file): measured on the
+      # M5 Max 2026-11-07, all 66 layers on the GPU, decode 22 -> 30 tok/s.
+      # q8_0 KV halves the 8 GiB a 128k f16 cache would take and keeps ~3 GB
+      # of headroom under the 28 GB Metal budget.
       "qwen3.8:27b" = common // {
         hf-repo = "unsloth/Qwen3.8-27B-GGUF";
         hf-file = "Qwen3.8-27B-UD-Q4_K_M.gguf";
         alias = "qwen3.8:27b,qwen3.8";
+        c = "131072";
+        mmproj-auto = "on";
+        cache-type-k = "q8_0";
+        cache-type-v = "q8_0";
+        spec-type = "draft-mtp";
+        spec-draft-model = "${draftDir}/${drafts."qwen3.8:27b".link}";
         reasoning-effort = "medium";
         temp = "1.0";
         top-p = "0.95";
@@ -235,7 +283,7 @@ in
     };
 
     home.activation.ensureLlamaCppLogDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      mkdir -p "${logDir}"
+      mkdir -p "${logDir}" "${draftDir}"
     '';
 
     programs.bash.shellAliases = {
