@@ -362,5 +362,17 @@ in
       # Inert (ConditionPathExists) until the vault repo is cloned on the host.
       lukasf.secondBrainBackup.enable = lib.mkDefault true;
     })
+    (lib.mkIf (profile == "tux") {
+      # AI video from ComfyUI on work-mbp-01: the Mac starts the reverse
+      # tunnel (video-share-tux there, same mechanism as llama-share-tux),
+      # tux consumes the web UI through localhost. Only tux gets these: the
+      # tunnel key is trusted on its sshd alone, so the tunnel can only
+      # terminate here. See docs/services/video-gen.md.
+      programs.bash.shellAliases = {
+        video-open = "xdg-open http://127.0.0.1:8188/";
+        video-wait = "echo -n 'waiting for the video tunnel'; until curl -fsSo /dev/null http://127.0.0.1:8188/; do printf '.'; sleep 2; done; echo ' up'";
+        video-fetch = "mkdir -p ~/media/Videos/ai && curl -fsSLo \"~/media/Videos/ai/\$(basename \$1)\" \"http://127.0.0.1:8188/view?filename=\$1&type=output\"";
+      };
+    })
   ];
 }
