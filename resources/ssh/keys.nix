@@ -104,8 +104,11 @@
   }
   # The Hiesfelder router's key existed in nix-secrets since 2026-08-18 but was
   # never listed here, so it was never installed and `ssh mikrotikhiesfelder`
-  # failed with "no such identity" - which matters now that the site is behind
-  # CGNAT and the router is only reachable over wg-s2s-hiesfelder.
+  # failed with "no such identity". Installing it was only half the fix: the
+  # alias also carried a bare, unresolvable hostName until 2026-10-28 (now
+  # 10.3.30.1, see resources/ssh/hosts/personal.nix). Both matter because the
+  # site is behind CGNAT and the router is only reachable over
+  # wg-s2s-hiesfelder.
   {
     secret = "ssh/MikrotikHiesfelder.priv";
     path = ".ssh/personal/MikrotikHiesfelder";
@@ -114,11 +117,6 @@
   {
     secret = "ssh/MikrotikRue.priv";
     path = ".ssh/personal/MikrotikRue";
-    scope = "personal";
-  }
-  {
-    secret = "ssh/travelrouter.priv";
-    path = ".ssh/personal/travelrouter";
     scope = "personal";
   }
 
