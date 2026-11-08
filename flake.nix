@@ -112,7 +112,7 @@
           };
 
           packages = {
-            inherit (pkgs) velero_1_9_4 bpytop;
+            inherit (pkgs) velero_1_9_4 bpytop tsuzuri;
           }
           // lib.optionalAttrs pkgs.stdenv.isDarwin {
             inherit (pkgs) macmon;

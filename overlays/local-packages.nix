@@ -14,6 +14,10 @@ _final: prev:
   # nixpkgs. Consumed by modules/features/profile/desktop/home.nix.
   diskwatch = prev.callPackage ../pkgs/diskwatch { };
 
+  # Block-based Markdown notebook TUI from the lukasfriedhoff/tsuzuri fork.
+  # Consumed by modules/features/profile/desktop/home.nix.
+  tsuzuri = prev.callPackage ../pkgs/tsuzuri { };
+
   # Closed-source macOS remote-access clients for the work Mac, pinned to the
   # Homebrew cask versions. Consumed by modules/features/work/remote-access/home.nix.
   royal-tsx = prev.callPackage ../pkgs/royal-tsx { };

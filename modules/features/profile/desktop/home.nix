@@ -153,6 +153,9 @@ in
         # it the full attribute tables. From overlays/local-packages.nix.
         pkgs.diskwatch
         pkgs.smartmontools
+        # Block-based Markdown notebook TUI; notes stay plain .md files.
+        # From overlays/local-packages.nix (pkgs/tsuzuri).
+        pkgs.tsuzuri
         pkgs.file-roller
         pkgs.gpodder
         pkgs.obsidian
