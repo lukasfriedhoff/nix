@@ -68,6 +68,9 @@
     nixos-management-skill.flake = false;
     community-claude-skills.url = "github:foxj77/claude-code-skills";
     community-claude-skills.flake = false;
+    # ADHD-friendly output-style skill (MIT); user-invoked via /i-have-adhd.
+    i-have-adhd-skill.url = "github:ayghri/i-have-adhd";
+    i-have-adhd-skill.flake = false;
   };
 
   outputs =

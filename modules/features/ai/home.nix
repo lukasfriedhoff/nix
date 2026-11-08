@@ -43,6 +43,10 @@ let
     external-dns-troubleshooting = "${inputs.community-claude-skills}/external-dns-troubleshooting";
     external-secrets-troubleshooting = "${inputs.community-claude-skills}/external-secrets-troubleshooting";
     kyverno-troubleshooting = "${inputs.community-claude-skills}/kyverno-troubleshooting";
+    # ADHD-friendly output style (MIT). disable-model-invocation: only runs
+    # when typed as /i-have-adhd; stays on until "stop adhd mode". The repo's
+    # optional SessionStart always-on hook is deliberately not installed.
+    i-have-adhd = "${inputs.i-have-adhd-skill}/skills/i-have-adhd";
   };
   externalSkillNames = lib.attrNames externalSkillSources;
   allSkillNames = skillNames ++ externalSkillNames;

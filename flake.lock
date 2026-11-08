@@ -417,6 +417,22 @@
         "type": "github"
       }
     },
+    "i-have-adhd-skill": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791734634,
+        "narHash": "sha256-GTqrnZxQvzo/ogAuUrffkOaMK1BYm/4rAZsnfmDt7DU=",
+        "owner": "ayghri",
+        "repo": "i-have-adhd",
+        "rev": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ayghri",
+        "repo": "i-have-adhd",
+        "type": "github"
+      }
+    },
     "mac-app-util": {
       "inputs": {
         "cl-nix-lite": "cl-nix-lite",
@@ -672,6 +688,7 @@
         "flake-parts": "flake-parts",
         "flux-agent-skills": "flux-agent-skills",
         "home-manager": "home-manager",
+        "i-have-adhd-skill": "i-have-adhd-skill",
         "mac-app-util": "mac-app-util",
         "nix-secrets": "nix-secrets",
         "nix-vscode-extensions": "nix-vscode-extensions",
