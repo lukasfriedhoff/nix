@@ -18,10 +18,20 @@ let
     "eno3"
     "eno4"
   ];
-  # The initrd has no bond — remote LUKS unlock DHCPs on this NIC only, so
-  # cable the first RJ45 port (Gb1/eno3) if remote unlock matters.
-  initrdUnlockInterface = "eno3";
   managementMac = "e4:43:4b:f2:1a:42";
+  managementAddress = "10.3.30.31";
+  managementGateway = "10.3.30.1";
+  # Remote LUKS unlock: the initrd has no bond, and the router's DHCP
+  # reservation for managementAddress is bound to managementMac — eno1np0's
+  # burned-in address, which no RJ45 port presents in stage 1 (eno3 is
+  # e4:43:4b:f2:1a:62 and drew a pool lease on 2026-11-11). Stage 1 therefore
+  # gets a static address on eno3 via the kernel `ip=` parameter (consumed by
+  # klibc ipconfig; the NixOS kernel has IP_PNP=n) and runs no DHCP at all.
+  # boot.initrd.network.flushBeforeStage2 (default true) drops it again before
+  # the bond takes the port over; in stage 2 the 40-eno3 bond-member unit
+  # outranks the 70-eno3 unit systemd-network-generator derives from `ip=`.
+  # Cable the first RJ45 port (Gb1/eno3) — remote unlock depends on it.
+  initrdUnlockInterface = "eno3";
   systemDiskId = "scsi-35002538b11337b60";
   k3sTokenSecret = "${secrets.primary}/k3s-server-token.txt";
   loginPasswordHashSecret = "${secrets.primary}/login-password-hash.txt";
@@ -77,7 +87,7 @@ in
   # routers' VLAN12 with EoIP stormed the kiosk router on 2026-10-28.
   homelab.vxlanLegs.vxlan-iot-kiosk = {
     vni = 12;
-    localAddress = "10.3.30.31";
+    localAddress = managementAddress;
     remoteAddress = "10.1.30.1";
   };
 
@@ -111,6 +121,10 @@ in
       systemd-boot.enable = true;
       efi.canTouchEfiVariables = true;
     };
+    # <client-ip>:<server-ip>:<gateway>:<netmask>:<hostname>:<device>:<autoconf>
+    kernelParams = [
+      "ip=${managementAddress}::${managementGateway}:255.255.255.0:${hostName}:${initrdUnlockInterface}:off"
+    ];
     initrd = {
       availableKernelModules = lib.mkAfter [
         "i40e"
@@ -119,23 +133,14 @@ in
       ];
       kernelModules = [
         "i40e"
+        "igb"
         "megaraid_sas"
       ];
-      network.udhcpc = {
-        enable = true;
-        extraArgs = [
-          "-i"
-          initrdUnlockInterface
-          "-t"
-          "20"
-          "-T"
-          "3"
-          "-x"
-          "0x3d:01e4434bf21a42"
-          "-x"
-          "hostname:srv9"
-        ];
-      };
+      # The `ip=` line above is the whole stage-1 network config. With udhcpc
+      # on, nixpkgs' initrd-network.nix loops `udhcpc -i $iface … <extraArgs>`
+      # over every NIC in /sys/class/net; a trailing `-i eno3` only redirected
+      # all four runs at eno3, whose own MAC has no reservation (pool lease).
+      network.udhcpc.enable = false;
       luks.devices = lib.mkForce {
         cryptroot = {
           device = "/dev/disk/by-id/${systemDiskId}-part2";
@@ -148,6 +153,20 @@ in
   # k8s node: no swap (etcd fsync latency + kubelet semantics); the disko
   # swap partition stays dormant.
   swapDevices = lib.mkForce [ ];
+
+  # Stage 1 runs DHCP on every NIC while networking.useDHCP is on, regardless
+  # of udhcpc.enable; with it off, only the per-interface DHCP entries remain
+  # (the brvlan* bridges from homelab.vlanBridges and the stale eno1np0.*
+  # VLAN entries in facter.json — none exist in the initrd, so they fail
+  # instantly without a lease). Runtime no-op: every physical port already
+  # has its own networkd unit — eno3/eno4 via the bond, and the uncabled 10G
+  # ports below, which nixos-facter defaults to DHCP (each would otherwise
+  # spend ~9 s at the unlock prompt waiting for a lease that never comes).
+  networking.useDHCP = false;
+  networking.interfaces = {
+    eno1np0.useDHCP = false;
+    eno2np1.useDHCP = false;
+  };
 
   homelab.initrdSsh = {
     enable = true;
@@ -208,12 +227,12 @@ in
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
     nodeName = hostName;
-    nodeIP = "10.3.30.31";
+    nodeIP = managementAddress;
     tlsSans = [
       "prod.k8s.lab.h4xx.io"
       "srv9.lab.h4xx.io"
       "srv9"
-      "10.3.30.31"
+      managementAddress
     ];
     extraFlags = [ "--kubelet-arg=max-pods=250" ];
   };
