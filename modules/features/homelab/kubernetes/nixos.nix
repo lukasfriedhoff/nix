@@ -460,6 +460,10 @@ in
     (mkIf isK3s {
       services.k3s = {
         enable = true;
+        # Kubernetes minor the fleet runs (1.36.4+k3s1 since 2026-11-11, rolled one
+        # etcd node at a time). nixpkgs' plain `k3s` lags a minor behind; bump this
+        # here, never per host, and roll it the same way.
+        package = lib.mkDefault pkgs.k3s_1_36;
         inherit (cfg) role clusterInit;
         nodeLabel = effectiveNodeLabels;
         # --disable, --write-kubeconfig-mode and --tls-san are server-only
