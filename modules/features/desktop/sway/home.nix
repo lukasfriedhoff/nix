@@ -22,6 +22,24 @@ let
       "return" = "Return";
     };
   };
+  # Guarded entry into the remote-desktop passthrough mode (see `modes`
+  # below): only hands the keyboard over while a Selkies window is focused,
+  # because entering passthrough anywhere else leaves every local binding
+  # dead until the exit chord. swaymsg comes from the session PATH on
+  # purpose; listing sway here would pull a second copy into the closure.
+  passthroughEnter = pkgs.writeShellApplication {
+    name = "sway-passthrough-enter";
+    runtimeInputs = [ pkgs.jq ];
+    text = ''
+      focused=$(swaymsg -t get_tree \
+        | jq -r '.. | objects | select(.focused? == true) | "\(.app_id // "")|\(.name // "")"' \
+        | head -n1)
+      case "$focused" in
+        *Selkies*) swaymsg mode passthrough ;;
+        *) exit 0 ;;
+      esac
+    '';
+  };
   # def key -> sway command, dropping entries without a Sway equivalent
   screenshotDir = "$HOME/Nextcloud/Media/Screenshots";
   screenshotFull = pkgs.writeShellScript "screenshot-full" ''
@@ -195,6 +213,13 @@ in
             # documented exception that still fires, so this one always
             # returns the keyboard.
             "--inhibited --to-code ${mod}+Shift+Escape" = "seat - shortcuts_inhibitor deactivate";
+            # Remote-desktop passthrough. Local Sway matches its own bindings
+            # before any client sees the key, so Super+<n> never reaches the
+            # streamed session (the Selkies cloud desktop in a browser).
+            # The passthrough mode owns nothing but its exit; waybar's
+            # sway/mode module shows it while active. Tested 2026-11-15:
+            # Selkies' own gaming mode did not keep Super away from Sway.
+            "--to-code ${mod}+Shift+p" = "exec ${lib.getExe passthroughEnter}";
             # Media and brightness keys (no modifier, work when locked too
             # via the locked variants sway provides by default for XF86).
             # swayosd-client changes the value AND draws the on-screen bar;
@@ -240,6 +265,11 @@ in
               lib.nameValuePair (if key == "esc" then "Escape" else "--to-code ${renderKey key}") cmds.sway
             ) tiling.serviceBindings
           );
+          # Everything but this exit reaches the focused window; entered via
+          # the guarded ${mod}+Shift+p binding above.
+          passthrough = {
+            "--to-code ${mod}+Shift+Escape" = "mode default";
+          };
         };
         gaps = {
           inner = 10;
