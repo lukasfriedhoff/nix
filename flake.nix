@@ -5,8 +5,9 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     # Rolling-update hold for the k3s etcd voters. A nixpkgs bump changes the
     # k3s unit on every server, and comin would restart all voters at once.
-    # Hosts listed in `nixpkgsHoldHosts` keep building from this rev; drop
-    # one host per develop push, and the input once the list is empty.
+    # Hosts listed in `nixpkgsHoldHosts` keep building from this rev. To roll
+    # a nixpkgs bump: point this at the outgoing nixpkgs rev, list srv8+srv9,
+    # push (srv1 rolls), then drop one host per develop push.
     nixpkgs-hold.url = "github:NixOS/nixpkgs/1f607aa79b6356ed45d3cd3c8079c196e79efa2c";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
@@ -419,9 +420,7 @@
           ];
 
           # Etcd voters still on the previous nixpkgs (see nixpkgs-hold).
-          nixpkgsHoldHosts = [
-            "srv9"
-          ];
+          nixpkgsHoldHosts = [ ];
 
           mkNixosHostWith =
             pkgsInput: profile: extraModules:
