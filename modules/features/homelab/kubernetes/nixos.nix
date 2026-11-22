@@ -50,6 +50,16 @@ let
     ++ lib.optional (cfg.powerClass != null) "h4xx.io/power.class=${cfg.powerClass}"
   );
 
+  # GPU nodes repel everything that does not need the GPU, softly: the
+  # scheduler places ordinary pods elsewhere while other nodes have room, but
+  # DaemonSets, spread constraints (CNPG instances) and GPU consumers (which
+  # select h4xx.io/gpu.* labels) still land here. k3s applies --node-taint
+  # only at node registration; on an existing node set it once with
+  # `kubectl taint node <n> h4xx.io/gpu=true:PreferNoSchedule`.
+  effectiveNodeTaints = lib.optional (
+    cfg.gpuTaint && gpuVendor != null
+  ) "h4xx.io/gpu=true:PreferNoSchedule";
+
   # open-iscsi drops node parameters between releases: 2.1.12 removed
   # node.session.conn_reopen_log_freq, which 2.1.11 had written into every
   # record under /etc/iscsi/nodes. iscsiadm then rejects the *whole* tree as
@@ -164,6 +174,12 @@ in
       default = [ ];
       example = [ "h4xx.io/gpu.vendor=virtual" ];
       description = "Extra labels registered on the Kubernetes node, on top of the h4xx.io/* labels derived from the facter report and powerClass.";
+    };
+
+    gpuTaint = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Taint nodes with a render-capable GPU (per the facter report) h4xx.io/gpu=true:PreferNoSchedule, so pods that do not need the GPU prefer other nodes.";
     };
 
     powerClass = mkOption {
@@ -466,6 +482,7 @@ in
         package = lib.mkDefault pkgs.k3s_1_36;
         inherit (cfg) role clusterInit;
         nodeLabel = effectiveNodeLabels;
+        nodeTaint = effectiveNodeTaints;
         # --disable, --write-kubeconfig-mode and --tls-san are server-only
         # k3s flags; agents reject them.
         extraFlags = lib.concatStringsSep " " (
@@ -498,6 +515,7 @@ in
         enable = true;
         inherit (cfg) role;
         nodeLabel = effectiveNodeLabels;
+        nodeTaint = effectiveNodeTaints;
         inherit (cfg.rke2) cisHardening;
         extraFlags = [
           "--write-kubeconfig-mode=0640"
