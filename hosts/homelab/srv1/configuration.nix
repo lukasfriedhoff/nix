@@ -112,6 +112,9 @@ in
     # Broadwell Xeon tower with the SSD fast tier — batch-capable, unlike
     # the USB-disk minis (srv2/srv8).
     powerClass = "performance";
+    # Same pod ceiling as srv8/srv9; the kubelet default of 110 had srv1 at
+    # capacity (KubeletTooManyPods) once srv8 stopped taking ordinary pods.
+    extraFlags = [ "--kubelet-arg=max-pods=250" ];
     serverAddr = "https://${prodApiHost}:6443";
     tokenFile = config.sops.secrets."k3s-server-token".path;
     nodeIP = "10.3.30.12";
