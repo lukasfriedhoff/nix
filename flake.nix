@@ -420,7 +420,6 @@
 
           # Etcd voters still on the previous nixpkgs (see nixpkgs-hold).
           nixpkgsHoldHosts = [
-            "srv8"
             "srv9"
           ];
 
