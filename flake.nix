@@ -3,6 +3,11 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    # Rolling-update hold for the k3s etcd voters. A nixpkgs bump changes the
+    # k3s unit on every server, and comin would restart all voters at once.
+    # Hosts listed in `nixpkgsHoldHosts` keep building from this rev; drop
+    # one host per develop push, and the input once the list is empty.
+    nixpkgs-hold.url = "github:NixOS/nixpkgs/1f607aa79b6356ed45d3cd3c8079c196e79efa2c";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
     treefmt-nix.url = "github:numtide/treefmt-nix";
@@ -413,9 +418,15 @@
             serverDefaultsModule
           ];
 
-          mkNixosHost =
-            profile: extraModules:
-            nixpkgs.lib.nixosSystem {
+          # Etcd voters still on the previous nixpkgs (see nixpkgs-hold).
+          nixpkgsHoldHosts = [
+            "srv8"
+            "srv9"
+          ];
+
+          mkNixosHostWith =
+            pkgsInput: profile: extraModules:
+            pkgsInput.lib.nixosSystem {
               system = linuxSystem;
               specialArgs = mkSpecialArgs profile;
               modules = extraModules ++ [
@@ -423,14 +434,17 @@
               ];
             };
 
+          mkNixosHost = mkNixosHostWith nixpkgs;
+
           mkHomelabHost =
             host:
-            mkNixosHost host (
-              homelabServerModules
-              ++ [
-                ./hosts/homelab/${host}/configuration.nix
-              ]
-            );
+            mkNixosHostWith (if builtins.elem host nixpkgsHoldHosts then inputs.nixpkgs-hold else nixpkgs) host
+              (
+                homelabServerModules
+                ++ [
+                  ./hosts/homelab/${host}/configuration.nix
+                ]
+              );
 
           virtual05Modules = gnomeDesktopModules ++ [
             ./hosts/personal/virtual-05/configuration.nix
