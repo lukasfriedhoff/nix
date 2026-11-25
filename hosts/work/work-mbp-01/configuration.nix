@@ -111,12 +111,15 @@ in
     # retry until ctrl+c and reconnect when an established tunnel dies.
     # Keepalives make a dead link visible within a minute; tux's sshd reaps
     # the stale session just as fast so the remote port is free again.
+    # ssh -4 on purpose: the .local name also resolves to IPv6 link-local
+    # addresses, and a stale one makes ssh fail with "No route to host" even
+    # though the host is up and pingable over IPv4.
     programs.bash.initExtra = ''
       llama-share-tux() {
         local host="''${1:-tux-h4xx-01.local}"
         echo "reverse tunnel: ''${host} -> localhost:11434 (retries until ctrl+c)" >&2
         while true; do
-          ssh -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
+          ssh -4 -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             -o "Hostname=''${host}" -R 127.0.0.1:11434:127.0.0.1:11434 tux
           echo "tunnel down (ssh exit $?), retrying in 5s..." >&2
@@ -127,7 +130,7 @@ in
         local host="''${1:-tux-h4xx-01.local}"
         echo "reverse tunnel: ''${host} -> localhost:8188 (retries until ctrl+c)" >&2
         while true; do
-          ssh -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
+          ssh -4 -N -o ExitOnForwardFailure=yes -o ConnectTimeout=10 \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             -o "Hostname=''${host}" -R 127.0.0.1:8188:127.0.0.1:8188 tux
           echo "tunnel down (ssh exit $?), retrying in 5s..." >&2
