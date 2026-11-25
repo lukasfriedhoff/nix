@@ -67,11 +67,27 @@ let
       name="''${file##*/}"
       link="$base/models/$dir/$name"
       echo "pulling $repo/$file into $dir/$name (resumable; re-run if it stalls)" >&2
-      # hf prints the local path, in recent versions prefixed with "path=".
+      # hf prints the resolved path on its last stdout line, but the shape
+      # drifts between releases: bare, "path=/..." (<=1.16), and "  path: /..."
+      # (newer). Strip any of those rather than baking the prefix into the
+      # symlink target, which silently produced three dangling links here.
       path="$(${hfCli} download "$repo" "$file" | tail -n 1)"
-      path="''${path#path=}"
+      path="$(printf '%s' "$path" | ${lib.getExe' pkgs.gnused "sed"} -E 's/^[[:space:]]*path[:=][[:space:]]*//; s/[[:space:]]*$//')"
+      if [ ! -e "$path" ]; then
+        echo "error: hf reported a path that does not exist: '$path'" >&2
+        echo "(its output format likely changed again; fix the parse above)" >&2
+        exit 1
+      fi
       mkdir -p "$(dirname "$link")"
       ln -sfn "$path" "$link"
+      # Belt and braces: the link points into the HF cache, so a cache prune
+      # also leaves a dangling link behind. ComfyUI still lists such a name in
+      # its model dropdowns and only fails when a node opens the file ("exists
+      # but doesn't link anywhere"), so check here and let a re-run repair it.
+      if [ ! -e "$link" ]; then
+        echo "error: $link does not resolve to $path" >&2
+        exit 1
+      fi
       echo "linked: $link" >&2
     }
     case "$preset" in
