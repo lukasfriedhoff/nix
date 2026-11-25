@@ -43,6 +43,34 @@ models dir), picked 2026-11 against the ~28 GB Metal budget:
 Generation times are minutes per clip, not seconds — expect roughly
 12-35 min for a 5-second clip depending on model and resolution.
 
+## Sampler: use `euler`, never `uni_pc` (MPS)
+
+The stock ComfyUI "Wan 2.2 5B Video Generation" template defaults to
+`uni_pc` / `simple`, shift 8, 20 steps, cfg 5. On MPS that silently
+produces a green, blown-out smear with no scene in it —
+[Comfy-Org/ComfyUI#16573](https://github.com/Comfy-Org/ComfyUI/issues/16573):
+`uni_pc` computes its phi-coefficient recurrence in float32 on-device, and
+MPS's imprecise `torch.expm1` makes one coefficient come out 55.39 instead
+of 0.2496. Latent correlation against a correct reference is 0.15. The fix
+(PR #16574) is unmerged as of ComfyUI 0.37.0 / PyTorch 2.13.0.
+
+Switch the KSampler's `sampler_name` to `euler` and leave everything else
+alone. Measured on work-mbp-01 2026-11-12, same prompt and seed:
+
+| | `uni_pc`, 1280x704 @ 121f | `euler`, 832x480 @ 49f | `euler`, 832x480 @ 121f |
+|---|---|---|---|
+| Output | unusable | photoreal | photoreal, clean to frame 121 |
+| Clip length | 5.0 s | 2.0 s | 5.0 s |
+| Wall clock | 53 min (140 s/it) | 3.7 min (5.6 s/it) | 12 min (23.8 s/it) |
+
+`length` must be 4n+1; 121 @ 24 fps is the model's trained clip length.
+
+Part of that speedup is the smaller latent, but not most of it: the first
+run was swap-bound (9.9 of 11.3 GB swap in use) while the weights were
+still settling. Prefer 832x480 — large attention matrices are also what
+[#15010](https://github.com/Comfy-Org/ComfyUI/issues/15010) and the related
+MPS corruption reports implicate.
+
 ## tux side (implemented)
 
 `tux` profile aliases (`modules/features/profile/desktop/home.nix`,
