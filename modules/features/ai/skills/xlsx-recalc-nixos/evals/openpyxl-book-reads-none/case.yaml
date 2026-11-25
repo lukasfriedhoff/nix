@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: openpyxl-book-reads-none
+expected_outcome: |
+  The agent copies the workbook, recalculates the copy with the bundled
+  recalc_xlsx.py (via nix-shell with openpyxl, not with the stock xlsx-skill
+  recalc.py), reads the JSON result, reports total formulas and whether any
+  error values were found, and verifies a few cached values with
+  load_workbook(data_only=True). It does not pip install anything and does not
+  modify the original file.
