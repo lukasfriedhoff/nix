@@ -23,6 +23,14 @@ let
   skillNames = dirNamesIn ./skills;
   agentNames = dirNamesIn ./agents;
 
+  # Subdirectories of an in-house skill that are linked into place next to
+  # its SKILL.md (evals/ and the like stay in the repo only).
+  skillResourceDirs = [
+    "scripts"
+    "references"
+    "assets"
+  ];
+
   # Skills vendored from upstream repos (flake inputs, see flake.nix).
   # Linked as whole directories because they ship reference files
   # (schemas, sub-guides) alongside SKILL.md.
@@ -121,12 +129,31 @@ in
         });
       })
     ]
-    # Install each enabled skill for both Claude and OpenCode
+    # Install each enabled skill for both Claude and OpenCode.
+    # SKILL.md stays a file link (an existing ~/.claude/skills/<name>/
+    # directory must not be clobbered on activation); bundled resource
+    # directories (scripts/, references/, assets/) are linked next to it so
+    # skills can ship executable helpers.
     ++ (map (
       name:
+      let
+        skillDir = ./skills/${name};
+        bundled = lib.filterAttrs (sub: type: type == "directory" && lib.elem sub skillResourceDirs) (
+          builtins.readDir skillDir
+        );
+        linkBundled =
+          root:
+          lib.mapAttrs' (
+            sub: _: lib.nameValuePair "${root}/${name}/${sub}" { source = skillDir + "/${sub}"; }
+          ) bundled;
+      in
       lib.mkIf cfg.skills.${name}.enable {
-        home.file.".claude/skills/${name}/SKILL.md".source = ./skills/${name}/SKILL.md;
-        home.file.".opencode/skills/${name}/SKILL.md".source = ./skills/${name}/SKILL.md;
+        home.file = {
+          ".claude/skills/${name}/SKILL.md".source = skillDir + "/SKILL.md";
+          ".opencode/skills/${name}/SKILL.md".source = skillDir + "/SKILL.md";
+        }
+        // linkBundled ".claude/skills"
+        // linkBundled ".opencode/skills";
       }
     ) skillNames)
     # Vendored external skills: link the whole upstream skill directory
