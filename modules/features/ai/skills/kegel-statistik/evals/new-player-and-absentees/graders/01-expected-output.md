@@ -1,0 +1,7 @@
+---
+type: llm
+focus: trace
+weight: 1
+---
+
+The result matches this description: The agent adds a Sven block via new_players, enters the four present players (Focki with an empty object so he counts as present), lets everyone else get the 10 € Pauschale, writes the result to a scratch file, recalculates and verifies (diff shows only the row shift from the new block plus the new column pair), installs with a backup, rebuilds the 'Statistik seit JHV 2025' tab with build_stats.py so Sven appears with aktiv ab 04.12.2026, recalculates again, and reports totals and assumptions.
