@@ -43,9 +43,14 @@ in a USB enclosure, and `longhorn-ssd-1tb` is a T-FORCE SSD over USB.
 | nvme0n1 | 477G | (internal NVMe) | NVMe | `/boot`, `/`, swap | — (root) | — | — | 67% |
 | sdb | 954G | T-FORCE 1TB | **USB** | `longhorn-disk1` | `longhorn-ssd-1tb` | nvme,ssd | **no** | 4% |
 | sdc | 3.6T | WDC WD40EFRX-68N32N0 | **USB** | `longhorn-disk2` | `longhorn-disk-4tb` | disk | **no** | 1% |
-| sda | 1.8T | Seagate BUP Slim BK | **USB** | `longhorn-disk3` | `longhorn-disk-2tb-usb` | disk | **no** | 1% |
+| ~~sda~~ | 1.8T | Seagate BUP Slim BK | **USB** | ~~`longhorn-disk3`~~ | removed | — | — | — |
 
-All three are `allowScheduling: false` — an administrative flag, not a fault.
+The Seagate (`longhorn-disk3`) dropped off the USB bus on 2026-11-23, went
+`emergency_ro`, and blocked k3s on the 2026-11-27 deploy. It held no replicas
+and was removed from `disks.nix` and the Longhorn node config; unplug it on
+the next site visit.
+
+The remaining two are `allowScheduling: false` — an administrative flag, not a fault.
 Longhorn reports them `Ready=True`/`Schedulable=True` with full capacity free.
 They were disabled after the September 2026 rebuild storm, where USB-attached
 replicas left 67 volumes degraded for 22 hours. **Re-enabling them brings that

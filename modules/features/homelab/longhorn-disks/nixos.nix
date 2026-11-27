@@ -113,6 +113,10 @@ in
       after = [ "systemd-udev-settle.service" ];
       before = lib.optionals orderBeforeK3s [ "k3s.service" ];
       wantedBy = [ "multi-user.target" ];
+      # k3s Requires= this unit, so restarting it on a switch restarts k3s too —
+      # on every node in the same comin window, i.e. all etcd voters at once.
+      # The disks only need unlocking at boot; changes apply on the next reboot.
+      restartIfChanged = false;
       path = [
         pkgs.coreutils
         pkgs.cryptsetup
@@ -139,13 +143,28 @@ in
           # then trips `test -b /dev/mapper/$mapper` on every cold boot, which is
           # what left srv9 with k3s down and its Longhorn disks unmounted.
           mapperStatus="$(cryptsetup status "$mapper" 2>/dev/null || true)"
+
+          # A USB disk that drops off the bus re-enumerates under a new sdX, but
+          # the open mapping keeps pointing at the vanished device and ext4 goes
+          # emergency_ro. A plain umount fails on the busy mount, so detach it
+          # lazily and close the mapping; the unlock below then reopens it via
+          # the stable by-id path (srv8 disk3, 2026-11-23 → 2026-11-27).
+          if findmnt -rn "$mountpoint" >/dev/null 2>&1 \
+            && ! (printf ok > "$mountpoint/.longhorn-mount-check") 2>/dev/null; then
+            umount -l "$mountpoint" || true
+            cryptsetup close "$mapper" || true
+            mapperStatus=""
+          fi
+          rm -f "$mountpoint/.longhorn-mount-check" 2>/dev/null || true
+
           case "$mapperStatus" in
             *"is inactive"*)
               mapperStatus=""
               ;;
-            *"device: (null)"*)
+            # cryptsetup pads the field: "device:  (null)" (two spaces).
+            *"device:"*"(null)"*)
               if findmnt -rn "$mountpoint" >/dev/null 2>&1; then
-                umount "$mountpoint" || true
+                umount -l "$mountpoint" || true
               fi
               cryptsetup close "$mapper" || true
               mapperStatus=""
@@ -164,14 +183,6 @@ in
           fi
 
           test -b "/dev/mapper/$mapper"
-
-          if findmnt -rn "$mountpoint" >/dev/null 2>&1; then
-            if ! (printf ok > "$mountpoint/.longhorn-mount-check") 2>/dev/null; then
-              umount "$mountpoint" || true
-            else
-              rm -f "$mountpoint/.longhorn-mount-check"
-            fi
-          fi
 
           if ! findmnt -rn "$mountpoint" >/dev/null 2>&1; then
             mount "/dev/mapper/$mapper" "$mountpoint"

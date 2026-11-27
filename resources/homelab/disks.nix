@@ -102,13 +102,6 @@
     luksPasswordFile = "/tmp/luks-longhorn.key";
     type = "hdd";
   };
-  "usb-Seagate_BUP_Slim_BK_NA7WEQ6F-0:0" = {
-    host = "srv8";
-    purpose = "longhorn";
-    luksKeyFile = "luks/srv8-longhorn.txt";
-    luksPasswordFile = "/tmp/luks-longhorn.key";
-    type = "hdd";
-  };
   "ata-ST8000NM0205-2FF112_ZA1J23AK" = {
     host = "srv9";
     purpose = "longhorn";

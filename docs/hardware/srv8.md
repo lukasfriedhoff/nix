@@ -19,7 +19,7 @@ Post-install networking uses `bond0` in active-backup mode over `enp4s0` and `en
 - Root: `nvme-FORESEE_512GB_SSD_MCT5342001673`, 476.9 GiB NVMe, wiped by disko and used for encrypted NixOS root.
 - Longhorn SSD: `ata-T-FORCE_1TB_TPBF2209020040602781`, 953.9 GiB, moved from srv2.
 - Longhorn HDD: `ata-WDC_WD40EFRX-68N32N0_WD-WCC7K2FFFP9P`, 3.6 TiB, moved from srv2.
-- Longhorn USB HDD: `usb-Seagate_BUP_Slim_BK_NA7WEQ6F-0:0`, 1.8 TiB USB SATA disk.
+- ~~Longhorn USB HDD: `usb-Seagate_BUP_Slim_BK_NA7WEQ6F-0:0`, 1.8 TiB~~ — removed 2026-11-27 after it dropped off the USB bus; still physically attached until the next site visit.
 - Installer USB: `usb-SanDisk_Extreme_AA011109121938303132-0:0`, 59.6 GiB, excluded from disko.
 
 All non-root data disks are declared as Longhorn disks in `resources/homelab/disks.nix` and encrypted with the shared srv8 Longhorn LUKS secret.
