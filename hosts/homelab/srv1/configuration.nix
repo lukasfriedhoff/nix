@@ -82,6 +82,15 @@ in
 
   # 5x T-FORCE 1TB SATA SSDs as LUKS-encrypted Longhorn data disks (registered
   # purpose=longhorn in resources/homelab/disks.nix).
+  # The OnePlus 6 for app streaming and the dating/WhatsApp automation hangs
+  # off this node's USB; see the vault project "Android App Streaming and
+  # Automation Platform". Wireless debugging republishing stays off until the
+  # phone has been paired once by hand.
+  homelab.androidDeviceHost = {
+    enable = true;
+    adbKeyFile = "${secrets.primary}/adb/adbkey.priv";
+  };
+
   homelab.longhornDisks = {
     enable = true;
     sopsFile = "${secrets.profileShared}/luks/srv1-longhorn.txt";
